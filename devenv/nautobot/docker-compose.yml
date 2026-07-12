@@ -1,0 +1,125 @@
+services:
+  postgres-nautobot-init:
+    image: postgres:15-alpine
+    restart: "no"
+    entrypoint: ["/bin/sh"]
+    command:
+      - -c
+      - |
+        until pg_isready -h postgres -U admin; do
+          sleep 2
+        done
+        psql -h postgres -U admin -d postgres -f /init/nautobot_init.sql
+    environment:
+      PGPASSWORD: admin
+    volumes:
+      - ./nautobot_init.sql:/init/nautobot_init.sql:ro
+    depends_on:
+      - postgres
+
+  nautobot-volume-init:
+    image: alpine:latest
+    restart: "no"
+    command: chown -R 999:999 /opt/nautobot/static /opt/nautobot/media
+    volumes:
+      - nautobot_static:/opt/nautobot/static
+      - nautobot_media:/opt/nautobot/media
+
+  nautobot:
+    #image: networktocode/nautobot:3.1.3-py3.12
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - "8000:8080"
+    environment:
+      NAUTOBOT_SECRET_KEY: ${NAUTOBOT_SECRET_KEY}
+      NAUTOBOT_ALLOWED_HOSTS: "localhost 127.0.0.1 0.0.0.0 agstudio.local"
+      NAUTOBOT_DB_HOST: postgres
+      NAUTOBOT_DB_NAME: nautobot
+      NAUTOBOT_DB_USER: nautobot
+      NAUTOBOT_DB_PASSWORD: nautobot
+      NAUTOBOT_REDIS_HOST: redis
+      NAUTOBOT_CREATE_SUPERUSER: "true"
+      NAUTOBOT_SUPERUSER_NAME: admin
+      NAUTOBOT_SUPERUSER_EMAIL: admin@example.com
+      NAUTOBOT_SUPERUSER_PASSWORD: admin
+      NAUTOBOT_SUPERUSER_API_TOKEN: ${NAUTOBOT_SUPERUSER_API_TOKEN:-0123456789abcdef0123456789abcdef01234567}
+      AI_RESOURCE_REVIEW_URL: ${AI_RESOURCE_REVIEW_URL}
+      AI_RESOURCE_REVIEW_MODEL: ${AI_RESOURCE_REVIEW_MODEL}
+      AI_RESOURCE_REVIEW_TIMEOUT: ${AI_RESOURCE_REVIEW_TIMEOUT}
+      AI_RESOURCE_REVIEW_LOG_PROMPT: true
+      GITHUB_TOKEN: ${GITHUB_TOKEN}
+    volumes:
+      - nautobot_static:/opt/nautobot/static
+      - nautobot_media:/opt/nautobot/media
+      - ./nautobot_config.py:/opt/nautobot/nautobot_config.py
+    depends_on:
+      postgres-nautobot-init:
+        condition: service_completed_successfully
+      nautobot-volume-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "nautobot-server", "health_check"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  nautobot-worker:
+    #image: networktocode/nautobot:3.1.3-py3.12
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: always
+    entrypoint: nautobot-server
+    command: celery worker -l INFO --events
+    environment:
+      NAUTOBOT_SECRET_KEY: ${NAUTOBOT_SECRET_KEY}
+      NAUTOBOT_DB_HOST: postgres
+      NAUTOBOT_DB_NAME: nautobot
+      NAUTOBOT_DB_USER: nautobot
+      NAUTOBOT_DB_PASSWORD: nautobot
+      NAUTOBOT_REDIS_HOST: redis
+      AI_RESOURCE_REVIEW_URL: ${AI_RESOURCE_REVIEW_URL}
+      AI_RESOURCE_REVIEW_MODEL: ${AI_RESOURCE_REVIEW_MODEL}
+      AI_RESOURCE_REVIEW_TIMEOUT: ${AI_RESOURCE_REVIEW_TIMEOUT}
+      AI_RESOURCE_REVIEW_LOG_PROMPT: "true"
+      GITHUB_TOKEN: ${GITHUB_TOKEN}
+    volumes:
+      - nautobot_static:/opt/nautobot/static
+      - nautobot_media:/opt/nautobot/media
+      - ./nautobot_config.py:/opt/nautobot/nautobot_config.py
+    depends_on:
+      nautobot:
+        condition: service_healthy
+
+  nautobot-scheduler:
+    #image: networktocode/nautobot:3.1.3-py3.12
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: always
+    entrypoint: nautobot-server
+    command: celery beat -l INFO
+    environment:
+      NAUTOBOT_SECRET_KEY: ${NAUTOBOT_SECRET_KEY}
+      NAUTOBOT_DB_HOST: postgres
+      NAUTOBOT_DB_NAME: nautobot
+      NAUTOBOT_DB_USER: nautobot
+      NAUTOBOT_DB_PASSWORD: nautobot
+      NAUTOBOT_REDIS_HOST: redis
+    volumes:
+      - nautobot_static:/opt/nautobot/static
+      - nautobot_media:/opt/nautobot/media
+      - ./nautobot_config.py:/opt/nautobot/nautobot_config.py
+    depends_on:
+      nautobot:
+        condition: service_healthy
+
+volumes:
+  nautobot_static:
+  nautobot_media:

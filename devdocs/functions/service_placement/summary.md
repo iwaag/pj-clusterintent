@@ -1,0 +1,43 @@
+# 具体的な変更内容
+
+- `nintent`に`DesiredServicePlacement`モデルを追加し、サービス、配置先Node、任意のEndpoint、インスタンス名、状態、役割、deployment profile、設定スキーマ版、設定JSON、入力元を保持する。
+- `DesiredServicePlacement`のmigration、モデル検証、フォーム、一覧・詳細・編集・削除画面、フィルター、テーブル、ナビゲーションを追加する。
+- `DesiredNodeOperationalConfig`モデルを追加し、actual収集方針、HAOS宣言platform、接続経路、local/Tailscale Endpoint、Ansible port、power control、laptop区分を保持する。
+- `DesiredNodeOperationalConfig`のmigration、モデル検証、CRUD画面、フィルター、テーブル、ナビゲーションを追加する。
+- intent YAMLへ`desired_service_placements`と`desired_node_operational_configs`を追加し、参照整合性と冪等性を保証するloader/importerを実装する。
+- Git解析による`DesiredService`更新とPlacementのライフサイクルを分離する。
+- 現行roleのdefaults、tasks、templatesで使用する変数名と型を棚卸しし、その結果から`ansible_agdev/vars/deployment_profiles.yml`を作成する。
+- dnsmasq profileは現行roleの`dnsmasq_dhcp_authoritative`など実在する変数へ対応付ける。
+- Ansible export playbookでprofile mapをcanonical JSON化してSHA-256を計算し、両方をproduction export Jobへ渡す。
+- production export Jobでprofile JSONとdigestを検証し、digestを生成物のメタデータと詳細JSONへ記録する。
+- `DesiredNode.expected_spec.ansible_groups`の読取、検証、export、seed、テスト、ドキュメントを削除する。
+- `preferred_services`による配置指定をnodeutils、nauto ingest、Custom Field、placement review、seed、ドキュメントから削除する。
+- `service_roles`によるAnsibleグループ生成を削除し、`observed_services`をactual評価用データとして整理する。
+- bootstrap用`hosts_intent.yml`は`ssh_hosts`、mDNS接続情報、DesiredNode/Endpoint識別子だけを出力し、サービスグループとdesired由来の`host_os`を削除する。
+- bootstrap Inventoryのschema versionを更新し、一時ファイルへの取得、`ansible-inventory --list`検証、atomic置換を実装する。
+- nautoでactualの収集時刻とprimary interface名を安定したフィールドへ保存する。
+- actualからInventory host varsへ出力する値を`host_os`、`local_ip`、`mac_address`、`network_interface`に限定する。
+- actualの収集時刻は鮮度検証と詳細JSONレポートに使用する。
+- `host_os`はnodeutilsの`Linux`を`linux`、`Darwin`を`macos`へ正規化し、未対応値にはエラーまたはskip理由を出す。
+- HAOS用OperationalConfigに`actual_state_policy=declared`、`declared_host_os=haos`、接続Endpoint、Ansible portを登録する。
+- declared platformは初期schemaでは`haos`だけを許可する。
+- `approved`または`active`の全production NodeにOperationalConfigを必須化する。
+- Placement、DesiredNode/Endpoint、OperationalConfig、realized Device、actual facts、deployment profileを結合する純粋なproduction Inventory生成処理を追加する。
+- production schema 1.0のactual-backed対象をDeviceに限定し、realized VMを`unsupported_actual_type`としてhost単位でskipする。
+- host-level actual検証を通過したproduction hostを`ssh_hosts`へフラットに配置し、activeなPlacementからサービスグループを付与する。
+- `linux`/`macos`グループをactualの`host_os`から、`haos`グループを明示されたdeclared platformから派生selectorとして生成する。
+- actual必須Nodeには鮮度検証を適用し、declared NodeはOperationalConfigとDesiredEndpointからInventoryを生成する。
+- WOL対象には`mac_address`、対応playbookまたはprofileの対象には`network_interface`を必須化するなど、actual必須項目を利用箇所ごとに検証する。
+- local接続は`local_ip`、`local_dns_hostname`、`mdns_hostname`、`inventory_hostname`の順で解決し、Tailscale接続は選択Endpointの`ip_address`を`tailscale_ip`として使用する。
+- actual-backed Deviceの`local_ip`はnodeutilsから生成し、Endpointの`dns_name`、`mdns_name`、`ip_address`をdeclared接続変数へ変換する。
+- productionの`group_vars/all`から全ホスト共通の`ansible_user: "{{ default_user }}"`を供給する。
+- profile、schema、参照、OperationalConfig、接続、変数競合の契約違反はJob全体をfailさせる。
+- actual欠落・期限切れ、actual必須項目不足、realized Device欠落、未対応actual typeは対象hostをskipして理由を詳細JSONへ記録する。
+- Nautobotにproduction Inventory export Jobを追加し、`production.yml`と詳細JSONレポートを生成する。
+- `ansible_agdev`にproduction export用localhost playbookを追加し、Job実行、完了待機、ダウンロード、schema検証、Inventory検証、atomic置換を行う。
+- JobResult/FileProxyの検索・待機・ダウンロード処理をbootstrap exportとproduction exportで共通化する。
+- `inventories/generated/production.yml`を本番Playbookの明示的なInventoryにする。
+- 生成版の動作確認後、手書きの`inventories/production/hosts.yml`、旧`inventories/hosts.example.yml`、不要になったNautobot dynamic inventory設定を削除する。
+- OperationalConfigのpower controlから`power_managed`グループを生成し、接続経路、Endpointのアドレス、Ansible port、laptop区分をproduction Inventoryへ反映する。
+- service placement reviewをPlacement提案の生成処理として実装する。
+- nintent、nauto、nodeutils、ansible_agdevに、Linux/macOS、HAOS、欠落・古いactual、配置不一致、profile不正、変数競合、atomic更新失敗を対象としたテストを追加する。
