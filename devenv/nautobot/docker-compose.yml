@@ -6,16 +6,15 @@ services:
     command:
       - -c
       - |
-        until pg_isready -h postgres -U admin; do
+        until pg_isready -h "$$NAUTOBOT_DB_HOST" -U admin; do
           sleep 2
         done
-        psql -h postgres -U admin -d postgres -f /init/nautobot_init.sql
+        psql -h "$$NAUTOBOT_DB_HOST" -U admin -d postgres -f /init/nautobot_init.sql
     environment:
+      NAUTOBOT_DB_HOST: ${NAUTOBOT_DB_HOST}
       PGPASSWORD: admin
     volumes:
       - ./nautobot_init.sql:/init/nautobot_init.sql:ro
-    depends_on:
-      - postgres
 
   nautobot-volume-init:
     image: alpine:latest
@@ -36,11 +35,11 @@ services:
     environment:
       NAUTOBOT_SECRET_KEY: ${NAUTOBOT_SECRET_KEY}
       NAUTOBOT_ALLOWED_HOSTS: "localhost 127.0.0.1 0.0.0.0 agstudio.local"
-      NAUTOBOT_DB_HOST: postgres
+      NAUTOBOT_DB_HOST: ${NAUTOBOT_DB_HOST}
       NAUTOBOT_DB_NAME: nautobot
       NAUTOBOT_DB_USER: nautobot
       NAUTOBOT_DB_PASSWORD: nautobot
-      NAUTOBOT_REDIS_HOST: redis
+      NAUTOBOT_REDIS_HOST: ${NAUTOBOT_REDIS_HOST}
       NAUTOBOT_CREATE_SUPERUSER: "true"
       NAUTOBOT_SUPERUSER_NAME: admin
       NAUTOBOT_SUPERUSER_EMAIL: admin@example.com
@@ -60,8 +59,6 @@ services:
         condition: service_completed_successfully
       nautobot-volume-init:
         condition: service_completed_successfully
-      redis:
-        condition: service_started
     healthcheck:
       test: ["CMD", "nautobot-server", "health_check"]
       interval: 30s
@@ -79,11 +76,11 @@ services:
     command: celery worker -l INFO --events
     environment:
       NAUTOBOT_SECRET_KEY: ${NAUTOBOT_SECRET_KEY}
-      NAUTOBOT_DB_HOST: postgres
+      NAUTOBOT_DB_HOST: ${NAUTOBOT_DB_HOST}
       NAUTOBOT_DB_NAME: nautobot
       NAUTOBOT_DB_USER: nautobot
       NAUTOBOT_DB_PASSWORD: nautobot
-      NAUTOBOT_REDIS_HOST: redis
+      NAUTOBOT_REDIS_HOST: ${NAUTOBOT_REDIS_HOST}
       AI_RESOURCE_REVIEW_URL: ${AI_RESOURCE_REVIEW_URL}
       AI_RESOURCE_REVIEW_MODEL: ${AI_RESOURCE_REVIEW_MODEL}
       AI_RESOURCE_REVIEW_TIMEOUT: ${AI_RESOURCE_REVIEW_TIMEOUT}
@@ -107,11 +104,11 @@ services:
     command: celery beat -l INFO
     environment:
       NAUTOBOT_SECRET_KEY: ${NAUTOBOT_SECRET_KEY}
-      NAUTOBOT_DB_HOST: postgres
+      NAUTOBOT_DB_HOST: ${NAUTOBOT_DB_HOST}
       NAUTOBOT_DB_NAME: nautobot
       NAUTOBOT_DB_USER: nautobot
       NAUTOBOT_DB_PASSWORD: nautobot
-      NAUTOBOT_REDIS_HOST: redis
+      NAUTOBOT_REDIS_HOST: ${NAUTOBOT_REDIS_HOST}
     volumes:
       - nautobot_static:/opt/nautobot/static
       - nautobot_media:/opt/nautobot/media
