@@ -1,0 +1,12 @@
+[submodule "nintent"]
+	path = nintent
+	url = https://github.com/iwaag/nintent.git
+[submodule "nauto"]
+	path = nauto
+	url = https://github.com/iwaag/nauto.git
+[submodule "nodeutils"]
+	path = nodeutils
+	url = https://github.com/iwaag/nodeutils.git
+[submodule "ansible_agdev"]
+	path = ansible_agdev
+	url = https://github.com/iwaag/ansible_agdev.git
