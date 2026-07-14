@@ -47,15 +47,21 @@ To keep future frontends (a 3D scene rendered by a game engine, voice commands, 
 
 **Exit criteria**: Desired endpoints are retrievable from `/api/graphql/` in one query alongside core DCIM/IPAM objects, and `nctl status` verifies their presence via the GraphQL schema.
 
-## Phase 1: Bake in the dnsmasq workflow
+## Phase 1: Bake in the dnsmasq workflow (move rendering into nctl, retire the Job-export path)
 
-**Goal: turn the most frequent routine task into a single deterministic command, immediately eliminating AI token spend and non-reproducibility.**
+**Goal: turn the most frequent routine task into a single deterministic command, and fix the responsibility split while doing so — the ledger (`nintent`) stores and exposes desired state; the workflow layer (`nctl`) translates it into consumer formats; Ansible only actuates.**
 
-- `nctl render dnsmasq` — fetch desired endpoints from `nintent` via GraphQL and render DHCP reservations / DNS mappings from a Jinja2 template.
-- `nctl apply dnsmasq --diff` — show a diff against the current config (dry-run by default), then run the relevant playbook after approval. All Nautobot round-trips and playbook call ordering are hidden internally.
+Design decision: dnsmasq conf is an artifact of one specific actuation mechanism, so rendering it is `nctl`'s job, not the ledger's. Today it lives in `nintent`'s "Export dnsmasq Records" Nautobot Job, and `ansible_agdev` retrieves it through Job-run/poll/file-proxy plumbing. That entire path is replaced, not wrapped: keeping the Job would leave rendering coupled to Celery/file-proxy machinery that Phase 2's drift engine cannot reuse synchronously.
+
+- `nctl render dnsmasq` — fetch desired endpoints, IP ranges, and intent evaluations via GraphQL (the Phase 0-EX1 types) and render the conf deterministically in `nctl_core` as a pure function (ported from `nintent`'s `dnsmasq.py`, output-compatible). The same function becomes the "desired conf" side of Phase 2 drift.
+- `nctl apply dnsmasq` — render, then run the deploy-only playbook in check+diff mode (dry-run by default); `--yes` applies for real. Long-running, so it gets an operation ID and JSON Lines events.
+- **Cleanup of the old path**: delete `ExportDnsmasqRecords` and `dnsmasq.py` (+ its tests, after porting them) from `nintent`; reduce `ansible_agdev`'s `deploy_nintent_dnsmasq_records.yml` to a deploy-only playbook that takes a pre-rendered conf path (the Job-orchestration play and its file-proxy/polling plumbing are deleted).
 - Define a thin Claude Code skill (`.claude/skills/`) so that "update dnsmasq" always resolves to the same command sequence.
+- Recorded as follow-up debt, not Phase 1 scope: `Export Ansible Hosts Intent` (and the other export Jobs) should eventually migrate to `nctl` under the same "consumers render, the ledger stores" principle.
 
-**Exit criteria**: Updating dnsmasq completes in two `nctl` commands, from either a human or AI, with a dry-run diff available for review beforehand.
+**Exit criteria**: Updating dnsmasq completes in two `nctl` commands, from either a human or AI, with a dry-run diff available for review beforehand. dnsmasq rendering exists in exactly one place (`nctl_core`), and no dnsmasq Job/file-proxy plumbing remains in `nintent` or `ansible_agdev`.
+
+Detailed plan: [p1/plan.md](p1/plan.md)
 
 ## Phase 2: Reconciliation Engine (drift engine)
 
