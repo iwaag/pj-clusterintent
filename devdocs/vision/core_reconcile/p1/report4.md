@@ -28,21 +28,17 @@ Date: 2026-07-15. Implements [p1/plan.md](plan.md) Step 4. Continues from
   `ExportDnsmasqRecords`, `Export dnsmasq Records`, `.dnsmasq` renderer imports, or `0.4.0`
   version references.
 
-## Deployment verification pending
+## Deployment verification (completed 2026-07-15)
 
-The local development image installs nintent from GitHub rather than mounting this checkout.
-Consequently the following checks require the user-owned push/rebuild cycle and were not run in
-this commit unit:
+After the user pushed the nintent commit, rebuilt the dev Nautobot images with `--no-cache` and
+restarted the stack. The build resolved nintent commit
+`44d6ea3d06e62e9682bba191e00f4db9982e35c3` and installed package version `0.5.0`; the Nautobot,
+worker, and scheduler containers all became healthy.
 
-1. Commit and push the nintent submodule change.
-2. Rebuild and restart the dev Nautobot stack from `devenv/nautobot`:
-   `docker compose --env-file ../.env build --no-cache` followed by
-   `docker compose --env-file ../.env up -d`.
-3. Verify the Nautobot Job list no longer contains `Export dnsmasq Records`.
-4. Run `nctl status` and verify it remains green.
-
-This is an external deployment gate, not a local test failure. No push or image rebuild was
-performed automatically, in accordance with `.local/localenv_memo.md`.
+The REST Job record for `Export dnsmasq Records` remains as Nautobot history with
+`installed: false`, so it is no longer an installed/runnable Job. `nctl status --json` then
+returned `ok: true`, with Nautobot 3.1.3 reachable and authenticated, intent-catalog and intent
+GraphQL present, and all submodules clean.
 
 ## Commit boundary
 
@@ -52,4 +48,3 @@ version**. It is intentionally stopped before Step 5, which changes the separate
 
 Next after the push/rebuild verification: Step 5 — replace the Nautobot-oriented dnsmasq
 playbook with a deploy-only playbook that requires a pre-rendered `dnsmasq_records_src`.
-

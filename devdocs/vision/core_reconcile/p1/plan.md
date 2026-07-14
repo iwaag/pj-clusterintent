@@ -174,18 +174,18 @@ node/endpoint fields. Resolve empirically before pinning the query.
 
 ## Exit criteria (from roadmap, made checkable)
 
-- [ ] `nctl render dnsmasq` output matches the last Job export on live data (record lines,
+- [x] `nctl render dnsmasq` output matches the last Job export on live data (record lines,
   summary counts, skip reasons — parity artifacts saved in the report).
 - [ ] `nctl apply dnsmasq` shows an ansible `--check --diff` dry-run by default and applies
   with `--yes`, emitting an operation ID and JSON Lines events; verified against the dev
   cluster end to end.
-- [ ] `nintent` contains no dnsmasq rendering: `ExportDnsmasqRecords`, `dnsmasq.py`, and
+- [x] `nintent` contains no dnsmasq rendering: `ExportDnsmasqRecords`, `dnsmasq.py`, and
   `test_dnsmasq.py` are deleted; nintent's test suite passes; the dev Nautobot Job list no
   longer offers the export.
-- [ ] The dnsmasq playbook is deploy-only (no Job/file-proxy/polling tasks) and takes
+- [x] The dnsmasq playbook is deploy-only (no Job/file-proxy/polling tasks) and takes
   `dnsmasq_records_src` as input.
-- [ ] `.claude/skills/update-dnsmasq` exists and resolves to the two-command sequence.
-- [ ] `uv run pytest` passes in nctl, including the ported dnsmasq vocabulary tests.
+- [x] `.claude/skills/update-dnsmasq` exists and resolves to the two-command sequence.
+- [x] `uv run pytest` passes in nctl, including the ported dnsmasq vocabulary tests.
 
 ## Suggested commit order
 
