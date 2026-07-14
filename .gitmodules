@@ -10,3 +10,6 @@
 [submodule "ansible_agdev"]
 	path = ansible_agdev
 	url = https://github.com/iwaag/ansible_agdev.git
+[submodule "nctl"]
+	path = nctl
+	url = https://github.com/iwaag/nctl.git
