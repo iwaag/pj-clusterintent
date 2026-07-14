@@ -1,0 +1,267 @@
+{
+  "schema": "nctl.render.dnsmasq.v1",
+  "generated_at": "2026-07-14T14:53:44.406188Z",
+  "ok": true,
+  "data": {
+    "schema_version": "4.0",
+    "summary": {
+      "dns_records": 5,
+      "dhcp_reservations": 3,
+      "dhcp_ranges": 1,
+      "eligible_endpoints": 5,
+      "eligible_ranges": 1,
+      "record_types": {
+        "address": 0,
+        "cname": 0,
+        "host_record": 5
+      },
+      "skipped": {
+        "details": 4,
+        "dhcp_reservations": 2,
+        "dhcp_ranges": 2,
+        "dns_records": 0
+      },
+      "skipped_endpoint_details": 2,
+      "skipped_endpoints": 0,
+      "skipped_range_details": 2,
+      "skipped_ranges": 2,
+      "total_endpoints": 5,
+      "total_ranges": 3
+    },
+    "dns_records": [
+      {
+        "desired_endpoint_id": "060d8244-a3fd-4adb-aa02-4dfbbeb2560c",
+        "desired_node": "agbach",
+        "desired_node_id": "59406009-67e3-4668-8da9-a369fba71ae8",
+        "desired_node_slug": "agbach",
+        "dns_name": "agbach.home.arpa",
+        "endpoint_name": "primary",
+        "endpoint_type": "primary",
+        "ip_address": "192.168.0.120",
+        "ip_policy": "dhcp_reserved",
+        "line": "host-record=agbach.home.arpa,192.168.0.120",
+        "mdns_name": "agbach.local",
+        "record_name": "agbach.home.arpa",
+        "record_type": "host_record",
+        "record_value": "192.168.0.120",
+        "vpn_dns_name": ""
+      },
+      {
+        "desired_endpoint_id": "0dea1561-bfb7-4058-8ba7-c71d18666cad",
+        "desired_node": "agdnsmasq",
+        "desired_node_id": "27818c12-fe15-4c9f-83d0-7949523f6c33",
+        "desired_node_slug": "agdnsmasq",
+        "dns_name": "agdnsmasq.home.arpa",
+        "endpoint_name": "primary",
+        "endpoint_type": "primary",
+        "ip_address": "192.168.0.2",
+        "ip_policy": "static",
+        "line": "host-record=agdnsmasq.home.arpa,192.168.0.2",
+        "mdns_name": "agdnsmasq.local",
+        "record_name": "agdnsmasq.home.arpa",
+        "record_type": "host_record",
+        "record_value": "192.168.0.2",
+        "vpn_dns_name": ""
+      },
+      {
+        "desired_endpoint_id": "bb190120-82b5-4c57-abe5-251096564315",
+        "desired_node": "aghub",
+        "desired_node_id": "7462b4ee-fb3b-4fa0-a89e-d9e1ded61387",
+        "desired_node_slug": "aghub",
+        "dns_name": "aghub.home.arpa",
+        "endpoint_name": "primary",
+        "endpoint_type": "primary",
+        "ip_address": "192.168.0.10",
+        "ip_policy": "dhcp_reserved",
+        "line": "host-record=aghub.home.arpa,192.168.0.10",
+        "mdns_name": "aghub.local",
+        "record_name": "aghub.home.arpa",
+        "record_type": "host_record",
+        "record_value": "192.168.0.10",
+        "vpn_dns_name": ""
+      },
+      {
+        "desired_endpoint_id": "baf13a73-43ff-4c67-8fc2-74037a5202d9",
+        "desired_node": "agpc",
+        "desired_node_id": "c82421c3-c42a-4bea-91ce-7468ae8a249c",
+        "desired_node_slug": "agpc",
+        "dns_name": "agpc.home.arpa",
+        "endpoint_name": "primary",
+        "endpoint_type": "primary",
+        "ip_address": "192.168.0.110",
+        "ip_policy": "dhcp_reserved",
+        "line": "host-record=agpc.home.arpa,192.168.0.110",
+        "mdns_name": "agpc.local",
+        "record_name": "agpc.home.arpa",
+        "record_type": "host_record",
+        "record_value": "192.168.0.110",
+        "vpn_dns_name": ""
+      },
+      {
+        "desired_endpoint_id": "930affda-b7dd-4a13-8115-2105a2dd0033",
+        "desired_node": "agstudio",
+        "desired_node_id": "dc6dede2-9615-4236-b8e6-fd4df45c51bb",
+        "desired_node_slug": "agstudio",
+        "dns_name": "agstudio.home.arpa",
+        "endpoint_name": "primary",
+        "endpoint_type": "primary",
+        "ip_address": "192.168.0.100",
+        "ip_policy": "dhcp_reserved",
+        "line": "host-record=agstudio.home.arpa,192.168.0.100",
+        "mdns_name": "agstudio.local",
+        "record_name": "agstudio.home.arpa",
+        "record_type": "host_record",
+        "record_value": "192.168.0.100",
+        "vpn_dns_name": ""
+      }
+    ],
+    "dhcp_reservations": [
+      {
+        "actual_ref": {
+          "object_type": "dcim.device",
+          "id": "da27c9b3-5613-412f-a71e-1a95167fda6f",
+          "name": "agbach.local"
+        },
+        "confidence": "deterministic",
+        "desired_endpoint": "primary",
+        "desired_endpoint_id": "060d8244-a3fd-4adb-aa02-4dfbbeb2560c",
+        "desired_node": "agbach",
+        "desired_node_id": "59406009-67e3-4668-8da9-a369fba71ae8",
+        "desired_node_slug": "agbach",
+        "dns_name": "agbach.home.arpa",
+        "endpoint_type": "primary",
+        "ip_address": "192.168.0.120",
+        "ip_policy": "dhcp_reserved",
+        "line": "dhcp-host=84:2f:57:5f:e0:98,agbach.home.arpa,192.168.0.120",
+        "mac_address": "84:2f:57:5f:e0:98",
+        "skip_reasons": []
+      },
+      {
+        "actual_ref": {
+          "object_type": "dcim.device",
+          "id": "cf67fc91-fc72-4c9a-b402-b2c4c1124207",
+          "name": "agpc"
+        },
+        "confidence": "deterministic",
+        "desired_endpoint": "primary",
+        "desired_endpoint_id": "baf13a73-43ff-4c67-8fc2-74037a5202d9",
+        "desired_node": "agpc",
+        "desired_node_id": "c82421c3-c42a-4bea-91ce-7468ae8a249c",
+        "desired_node_slug": "agpc",
+        "dns_name": "agpc.home.arpa",
+        "endpoint_type": "primary",
+        "ip_address": "192.168.0.110",
+        "ip_policy": "dhcp_reserved",
+        "line": "dhcp-host=6c:1f:f7:b9:45:c1,agpc.home.arpa,192.168.0.110",
+        "mac_address": "6c:1f:f7:b9:45:c1",
+        "skip_reasons": []
+      },
+      {
+        "actual_ref": {
+          "object_type": "dcim.device",
+          "id": "f33f147d-2491-4c11-968a-fe1206b12da7",
+          "name": "agstudio.local"
+        },
+        "confidence": "deterministic",
+        "desired_endpoint": "primary",
+        "desired_endpoint_id": "930affda-b7dd-4a13-8115-2105a2dd0033",
+        "desired_node": "agstudio",
+        "desired_node_id": "dc6dede2-9615-4236-b8e6-fd4df45c51bb",
+        "desired_node_slug": "agstudio",
+        "dns_name": "agstudio.home.arpa",
+        "endpoint_type": "primary",
+        "ip_address": "192.168.0.100",
+        "ip_policy": "dhcp_reserved",
+        "line": "dhcp-host=1c:1d:d3:de:77:59,agstudio.home.arpa,192.168.0.100",
+        "mac_address": "1c:1d:d3:de:77:59",
+        "skip_reasons": []
+      }
+    ],
+    "dhcp_ranges": [
+      {
+        "desired_ip_range": "dhcp-unreserved",
+        "desired_ip_range_id": "17633606-5768-4452-befd-d099ad080cae",
+        "dnsmasq_options": {},
+        "end_address": "192.168.0.250",
+        "generate_dnsmasq": true,
+        "lease_time": "",
+        "lifecycle": "planned",
+        "line": "dhcp-range=192.168.0.200,192.168.0.250",
+        "range_policy": "dhcp_dynamic_pool",
+        "skip_reasons": [],
+        "slug": "dhcp-unreserved",
+        "start_address": "192.168.0.200"
+      }
+    ],
+    "skipped": [
+      {
+        "desired_ip_range": "dhcp-reserved",
+        "desired_ip_range_id": "2529a070-00c6-4e42-873b-3f2657b2ade7",
+        "dns_name": "",
+        "endpoint_name": "",
+        "endpoint_type": "",
+        "desired_node_slug": "",
+        "item_type": "dhcp_range",
+        "range_policy": "dhcp_reservable_pool",
+        "reasons": [
+          "range_policy_not_dhcp_dynamic_pool"
+        ],
+        "slug": "dhcp-reserved",
+        "start_address": "192.168.0.10",
+        "end_address": "192.168.0.199"
+      },
+      {
+        "desired_ip_range": "network-infra",
+        "desired_ip_range_id": "e9abf3ac-fae5-498e-8304-0fe10caeaace",
+        "dns_name": "",
+        "endpoint_name": "",
+        "endpoint_type": "",
+        "desired_node_slug": "",
+        "item_type": "dhcp_range",
+        "range_policy": "static_pool",
+        "reasons": [
+          "generate_dnsmasq_false",
+          "range_policy_not_dhcp_dynamic_pool"
+        ],
+        "slug": "network-infra",
+        "start_address": "192.168.0.2",
+        "end_address": "192.168.0.9"
+      },
+      {
+        "desired_endpoint_id": "0dea1561-bfb7-4058-8ba7-c71d18666cad",
+        "desired_node": "agdnsmasq",
+        "desired_node_id": "27818c12-fe15-4c9f-83d0-7949523f6c33",
+        "desired_node_slug": "agdnsmasq",
+        "dns_name": "agdnsmasq.home.arpa",
+        "endpoint_name": "primary",
+        "endpoint_type": "primary",
+        "ip_policy": "static",
+        "item_type": "dhcp_reservation",
+        "reasons": [
+          "endpoint_evaluation_not_dhcp_ready",
+          "ip_policy_not_dhcp_reserved",
+          "missing_actual_node",
+          "missing_mac_address"
+        ]
+      },
+      {
+        "desired_endpoint_id": "bb190120-82b5-4c57-abe5-251096564315",
+        "desired_node": "aghub",
+        "desired_node_id": "7462b4ee-fb3b-4fa0-a89e-d9e1ded61387",
+        "desired_node_slug": "aghub",
+        "dns_name": "aghub.home.arpa",
+        "endpoint_name": "primary",
+        "endpoint_type": "primary",
+        "ip_policy": "dhcp_reserved",
+        "item_type": "dhcp_reservation",
+        "reasons": [
+          "missing_actual_node",
+          "missing_endpoint_evaluation",
+          "missing_mac_address"
+        ]
+      }
+    ],
+    "conf": "# Generated by nctl\n# schema_version: 4.0\n# generated_at: 2026-07-14T14:53:44.312077+00:00\nhost-record=agbach.home.arpa,192.168.0.120\nhost-record=agdnsmasq.home.arpa,192.168.0.2\nhost-record=aghub.home.arpa,192.168.0.10\nhost-record=agpc.home.arpa,192.168.0.110\nhost-record=agstudio.home.arpa,192.168.0.100\ndhcp-host=84:2f:57:5f:e0:98,agbach.home.arpa,192.168.0.120\ndhcp-host=6c:1f:f7:b9:45:c1,agpc.home.arpa,192.168.0.110\ndhcp-host=1c:1d:d3:de:77:59,agstudio.home.arpa,192.168.0.100\ndhcp-range=192.168.0.200,192.168.0.250\n"
+  },
+  "errors": []
+}
