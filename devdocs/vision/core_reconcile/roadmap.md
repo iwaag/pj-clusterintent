@@ -37,6 +37,16 @@ To keep future frontends (a 3D scene rendered by a game engine, voice commands, 
 
 **Exit criteria**: `nctl status --json` works with a stable schema. The event log format is documented.
 
+## Phase 0-EX1: Expose nintent models via Nautobot GraphQL
+
+**Goal: make the desired state readable through the same GraphQL endpoint as the actual state, before any command starts consuming it.**
+
+- Register GraphQL types for `nintent`'s models (desired nodes, endpoints, etc.) so they join Nautobot's standard `/api/graphql/` schema — no separate endpoint. This lets Phase 2 fetch desired + actual as a single joined query (e.g. a device with its interfaces, IPs, and desired endpoints) instead of stitching REST pagination results in `nctl`.
+- Division of labor from here on: **reads = GraphQL** (unified, one client in `nctl_core`), **writes = REST** (Nautobot GraphQL is read-only; the existing intent-catalog ViewSets stay for writes such as the Phase 3 reconciliation status field).
+- Switch `nctl status`'s intent-catalog probe from the REST endpoint to a GraphQL schema introspection check (do the intent types exist?).
+
+**Exit criteria**: Desired endpoints are retrievable from `/api/graphql/` in one query alongside core DCIM/IPAM objects, and `nctl status` verifies their presence via the GraphQL schema.
+
 ## Phase 1: Bake in the dnsmasq workflow
 
 **Goal: turn the most frequent routine task into a single deterministic command, immediately eliminating AI token spend and non-reproducibility.**
