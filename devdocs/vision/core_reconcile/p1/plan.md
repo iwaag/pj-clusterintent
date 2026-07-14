@@ -139,7 +139,7 @@ node/endpoint fields. Resolve empirically before pinning the query.
   `inventory` (path to `inventories/generated/hosts_intent.yml` or the inventory dir), plus the
   strict-model treatment existing sections get. `apply` errors out with a pointed message if
   the generated inventory is missing ("run export_nintent_hosts_intent.yml first") — migrating
-  that export is explicitly out of scope.
+  that export is explicitly Phase 1.5, after which `apply` can regenerate it itself.
 - This is the first long-running command: mint an operation ID, emit JSON Lines events
   (`started`, `rendered`, `dry_run_completed`, `apply_started`, `apply_completed`, `failed`)
   via the Phase 0 `events.py` layer, and include ansible's exit code/summary in the final
@@ -161,8 +161,11 @@ node/endpoint fields. Resolve empirically before pinning the query.
 
 ## Out of scope
 
-- Migrating `Export Ansible Hosts Intent` / `Export Production Inventory` /
-  `Sync Deployment Profiles` to nctl (same principle, later phase — recorded in the roadmap).
+- The other misplaced responsibilities — `Export Ansible Hosts Intent` (Phase 1.5),
+  `Export Production Inventory` + the deployment-profiles byte contract and
+  `Sync Deployment Profiles` (Phase 2), the collect→ingest orchestration (Phase 4) — are
+  assigned in the roadmap's responsibility migration map. Phase 1's port pattern
+  (pure renderer + GraphQL fetch + parity gate + Job deletion) is the template Phase 1.5 reuses.
 - Drift computation (`nctl drift`, Phase 2) — but the render payload shape is designed for it.
 - The bootstrap dnsmasq role (`roles/dnsmasq_server`, `playbooks/bootstrap/setup_dnsmasq.yml`)
   — it installs the service; this phase only manages the records conf.

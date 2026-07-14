@@ -57,11 +57,21 @@ Design decision: dnsmasq conf is an artifact of one specific actuation mechanism
 - `nctl apply dnsmasq` — render, then run the deploy-only playbook in check+diff mode (dry-run by default); `--yes` applies for real. Long-running, so it gets an operation ID and JSON Lines events.
 - **Cleanup of the old path**: delete `ExportDnsmasqRecords` and `dnsmasq.py` (+ its tests, after porting them) from `nintent`; reduce `ansible_agdev`'s `deploy_nintent_dnsmasq_records.yml` to a deploy-only playbook that takes a pre-rendered conf path (the Job-orchestration play and its file-proxy/polling plumbing are deleted).
 - Define a thin Claude Code skill (`.claude/skills/`) so that "update dnsmasq" always resolves to the same command sequence.
-- Recorded as follow-up debt, not Phase 1 scope: `Export Ansible Hosts Intent` (and the other export Jobs) should eventually migrate to `nctl` under the same "consumers render, the ledger stores" principle.
+- The other misplaced responsibilities follow the same principle in later phases — see the [responsibility migration map](#responsibility-migration-map) below.
 
 **Exit criteria**: Updating dnsmasq completes in two `nctl` commands, from either a human or AI, with a dry-run diff available for review beforehand. dnsmasq rendering exists in exactly one place (`nctl_core`), and no dnsmasq Job/file-proxy plumbing remains in `nintent` or `ansible_agdev`.
 
 Detailed plan: [p1/plan.md](p1/plan.md)
+
+## Phase 1.5: Migrate the hosts-intent export to nctl
+
+**Goal: apply the Phase 1 pattern (pure renderer + GraphQL fetch + parity gate + Job deletion) to the second export while the pattern is fresh.**
+
+- `nctl render inventory` — port `ExportAnsibleHostsIntent` / `ansible_inventory.py`'s rendering into `nctl_core` (fetch `DesiredNode` rows via GraphQL, render the mDNS bootstrap inventory deterministically).
+- Cleanup: delete the `ExportAnsibleHostsIntent` Job and its helpers from `nintent`; delete `export_nintent_hosts_intent.yml`'s Job/file-proxy plumbing (nctl writes `inventories/generated/hosts_intent.yml` directly, keeping the existing `ansible-inventory` validation before an atomic replace).
+- This removes the inventory prerequisite's dependency on Ansible plumbing: `nctl apply dnsmasq` can regenerate a missing inventory itself instead of pointing the user at a playbook.
+
+**Exit criteria**: The bootstrap inventory is produced by one `nctl` command with output parity against the old Job; no hosts-intent Job or file-proxy plumbing remains.
 
 ## Phase 2: Reconciliation Engine (drift engine)
 
@@ -71,8 +81,11 @@ Detailed plan: [p1/plan.md](p1/plan.md)
 - Output the content of each difference (e.g. "desired has a DHCP reservation, but actual has no MAC registered") as a structured JSON list of diffs: `nctl drift [--host X] --json`.
 - Turn `nintent`'s model definitions into a shared library to avoid duplicating the desired-state schema (since this is the breaking-change phase, don't hesitate to restructure `nintent` itself if needed).
 - Make the judgment rules pluggable (a structure where comparators can be registered per resource type).
+- **Absorb the two proto-drift-engines that predate nctl** (see the migration map):
+  - `ExportProductionInventory` — its desired+actual+profiles composition (including its drift/skipped reporting) moves into `nctl` (`nctl render production` or as a drift-engine output). Once composition runs in nctl, `deployment_profiles.yml` is read directly from the ansible_agdev checkout, and the entire cross-language byte contract (`verify_deployment_profiles_contract.yml`, `nintent_serialize_deployment_profiles.yml`, `production_inventory_contract.py`, the digest-keyed Job inputs) is deleted. `SyncDeploymentProfiles` + `DeploymentProfileProjection` lose their consumer and are deleted too (visualization lives outside Nautobot per Phase 3).
+  - The `Evaluate Node/Endpoint/Service Intent` Jobs — decide their fate head-on in this phase's plan: either the drift engine supersedes `IntentEvaluation` (Jobs deleted, nctl computes from the three sources directly), or evaluations stay as the ingest-time normalization cache the drift engine reads. Until decided, consumers (e.g. the Phase 1 dnsmasq renderer's MAC source) keep reading evaluations.
 
-**Exit criteria**: `nctl drift --json` returns cluster-wide drift in a single run, and AI can read just that to explain the current state.
+**Exit criteria**: `nctl drift --json` returns cluster-wide drift in a single run, and AI can read just that to explain the current state. The production inventory is composed by nctl and the deployment-profiles byte-contract machinery is gone.
 
 ## Phase 3: Visualization dashboard
 
@@ -89,6 +102,7 @@ Detailed plan: [p1/plan.md](p1/plan.md)
 **Goal: go from drift detection to resolution in one command. Make AI the exception handler.**
 
 - `nctl reconcile [host]` — run drift detection → execute the necessary playbooks in the correct order → re-inspect via nodeutils → confirm convergence, all as a single operation. Record every step in the event log.
+- **Take over the collect→ingest orchestration** (see the migration map): the "slurp nodeutils reports → run the nauto Ingest Job → poll" half of `collect_nodeutils_and_ingest_nautobot.yml` becomes nctl's job inside the reconcile pipeline. Ansible keeps only the host-side collection (`run_nodeutils_collect.yml`); the nauto Ingest Job itself stays (it writes to the ledger) but is triggered by nctl.
 - Register other routine workflows besides dnsmasq (initial node setup, service placement, etc.) as reconcilers one by one.
 - On failure or non-convergence, stop and leave behind the operation's event log and drift JSON. Establish an operational flow where AI reads these to diagnose (build out a diagnostic skill).
 - Optional: periodic drift detection and notification via cron/scheduler.
@@ -106,6 +120,37 @@ Detailed plan: [p1/plan.md](p1/plan.md)
 **Exit criteria**: An external process can fetch current state, issue change requests, and subscribe to progress events, all via the API. A game-engine-built UI can be built on top of this API without any backend changes.
 
 ---
+
+## Responsibility migration map
+
+nctl arrived after most of the system was built, so several responsibilities grew in the wrong
+layer. The governing principle: **read-and-transform work (exports, rendering, desired-vs-actual
+cross-referencing) belongs to `nctl`; transactional writes to the ledger stay as Nautobot
+Jobs/ViewSets (but get triggered by nctl, not by Ansible plumbing); Ansible keeps only host
+actuation.**
+
+Moves into nctl:
+
+| Today | Why it's misplaced | Moves in |
+|---|---|---|
+| `ExportDnsmasqRecords` Job + Job/file-proxy plumbing in `deploy_nintent_dnsmasq_records.yml` | Rendering a consumer format inside the ledger | Phase 1 |
+| `ExportAnsibleHostsIntent` Job + plumbing in `export_nintent_hosts_intent.yml` | Same — pure DesiredNode→YAML render | Phase 1.5 |
+| `ExportProductionInventory` Job + plumbing in `export_nintent_production.yml` + the deployment-profiles byte contract (`verify_deployment_profiles_contract.yml`, serialize tasks, `production_inventory_contract.py`) | A proto-drift-engine (it composes desired+actual and reports drift) living in the ledger; the byte contract exists only because one input lives in ansible_agdev while composition runs in Nautobot | Phase 2 |
+| `SyncDeploymentProfiles` Job + `DeploymentProfileProjection` model | A UI projection whose only real consumer disappears once composition moves; visualization lives outside Nautobot | Phase 2 (delete) |
+| `Evaluate Node/Endpoint/Service Intent` Jobs | Shadow drift computation persisted as `IntentEvaluation`; overlaps the Phase 2 engine head-on | Phase 2 (decide: supersede or keep as ingest cache) |
+| The ingest-orchestration half of `collect_nodeutils_and_ingest_nautobot.yml` (slurp reports → run Ingest Job → poll) | Workflow sequencing encoded in Ansible | Phase 4 |
+
+Stays where it is (correctly placed):
+
+- `ReconcileDesiredIPAMIntent` — transactional ledger-internal bookkeeping (DesiredEndpoint ↔
+  IPAddress); stays a Job, triggered by nctl in Phase 4. (Its evaluation-upserting side effect is
+  cleanup material for the Phase 2 evaluation decision.)
+- `Import / Analyze / Preview Intent Sources` Jobs — external-catalog importers writing into the
+  ledger; legitimately ledger-side.
+- nauto's `Ingest Nodeutils Inventory` Job — writes actual facts into the ledger; stays, but its
+  trigger moves to nctl (Phase 4).
+- `run_nodeutils_collect.yml`, the dnsmasq deploy play, bootstrap/service roles — host actuation,
+  Ansible's proper job.
 
 ## Rationale for phase ordering
 
