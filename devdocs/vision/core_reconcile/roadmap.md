@@ -1,98 +1,98 @@
-# core_reconcile 開発ロードマップ
+# core_reconcile Development Roadmap
 
-## 前提
+## Premises
 
-- **破壊的変更フェイズ**: 後方互換性は一切考慮しない。スキーマ・CLI・API はフェーズごとに自由に壊してよい。
-- **実験的システム**: 商用製品ではない。セキュリティは「LAN内運用・平文で困る認証情報を吐かない・Nautobot トークンを Git に入れない」程度の最低限でよい。
-- 実装コストより設計としての満足度・将来の拡張性を優先する。
+- **Breaking-change phase**: No backward compatibility is required. Schemas, CLI, and API may be broken freely at any phase.
+- **Experimental system**: This is not a commercial product. Security only needs to be the bare minimum (LAN-only operation, no plaintext credentials that would actually cause harm, no Nautobot tokens committed to Git).
+- Design satisfaction and future extensibility are prioritized over implementation cost.
 
-## ビジョン
+## Vision
 
-nintent が持つ desired state と、nodeutils / Nautobot が持つ actual state の差分(drift)を計算する **Reconciliation Engine を唯一の真実** とし、その出力を3方向に配る:
+Treat the drift between the desired state held by `nintent` and the actual state held by `nodeutils` / Nautobot, as computed by a **Reconciliation Engine, as the single source of truth**, and distribute its output in three directions:
 
-1. **人間** — drift を可視化するダッシュボード(当面は静的HTML、将来は3D/音声UI)
-2. **AI** — 構造化JSONを読んで診断・例外処理を行う
-3. **自動化** — 定型ワークフロー(dnsmasq 設定生成など)を決定的に実行する CLI `nctl`
+1. **Humans** — a dashboard that visualizes drift (a static HTML page for now, a 3D/voice UI in the future)
+2. **AI** — reads structured JSON to diagnose issues and handle exceptions
+3. **Automation** — a CLI, `nctl`, that deterministically executes standard workflows (e.g. generating dnsmasq config)
 
-AIの役割は「毎回手順を組み立てる実行者」から「`nctl` を呼び、収束しないケースだけ差分JSONを読んで診断する例外処理係」へ格上げする。
+AI's role should be upgraded from "an executor that assembles steps every time" to "an exception handler that calls `nctl` and only reads the drift JSON when reconciliation fails to converge."
 
-### 将来UIを見据えた設計規約(全フェーズ共通)
+### Design conventions for a future UI (common across all phases)
 
-将来のフロントエンド(ゲームエンジンによる3D表現・音声指示など)を「差分エンジン出力の購読者の一種」にできるよう、最初から守る:
+To keep future frontends (a 3D scene rendered by a game engine, voice commands, etc.) as "just another subscriber of the reconciliation engine's output," follow these from the start:
 
-1. **core ライブラリ + 薄いCLI の分離** — 実装は `nctl_core`(Python ライブラリ)に置き、CLI は薄いラッパー。将来は同じ core を HTTP/WebSocket API が包む。
-2. **全出力のJSONスキーマ化** — すべてのコマンドは `--json` で安定スキーマを返す。人間向けテキストは JSON からの整形に過ぎない。
-3. **長時間処理のイベントログ化** — reconcile 等には operation ID を振り、`started / step_completed / drift_resolved / failed` などのイベントを JSON Lines で吐く。当面の消費者はログファイルとAI、将来はリアルタイムUI。
-
----
-
-## Phase 0: 足場づくり
-
-**ゴール: `nctl` の骨格と設計規約の確立。**
-
-- 親リポジトリ(pj-clusterintent)直下に `nctl/` を新設(`nctl_core` ライブラリ + CLI エントリポイント、uv 管理)。
-- Nautobot GraphQL クライアント、nodeutils ダンプの読み込み、設定ファイル(`nctl.toml`: Nautobot URL/トークン参照、インベントリパス等)の共通層。
-- JSON 出力・イベントログ(JSON Lines + operation ID)の共通フォーマットを定義し、以後の全コマンドに強制する。
-- `nctl status` (Nautobot 疎通・サブモジュール状態の確認)を最初のコマンドとして実装し、規約の実例とする。
-
-**Exit criteria**: `nctl status --json` が安定スキーマで動く。イベントログの書式がドキュメント化されている。
-
-## Phase 1: dnsmasq ワークフローの焼き込み
-
-**ゴール: 最頻出の定型作業を決定的な1コマンドにし、AIのトークン消費と非再現性を即座に解消する。**
-
-- `nctl render dnsmasq` — nintent の desired endpoints を GraphQL で取得し、Jinja2 テンプレートで DHCP 予約 / DNS 対応表を生成。
-- `nctl apply dnsmasq --diff` — 現行設定との diff を表示(dry-run 既定)、承認後に該当 playbook を実行。Nautobot 往復と playbook 呼び出し順序はすべて内部に隠蔽。
-- Claude Code 用の薄いスキル(`.claude/skills/`)を定義し、「dnsmasq 更新して」が常に同じコマンド列に落ちるようにする。
-
-**Exit criteria**: dnsmasq 更新が人間・AIどちらからも `nctl` 2コマンドで完結し、dry-run diff で内容を事前確認できる。
-
-## Phase 2: Reconciliation Engine(差分エンジン)
-
-**ゴール: desired vs actual の drift 計算を単一のエンジンに集約する。**
-
-- nintent desired / Nautobot actual / nodeutils ダンプの3ソースを突き合わせ、ノード・サービスごとに `converged / drifting / converging / unknown` を判定。
-- 差分の内容(例:「desired では DHCP 予約ありだが actual に MAC 未登録」)を構造化JSONの差分リストとして出力: `nctl drift [--host X] --json`。
-- nintent のモデル定義を共有ライブラリ化し、desired スキーマの二重定義を避ける(破壊的変更フェイズなので nintent 側の再構成も躊躇しない)。
-- 判定ルールはプラガブルに(リソース種別ごとの comparator を追加登録できる構造)。
-
-**Exit criteria**: `nctl drift --json` がクラスタ全体の drift を1回の実行で返し、AIがそれだけを読んで状況説明できる。
-
-## Phase 3: 可視化ダッシュボード
-
-**ゴール: 人間が Nautobot を巡回せず1画面で状況把握できる。**
-
-- `nctl dashboard` — Phase 2 の差分JSONから静的HTMLを生成。クラスタ全体を緑/黄/赤で一覧し、クリックで差分詳細を文章表示。
-- reconcile / drift 実行のたびに再生成。ホスティングは手元ファイルまたはLAN内の静的配信で十分(認証なしで可)。
-- Nautobot 側は nintent プラグインに reconciliation status フィールドとダッシュボードへのリンクのみ追加(Nautobot は台帳、可視化は外、と割り切る)。
-
-**Exit criteria**: ダッシュボードだけでクラスタの健全性と drift 内容が把握できる。
-
-## Phase 4: 自動収束ループ
-
-**ゴール: drift 検出から解消までを1コマンドに。AIを例外処理係にする。**
-
-- `nctl reconcile [host]` — drift 検出 → 必要な playbook 群を正しい順序で実行 → nodeutils で再調査 → 収束確認、までを1オペレーションとして実行。全ステップをイベントログに記録。
-- dnsmasq 以外の定型ワークフロー(ノード初期セットアップ、サービス配置など)を順次 reconciler として登録。
-- 失敗・非収束時は operation のイベントログと drift JSON を残して停止。AIがそれを読んで診断する運用フローを確立(診断用スキルの整備)。
-- 任意: cron / スケジューラによる定期 drift 検出と通知。
-
-**Exit criteria**: 正常系は人間・AIの介在なしに `nctl reconcile` で収束し、異常系のみAI診断に回る。
-
-## Phase 5: リアルタイムAPI層(将来UIへの布石)
-
-**ゴール: 3D・音声などの高度なUIが「新しい購読者」として接続できる状態にする。**
-
-- `nctl serve` — `nctl_core` を包む HTTP API(状態スナップショット・drift 取得・reconcile 起動)+ WebSocket(イベントストリーム配信)。認証は最低限(トークン1本程度)。
-- イベントスキーマを凍結に向けて整理(このフェーズ以降、UI開発が始まったら互換性を意識し始める境界)。
-- 参考実装として、WebSocket を購読してブラウザでライブ更新されるダッシュボード(Phase 3 の動的版)を1枚作り、購読者APIの実用性を検証する。
-
-**Exit criteria**: 外部プロセスが API 経由で「現在状態の取得」「変更の指示」「進行イベントの購読」をすべて行える。ゲームエンジン製UIはこのAPIの上に(バックエンド変更なしで)構築可能。
+1. **Separate the core library from a thin CLI** — put the implementation in a Python library (`nctl_core`); the CLI is a thin wrapper. In the future, the same core can be wrapped by an HTTP/WebSocket API.
+2. **JSON schema for all output** — every command returns a stable schema via `--json`. Human-readable text is just a rendering of that JSON.
+3. **Event logs for long-running operations** — long-running operations like reconcile get an operation ID and emit events (`started` / `step_completed` / `drift_resolved` / `failed`, etc.) as JSON Lines. For now the consumers are a log file and AI; in the future a realtime UI can attach to the same stream.
 
 ---
 
-## フェーズ順序の意図
+## Phase 0: Scaffolding
 
-- Phase 1 を差分エンジンより先に置くのは、効果(トークン消費・再現性)が最も早く出るのが dnsmasq ワークフローだから。
-- Phase 2〜3 で「状況把握」問題を解き、Phase 4 で「定型ワークフロー」問題を一般化して解く。
-- Phase 5 は将来UIの計画が具体化するまで着手しなくてよいが、Phase 0 の設計規約を守っていれば追加コストは薄いAPI層のみで済む。
+**Goal: establish the skeleton of `nctl` and the design conventions.**
+
+- Create `nctl/` at the root of the parent repository (pj-clusterintent) (an `nctl_core` library plus a CLI entry point, managed with uv).
+- Build shared layers for the Nautobot GraphQL client, reading nodeutils dumps, and configuration (`nctl.toml`: Nautobot URL/token reference, inventory path, etc.).
+- Define the common JSON output format and event log format (JSON Lines + operation ID), and enforce it on every subsequent command.
+- Implement `nctl status` (checks Nautobot connectivity and submodule state) as the first command, serving as the reference implementation of the conventions.
+
+**Exit criteria**: `nctl status --json` works with a stable schema. The event log format is documented.
+
+## Phase 1: Bake in the dnsmasq workflow
+
+**Goal: turn the most frequent routine task into a single deterministic command, immediately eliminating AI token spend and non-reproducibility.**
+
+- `nctl render dnsmasq` — fetch desired endpoints from `nintent` via GraphQL and render DHCP reservations / DNS mappings from a Jinja2 template.
+- `nctl apply dnsmasq --diff` — show a diff against the current config (dry-run by default), then run the relevant playbook after approval. All Nautobot round-trips and playbook call ordering are hidden internally.
+- Define a thin Claude Code skill (`.claude/skills/`) so that "update dnsmasq" always resolves to the same command sequence.
+
+**Exit criteria**: Updating dnsmasq completes in two `nctl` commands, from either a human or AI, with a dry-run diff available for review beforehand.
+
+## Phase 2: Reconciliation Engine (drift engine)
+
+**Goal: consolidate desired-vs-actual drift computation into a single engine.**
+
+- Cross-reference the three sources — `nintent` desired state, Nautobot actual state, and `nodeutils` dumps — and determine `converged / drifting / converging / unknown` status per node/service.
+- Output the content of each difference (e.g. "desired has a DHCP reservation, but actual has no MAC registered") as a structured JSON list of diffs: `nctl drift [--host X] --json`.
+- Turn `nintent`'s model definitions into a shared library to avoid duplicating the desired-state schema (since this is the breaking-change phase, don't hesitate to restructure `nintent` itself if needed).
+- Make the judgment rules pluggable (a structure where comparators can be registered per resource type).
+
+**Exit criteria**: `nctl drift --json` returns cluster-wide drift in a single run, and AI can read just that to explain the current state.
+
+## Phase 3: Visualization dashboard
+
+**Goal: let humans grasp the situation from a single screen without touring Nautobot.**
+
+- `nctl dashboard` — generate static HTML from the drift JSON produced in Phase 2. Show the whole cluster as green/yellow/red, with drift details in prose on click.
+- Regenerate on every reconcile/drift run. Hosting can be a local file or LAN-only static serving; no auth needed.
+- On the Nautobot side, add only a reconciliation status field and a link to the dashboard to the `nintent` plugin (accept that Nautobot is the ledger and visualization lives outside it).
+
+**Exit criteria**: The dashboard alone is enough to understand cluster health and drift details.
+
+## Phase 4: Automatic convergence loop
+
+**Goal: go from drift detection to resolution in one command. Make AI the exception handler.**
+
+- `nctl reconcile [host]` — run drift detection → execute the necessary playbooks in the correct order → re-inspect via nodeutils → confirm convergence, all as a single operation. Record every step in the event log.
+- Register other routine workflows besides dnsmasq (initial node setup, service placement, etc.) as reconcilers one by one.
+- On failure or non-convergence, stop and leave behind the operation's event log and drift JSON. Establish an operational flow where AI reads these to diagnose (build out a diagnostic skill).
+- Optional: periodic drift detection and notification via cron/scheduler.
+
+**Exit criteria**: The happy path converges via `nctl reconcile` with no human or AI involvement; only failure cases go to AI diagnosis.
+
+## Phase 5: Realtime API layer (groundwork for a future UI)
+
+**Goal: make it possible for advanced UIs (3D, voice, etc.) to connect as "new subscribers."**
+
+- `nctl serve` — an HTTP API wrapping `nctl_core` (state snapshot, drift fetch, reconcile trigger) plus a WebSocket for streaming events. Minimal auth (roughly a single token) is enough.
+- Start firming up the event schema toward a freeze (from this phase onward, start caring about compatibility as UI development begins).
+- As a reference implementation, build one live-updating browser dashboard (a dynamic version of Phase 3) that subscribes over WebSocket, to validate the subscriber API in practice.
+
+**Exit criteria**: An external process can fetch current state, issue change requests, and subscribe to progress events, all via the API. A game-engine-built UI can be built on top of this API without any backend changes.
+
+---
+
+## Rationale for phase ordering
+
+- Phase 1 comes before the drift engine because the dnsmasq workflow is where the payoff (token spend, reproducibility) shows up fastest.
+- Phases 2–3 solve the "situational awareness" problem; Phase 4 generalizes and solves the "routine workflow" problem.
+- Phase 5 doesn't need to start until the future UI plans are concrete, but if the Phase 0 design conventions are followed, the added cost will be limited to a thin API layer.
