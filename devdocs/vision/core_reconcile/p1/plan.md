@@ -51,7 +51,7 @@ renderers alive.
 
 Ordering rationale: Steps 1–3 (nctl renderer + `render` command + parity check) touch only nctl.
 Step 4 (nintent deletion) is the single push cycle. Steps 5–6 (playbook + `apply`) land after
-the new source of truth is proven. The skill and report close it out.
+the new source of truth is proven. CLI documentation and the report close it out.
 
 **Risk to verify first (start of Step 2)**: exact GraphQL field availability/filterability of
 `intent_evaluations` (`target_type` filter, `target_id`, `reviewed_at`, `created`,
@@ -149,12 +149,12 @@ node/endpoint fields. Resolve empirically before pinning the query.
   GraphQL, a stub `ansible-playbook` on PATH or subprocess seam); don't try to run real ansible
   in pytest.
 
-## Step 7 — Skill, docs, report
+## Step 7 — CLI docs and report
 
-- `.claude/skills/update-dnsmasq/SKILL.md` (parent repo): "update dnsmasq" resolves to
-  `nctl apply dnsmasq` (review diff) → `nctl apply dnsmasq --yes`, with `nctl render dnsmasq`
-  for inspect-only. Note the inventory prerequisite.
-- `nctl/README.md`: document the two commands and the `[ansible]` config table.
+- `nctl --help` and `nctl/README.md`: document `nctl render dnsmasq`, the default
+  `nctl apply dnsmasq` review flow, `nctl apply dnsmasq --yes`, and the `[ansible]` config table.
+  Keep this as the client-neutral integration surface; AI-specific adapters such as MCP can be
+  added separately when needed.
 - `ansible_agdev` README (if it documents the old playbook): update the dnsmasq section.
 - Write `devdocs/vision/core_reconcile/p1/report*.md` in the established style, including the
   parity artifacts (Step 3), the pinned GraphQL query, and any fallbacks taken.
@@ -184,7 +184,6 @@ node/endpoint fields. Resolve empirically before pinning the query.
   longer offers the export.
 - [x] The dnsmasq playbook is deploy-only (no Job/file-proxy/polling tasks) and takes
   `dnsmasq_records_src` as input.
-- [x] `.claude/skills/update-dnsmasq` exists and resolves to the two-command sequence.
 - [x] `uv run pytest` passes in nctl, including the ported dnsmasq vocabulary tests.
 
 ## Suggested commit order
@@ -194,4 +193,4 @@ node/endpoint fields. Resolve empirically before pinning the query.
 2. nintent: delete the Job-export path, version bump (Step 4; the single push/rebuild cycle).
 3. ansible_agdev: deploy-only playbook rewrite (Step 5).
 4. nctl: `apply dnsmasq` + `[ansible]` config + events + tests (Step 6).
-5. Parent repo: skill, submodule pointer bumps, `p1/report*.md` (Step 7).
+5. Parent repo: CLI documentation status, submodule pointer bumps, `p1/report*.md` (Step 7).

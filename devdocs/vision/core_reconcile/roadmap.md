@@ -56,7 +56,8 @@ Design decision: dnsmasq conf is an artifact of one specific actuation mechanism
 - `nctl render dnsmasq` — fetch desired endpoints, IP ranges, and intent evaluations via GraphQL (the Phase 0-EX1 types) and render the conf deterministically in `nctl_core` as a pure function (ported from `nintent`'s `dnsmasq.py`, output-compatible). The same function becomes the "desired conf" side of Phase 2 drift.
 - `nctl apply dnsmasq` — render, then run the deploy-only playbook in check+diff mode (dry-run by default); `--yes` applies for real. Long-running, so it gets an operation ID and JSON Lines events.
 - **Cleanup of the old path**: delete `ExportDnsmasqRecords` and `dnsmasq.py` (+ its tests, after porting them) from `nintent`; reduce `ansible_agdev`'s `deploy_nintent_dnsmasq_records.yml` to a deploy-only playbook that takes a pre-rendered conf path (the Job-orchestration play and its file-proxy/polling plumbing are deleted).
-- Define a thin Claude Code skill (`.claude/skills/`) so that "update dnsmasq" always resolves to the same command sequence.
+- Document the deterministic command sequence in `nctl --help` and the project README so humans
+  and any AI/tool integration can use the same CLI without a client-specific adapter.
 - The other misplaced responsibilities follow the same principle in later phases — see the [responsibility migration map](#responsibility-migration-map) below.
 
 **Exit criteria**: Updating dnsmasq completes in two `nctl` commands, from either a human or AI, with a dry-run diff available for review beforehand. dnsmasq rendering exists in exactly one place (`nctl_core`), and no dnsmasq Job/file-proxy plumbing remains in `nintent` or `ansible_agdev`.
@@ -104,7 +105,10 @@ Detailed plan: [p1/plan.md](p1/plan.md)
 - `nctl reconcile [host]` — run drift detection → execute the necessary playbooks in the correct order → re-inspect via nodeutils → confirm convergence, all as a single operation. Record every step in the event log.
 - **Take over the collect→ingest orchestration** (see the migration map): the "slurp nodeutils reports → run the nauto Ingest Job → poll" half of `collect_nodeutils_and_ingest_nautobot.yml` becomes nctl's job inside the reconcile pipeline. Ansible keeps only the host-side collection (`run_nodeutils_collect.yml`); the nauto Ingest Job itself stays (it writes to the ledger) but is triggered by nctl.
 - Register other routine workflows besides dnsmasq (initial node setup, service placement, etc.) as reconcilers one by one.
-- On failure or non-convergence, stop and leave behind the operation's event log and drift JSON. Establish an operational flow where AI reads these to diagnose (build out a diagnostic skill).
+- On failure or non-convergence, stop and leave behind the operation's event log and drift JSON.
+  Establish an operational flow where AI reads these to diagnose; add a client-neutral integration
+  such as MCP only when it is useful, rather than making a specific AI client's skill part of the
+  reconciliation core.
 - Optional: periodic drift detection and notification via cron/scheduler.
 
 **Exit criteria**: The happy path converges via `nctl reconcile` with no human or AI involvement; only failure cases go to AI diagnosis.

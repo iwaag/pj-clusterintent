@@ -1,11 +1,11 @@
-# Phase 1 Report — Step 7 (skill, docs, and closeout)
+# Phase 1 Report — Step 7 (CLI docs and closeout)
 
 Date: 2026-07-15. Implements [p1/plan.md](plan.md) Step 7 and consolidates the Phase 1 status
 after [report1.md](report1.md) through [report6.md](report6.md).
 
-## Skill
+## Client-neutral operation surface
 
-Added `.claude/skills/update-dnsmasq/SKILL.md` with a deliberately narrow workflow:
+The supported workflow is documented directly through `nctl --help` and `nctl/README.md`:
 
 - inspect only with `nctl render dnsmasq` (and `--json` for structured details);
 - preview with the default `nctl apply dnsmasq` check+diff;
@@ -14,13 +14,9 @@ Added `.claude/skills/update-dnsmasq/SKILL.md` with a deliberately narrow workfl
 - preserve and report render, inventory, validation, and Ansible failures rather than bypassing
   safeguards.
 
-The skill notes the Nautobot token and production-inventory prerequisites. Commands use
-`uv run --directory nctl ...`, so they work directly from the parent repository root.
-
-The `skill-creator` workflow was used to initialize and validate the skill. No scripts,
-references, assets, or auxiliary documentation were retained because this is intentionally a
-thin command-routing skill. Validation result: `Skill is valid!`. The command form was also
-verified with `nctl apply dnsmasq --help`.
+No client-specific AI skill is part of Phase 1. The CLI, stable JSON envelopes, and event logs are
+sufficient for both humans and AI callers. A generic integration such as MCP can be added
+separately if needed without changing the workflow backend.
 
 ## Documentation completed across Steps 5–7
 
@@ -53,7 +49,6 @@ After the nintent push, rebuilt the dev Nautobot images without cache and restar
   stable JSON envelope, target validation, and tests.
 - [x] nintent renderer/Job path removed and deployed as 0.5.0.
 - [x] Ansible playbook is deploy-only and takes `dnsmasq_records_src`.
-- [x] `update-dnsmasq` skill exists and validates.
 - [x] nctl test suite: 90 passed.
 - [ ] Dev-cluster Ansible check+diff and real apply: not run.
 
@@ -75,11 +70,10 @@ Ansible no-op.
 
 ## Commit boundary and next work
 
-This is the fifth suggested Phase 1 commit: parent-repo skill, report closeout, and documentation
+This is the fifth suggested Phase 1 commit: parent-repo report closeout and CLI documentation
 status updates. Phase 1 code is complete; only the environment-dependent deployment proof remains.
 
 Per the roadmap, the next implementation phase is Phase 1.5: migrate the hosts-intent export to
 nctl using the same pure renderer + GraphQL + parity + Job deletion pattern. That phase does not
 itself replace the production service-group inventory; the Phase 2 production-inventory migration
 remains the eventual owner of that composition.
-

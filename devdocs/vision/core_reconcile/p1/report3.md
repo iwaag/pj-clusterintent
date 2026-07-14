@@ -89,7 +89,7 @@ anything in nintent has now run and passed.
 - Step 5 — rewrite the `ansible_agdev` playbook to deploy-only.
 - Step 6 — `nctl apply dnsmasq` (the first long-running command: operation ID + JSON Lines events
   + `[ansible]` config table).
-- Step 7 — skill, docs, final phase report.
+- Step 7 — CLI docs and final phase report.
 
 ## Exit criteria status
 
@@ -98,7 +98,6 @@ anything in nintent has now run and passed.
 - [ ] `nctl apply dnsmasq` — pending Step 6.
 - [ ] `nintent` contains no dnsmasq rendering — pending Step 4.
 - [ ] The dnsmasq playbook is deploy-only — pending Step 5.
-- [ ] `.claude/skills/update-dnsmasq` exists — pending Step 7.
 - [x] `uv run pytest` passes in nctl, including the ported dnsmasq vocabulary tests (77 passed).
 
 Next: Step 4 — delete the Job-export path in nintent (needs the user to push once nintent's commit

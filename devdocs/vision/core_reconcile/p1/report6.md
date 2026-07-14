@@ -85,9 +85,8 @@ known dnsmasq host is also documented as unreachable in `.local/localenv_memo.md
 ## Commit boundary
 
 This is the fourth suggested Phase 1 commit: **nctl: `apply dnsmasq`, `[ansible]` config, events,
-and tests**. It is intentionally stopped before Step 7's parent-repo skill/final documentation
+and tests**. It is intentionally stopped before Step 7's final CLI documentation
 commit.
 
 Next: generate/select a production inventory and run the real dry-run when the dnsmasq host is
-reachable; independently, Step 7 can add the thin Claude Code skill and close the Phase 1 docs.
-
+reachable; independently, Step 7 can close the client-neutral CLI documentation and Phase 1 report.

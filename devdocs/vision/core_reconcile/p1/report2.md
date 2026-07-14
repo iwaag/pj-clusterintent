@@ -94,7 +94,6 @@ GraphQL fetch + `render dnsmasq` + tests") — this closes the fetch-layer porti
 - [ ] `nctl apply dnsmasq` — pending Step 6.
 - [ ] `nintent` contains no dnsmasq rendering — pending Step 4.
 - [ ] The dnsmasq playbook is deploy-only — pending Step 5.
-- [ ] `.claude/skills/update-dnsmasq` exists — pending Step 7.
 - [x] `uv run pytest` passes in nctl, including the fetch-layer tests (67 passed).
 
 Next: Step 3 — build `nctl render dnsmasq`, then run the parity gate against a fresh live Job

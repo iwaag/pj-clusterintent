@@ -58,7 +58,7 @@ slice of commit 1 of 5 ("nctl: renderer port + GraphQL fetch + `render dnsmasq` 
   verify first" before the query shape can be pinned.
 - Step 3 — `nctl render dnsmasq` CLI command and the parity gate against the live Job (which in
   turn requires Step 2's fetch layer to exist).
-- Steps 4-7 (nintent Job deletion, ansible_agdev playbook rewrite, `nctl apply dnsmasq`, skill/docs)
+- Steps 4-7 (nintent Job deletion, ansible_agdev playbook rewrite, `nctl apply dnsmasq`, CLI docs)
   all sit downstream of Steps 2-3 per the plan's ordering rationale.
 
 ## Exit criteria status
@@ -67,7 +67,6 @@ slice of commit 1 of 5 ("nctl: renderer port + GraphQL fetch + `render dnsmasq` 
 - [ ] `nctl apply dnsmasq` dry-run/apply with operation ID and events — pending Step 6.
 - [ ] `nintent` contains no dnsmasq rendering — pending Step 4.
 - [ ] The dnsmasq playbook is deploy-only — pending Step 5.
-- [ ] `.claude/skills/update-dnsmasq` exists — pending Step 7.
 - [x] `uv run pytest` passes in nctl, including the ported dnsmasq vocabulary tests (61 passed).
 
 Next: Step 2 — resolve the GraphQL field-availability risk against the live dev instance, then pin
