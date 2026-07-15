@@ -58,9 +58,8 @@ Ran the actual gate the plan calls for, against the dev Nautobot instance from
      entries) carry identical `reasons` arrays, e.g. `['endpoint_evaluation_not_dhcp_ready',
      'ip_policy_not_dhcp_reserved', 'missing_actual_node', 'missing_mac_address']` for the
      `agdnsmasq` static endpoint on both sides.
-4. Saved all four artifacts as fixtures in `devdocs/vision/core_reconcile/p1/parity/`:
-   `job-dnsmasq-records.conf`, `job-dnsmasq-export.json` (from the Job), `nctl-dnsmasq-records.conf`,
-   `nctl-dnsmasq-render.json` (from `nctl render dnsmasq`).
+4. Used the four generated outputs only for the local comparison. They are not retained under
+   `devdocs`; the commands, comparison rules, and result above are the durable development log.
 
 No mismatch found — Step 1/2's port was correct on live data, first try.
 
@@ -71,13 +70,13 @@ No mismatch found — Step 1/2's port was correct on live data, first try.
 
 ## Deviations from plan
 
-None. Built exactly the CLI surface, envelope schema, and parity-gate procedure the plan
-specified, including saving both artifact pairs into the report directory.
+None in the implementation. Built the specified CLI surface, envelope schema, and parity-gate
+procedure. Generated comparison outputs were deliberately not retained in `devdocs`.
 
 ## Commit boundary
 
-Clean, self-contained: `dnsmasq_render.py`, the `render dnsmasq` CLI wiring, their tests (all
-green), plus the parity fixtures under `p1/parity/`. This completes commit 1 of 5 from the plan's
+Clean, self-contained: `dnsmasq_render.py`, the `render dnsmasq` CLI wiring, and their tests (all
+green). This completes commit 1 of 5 from the plan's
 suggested order ("nctl: renderer port + GraphQL fetch + `render dnsmasq` + tests; parity gate run
 against live before proceeding") — the parity gate the plan required before Step 4 touches
 anything in nintent has now run and passed.
@@ -94,7 +93,7 @@ anything in nintent has now run and passed.
 ## Exit criteria status
 
 - [x] `nctl render dnsmasq` output matches the last Job export on live data (record lines, summary
-  counts, skip reasons — parity artifacts saved in `p1/parity/`).
+  counts, and skip reasons; procedure and result recorded above).
 - [ ] `nctl apply dnsmasq` — pending Step 6.
 - [ ] `nintent` contains no dnsmasq rendering — pending Step 4.
 - [ ] The dnsmasq playbook is deploy-only — pending Step 5.

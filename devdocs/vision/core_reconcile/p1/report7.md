@@ -43,8 +43,8 @@ After the nintent push, rebuilt the dev Nautobot images without cache and restar
 
 ## Final Phase 1 exit status
 
-- [x] Live renderer parity: record lines, summary counts, and skip reasons matched; artifacts are
-  saved under `p1/parity/`.
+- [x] Live renderer parity: record lines, summary counts, and skip reasons matched; the procedure
+  and result are recorded in `report3.md` without retaining generated artifacts in `devdocs`.
 - [x] `nctl apply dnsmasq` implementation: dry-run/apply branches, operation artifacts/events,
   stable JSON envelope, target validation, and tests.
 - [x] nintent renderer/Job path removed and deployed as 0.5.0.

@@ -83,7 +83,7 @@ GraphQL fetch + `render dnsmasq` + tests") — this closes the fetch-layer porti
 **Not done yet, deliberately left for the next commit(s):**
 - Step 3 — `nctl render dnsmasq` CLI command (`--out`, `--json` envelope) and the parity gate: a
   fresh run of the live `Export dnsmasq Records` Job, diffed byte-for-byte against this fetch
-  layer's output through Step 1's renderer, with both artifacts saved into the report directory.
+  layer's output through Step 1's renderer, with the procedure and result recorded in the report.
 - Steps 4-7 remain downstream of Step 3 per the plan's ordering rationale.
 
 ## Exit criteria status

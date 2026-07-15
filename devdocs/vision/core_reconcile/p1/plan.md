@@ -103,8 +103,9 @@ node/endpoint fields. Resolve empirically before pinning the query.
 - **Parity gate (before Step 4 deletes anything)**: run the live `Export dnsmasq Records` Job
   once more, download `dnsmasq-records.conf` + `dnsmasq-export.json`, and diff against
   `nctl render dnsmasq` output on the same live data — record lines must match exactly
-  (headers/`generated_at`/ids excluded), summary counts and skip reasons must match. Save both
-  artifacts as fixtures in the report directory. Any mismatch is a Step 1/2 bug to fix first.
+  (headers/`generated_at`/ids excluded), summary counts and skip reasons must match. Record the
+  comparison commands and result in the report, but do not store generated artifacts under
+  `devdocs`. Any mismatch is a Step 1/2 bug to fix first.
 
 ## Step 4 — Delete the Job-export path in nintent (single push cycle)
 
@@ -157,7 +158,7 @@ node/endpoint fields. Resolve empirically before pinning the query.
   added separately when needed.
 - `ansible_agdev` README (if it documents the old playbook): update the dnsmasq section.
 - Write `devdocs/vision/core_reconcile/p1/report*.md` in the established style, including the
-  parity artifacts (Step 3), the pinned GraphQL query, and any fallbacks taken.
+  Step 3 parity procedure/result, the pinned GraphQL query, and any fallbacks taken.
 
 ## Out of scope
 
@@ -175,7 +176,7 @@ node/endpoint fields. Resolve empirically before pinning the query.
 ## Exit criteria (from roadmap, made checkable)
 
 - [x] `nctl render dnsmasq` output matches the last Job export on live data (record lines,
-  summary counts, skip reasons — parity artifacts saved in the report).
+  summary counts, and skip reasons; procedure and result recorded in the report).
 - [ ] `nctl apply dnsmasq` shows an ansible `--check --diff` dry-run by default and applies
   with `--yes`, emitting an operation ID and JSON Lines events; verified against the dev
   cluster end to end.
