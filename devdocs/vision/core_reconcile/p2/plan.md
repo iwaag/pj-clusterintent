@@ -271,23 +271,23 @@ close out.
 
 ## Exit criteria (from roadmap, made checkable)
 
-- [ ] `nctl drift --json` returns cluster-wide status (`converged/drifting/converging/unknown`
+- [x] `nctl drift --json` returns cluster-wide status (`converged/drifting/converging/unknown`
   per node/service) with structured diffs in one run against the live dev cluster, computed
   from the three sources (nintent desired via GraphQL, Nautobot actual, nodeutils dumps).
-- [ ] Comparators are registered per resource type via the registry; adding one requires no
+- [x] Comparators are registered per resource type via the registry; adding one requires no
   change to the drift core.
-- [ ] `nctl render production` output matches the last live Job export (host vars, groups,
+- [x] `nctl render production` output matches the last live Job export (host vars, groups,
   skipped, drift; procedure recorded), and writes a validated
   `inventories/generated/production.yml`.
-- [ ] The deployment-profiles byte contract is gone: no serialize/verify/sync playbooks, no
+- [x] The deployment-profiles byte contract is gone: no serialize/verify/sync playbooks, no
   `SyncDeploymentProfiles`/`DeploymentProfileProjection`, profiles read directly from the
   ansible_agdev checkout.
-- [ ] The Evaluate Jobs and `IntentEvaluation` are deleted (Decision 1 executed); `render
+- [x] The Evaluate Jobs and `IntentEvaluation` are deleted (Decision 1 executed); `render
   dnsmasq` output is unchanged through the MAC-source switch; nintent 0.6.0 deployed and
   `nctl status` green.
-- [ ] Desired-state processing logic exists only in `nctl_core` (Decision 2): nintent retains
+- [x] Desired-state processing logic exists only in `nctl_core` (Decision 2): nintent retains
   ORM models, importers, and transactional Jobs only.
-- [ ] `uv run pytest` passes in nctl including the ported production/contract/evaluation
+- [x] `uv run pytest` passes in nctl including the ported production/contract/evaluation
   suites; nintent's remaining suite passes.
 
 ## Suggested commit order

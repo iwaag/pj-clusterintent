@@ -33,3 +33,19 @@ git submodule update --init --recursive
 ## Developer Docs
 
 - [devdocs/functions/](devdocs/functions/) — Design exploration logs for individual features
+- [devdocs/vision/core_reconcile/](devdocs/vision/core_reconcile/) — nctl reconciliation roadmap and phase reports
+
+## Reconciliation CLI
+
+From the repository root after configuring `nctl.toml` and `NAUTOBOT_TOKEN`:
+
+```bash
+uv run --project nctl nctl status
+uv run --project nctl nctl drift --json
+uv run --project nctl nctl render dnsmasq
+uv run --project nctl nctl render production --out ansible_agdev/inventories/generated
+```
+
+`nctl drift` is the structured desired-vs-actual source of truth. Production composition and
+dnsmasq rendering are also nctl responsibilities; nintent stores desired state, Nautobot stores
+actual ledger state, nodeutils supplies observations, and Ansible actuates generated artifacts.
