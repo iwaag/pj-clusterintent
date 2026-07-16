@@ -32,25 +32,23 @@ required before this deletion passed in [report1-3.md](report1-3.md).
   files. Historical notes in `DEVLOG_PICKUP.md` were intentionally excluded from this check.
 - `git diff --check` for both the parent and nintent worktrees — passed.
 
-## Deployment-dependent verification still pending
+## Deployment verification after push
 
-The local dev Nautobot installs nintent from GitHub rather than mounting this checkout. Per
-`.local/localenv_memo.md`, the remaining Step 4 verification requires this commit to be pushed
-by the user, followed by a no-cache Nautobot image rebuild and restart. It was therefore not
-possible or appropriate to claim these checks from the unpushed local tree:
+After the user pushed nintent commit `118a354` (`p1ex1 s4`):
 
-1. Commit the nintent Step 4 changes and have the user push them.
-2. Run from `devenv/nautobot`:
-   `docker compose --env-file ../.env build --no-cache`, then
-   `docker compose --env-file ../.env up -d`.
-3. Confirm the Nautobot Job list no longer contains `Export Ansible Hosts Intent`.
-4. Run `nctl status` and confirm it remains green.
-
-No rebuild was attempted against the old GitHub revision because it could not validate these
-changes.
+- Ran `docker compose --env-file ../.env build --no-cache` and
+  `docker compose --env-file ../.env up -d` from `devenv/nautobot`. The build resolved the
+  GitHub dependency to `118a354`; the web, worker, and scheduler containers were recreated and
+  the web container became healthy.
+- The container reports nintent distribution version `0.8.0` and
+  `IntentCatalogConfig.version == "0.8.0"`.
+- The Nautobot Jobs API has no installed registration for `Export Ansible Hosts Intent`.
+  Nautobot retains the historical database row with `installed=false`, as it does for other
+  removed Jobs; it is no longer offered as an executable installed Job.
+- `nctl status` returned `ok: True`: authenticated Nautobot, intent GraphQL, dumps, and all
+  five submodules were green; nintent was reported clean at `118a354dfef1`.
 
 ## Commit boundary / next step
 
-Step 4 is locally complete and is the intended standalone nintent commit unit. Step 5 remains
-untouched: remove the Ansible export playbook and its now-orphaned shared Job/file-proxy tasks,
-then repoint the Makefile and ansible documentation to `nctl render hosts-intent`.
+Step 4 is complete, including its post-push deployment verification. Step 5 is recorded in
+[report5.md](report5.md).
