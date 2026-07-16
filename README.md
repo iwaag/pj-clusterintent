@@ -43,13 +43,15 @@ From the repository root after configuring `nctl.toml` and `NAUTOBOT_TOKEN`:
 uv run --project nctl nctl status
 uv run --project nctl nctl drift --json
 uv run --project nctl nctl render dnsmasq
+uv run --project nctl nctl render hosts-intent --out ansible_agdev/inventories/generated
 uv run --project nctl nctl render production --out ansible_agdev/inventories/generated
 uv run --project nctl nctl dashboard
 ```
 
-`nctl drift` is the structured desired-vs-actual source of truth. Production composition and
-dnsmasq rendering are also nctl responsibilities; nintent stores desired state, Nautobot stores
-actual ledger state, nodeutils supplies observations, and Ansible actuates generated artifacts.
+`nctl drift` is the structured desired-vs-actual source of truth. Bootstrap/production inventory
+composition and dnsmasq rendering are also nctl responsibilities; nintent stores desired state,
+Nautobot stores actual ledger state, nodeutils supplies observations, and Ansible actuates
+generated artifacts.
 `nctl dashboard` is the routine command for humans: it regenerates a self-contained static HTML
 dashboard (green/yellow/red/gray tiles, one per node/service, with drift details in prose on
 click) from a fresh `nctl drift` run and pushes each target's status back into nintent as a
