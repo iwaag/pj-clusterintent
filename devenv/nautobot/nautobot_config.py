@@ -509,6 +509,7 @@ PLUGINS = ["nautobot_intent_catalog"]
 # }
 PLUGINS_CONFIG = {
     "nautobot_intent_catalog": {
+        "dashboard_url": "http://192.168.1.50/nctl-dashboard/",
     },
 }
 # Prefer IPv6 addresses or IPv4 addresses in selecting a device's primary IP address? Default False
