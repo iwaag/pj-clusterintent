@@ -46,6 +46,8 @@ uv run --project nctl nctl render dnsmasq
 uv run --project nctl nctl render hosts-intent --out ansible_agdev/inventories/generated
 uv run --project nctl nctl render production --out ansible_agdev/inventories/generated
 uv run --project nctl nctl dashboard
+uv run --project nctl nctl reconcile
+uv run --project nctl nctl reconcile --yes
 ```
 
 `nctl drift` is the structured desired-vs-actual source of truth. Bootstrap/production inventory
@@ -56,3 +58,14 @@ generated artifacts.
 dashboard (green/yellow/red/gray tiles, one per node/service, with drift details in prose on
 click) from a fresh `nctl drift` run and pushes each target's status back into nintent as a
 derived cache. Run `nctl dashboard`, not `nctl drift`, whenever the page itself needs updating.
+
+**`nctl reconcile --yes` is the routine path from drift to a freshly verified converged state** —
+drift, required ledger/Ansible actions, fresh nodeutils collection, verified Nautobot ingest, and a
+final drift check, all as one bounded operation (`nctl reconcile HOST` first for a single node, no
+argument for the whole cluster). It replaces the old
+`make bootstrap-inventory && make collect-ingest && make production-inventory` sequence in
+`ansible_agdev` — that Makefile's `pipeline` target now runs this command directly. Run it without
+`--yes` first to get a dry plan with zero writes. AI's role is to read the plan/drift/event
+artifacts under `<events.log_dir>/<operation_id>/` only when a run stops short of `converged`, not
+to re-derive the workflow steps by hand each time. See [nctl/README.md](nctl/README.md) and
+[devdocs/vision/core_reconcile/p4/](devdocs/vision/core_reconcile/p4/) for the full contract.
