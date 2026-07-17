@@ -157,6 +157,701 @@ conflict, `422` validation, `503` not ready.
 | `GET /api/v1/operations/{id}/artifacts` / `.../artifacts/{name}` | list/fetch sanitized artifacts (`plan.json`, drift rounds, `result.json`); raw reports and anything mode `0600` are **not** served |
 | `POST /api/v1/operations` | create an operation: `{"op": "drift" \| "dashboard" \| "render.dnsmasq" \| "render.production" \| "render.hosts_intent" \| "reconcile", "params": {...}}` → `202 {operation_id}` |
 | `WS /api/v1/ws` | event stream; client sends `{"subscribe": "all" \| {"operation_id": ...}, "after_seq": N}` |
+Show less
+計画ファイルとロードマップを確認します。
+
+Read plan.md
+Read roadmap.md, README.md
+Read localenv_memo.md
+Bash List p5 dir and nctl repo
+IN
+ls /Users/eiji/projects/pj-clusterintent/devdocs/vision/core_reconcile/p5/ && ls /Users/eiji/projects/pj-clusterintent/nctl
+
+OUT
+plan.md
+docs
+example.nctl.toml
+LICENSE
+pyproject.toml
+README.md
+src
+tests
+uv.lock
+Bash List nctl source and test files
+IN
+find /Users/eiji/projects/pj-clusterintent/nctl/src /Users/eiji/projects/pj-clusterintent/nctl/tests -type f -name "*.py" | sort && echo --- && ls /Users/eiji/projects/pj-clusterintent/nctl/docs
+
+OUT
+/Users/eiji/projects/pj-clusterintent/nctl/src/nctl_core/__init__.py
+/Users/eiji/projects/pj-clusterintent/nctl/src/nctl_core/ansible.py
+/Users/eiji/projects/pj-clusterintent/nctl/src/nctl_core/artifacts.py
+/Users/eiji/projects/pj-clusterintent/nctl/src/nctl_core/cli/__init__.py
+/Users/eiji/projects/pj-clusterintent/nctl/src/nctl_core/cli/main.py
+/Users/eiji/projects/pj-clusterintent/nctl/src/nctl_core/config.py
+/Users/eiji/projects/pj-clusterintent/nctl/src/nctl_core/dashboard_render.py
+/Users/eiji/projects/pj-clusterintent/nctl/src/nctl_core/dashboard/__init__.py
+/Users/eiji/projects/pj-clusterintent/nctl/src/nctl_core/dashboard/html.py
+/Users/eiji/projects/pj-clusterintent/nctl/src/nctl_core/dashboard/push.py
+/Users/eiji/projects/pj-clusterintent/nctl/src/nctl_core/dnsmasq_apply.py
+/Users/eiji/projects/pj-clusterintent/nctl/src/nctl_core/dnsmasq_query.py
+/Users/eiji/projects/pj-clusterintent/nctl/src/nctl_core/dnsmasq_render.py
+/Users/eiji/projects/pj-clusterintent/nctl/src/nctl_core/dnsmasq.py
+/Users/eiji/projects/pj-clusterintent/nctl/src/nctl_core/drift_render.py
+/Users/eiji/projects/pj-clusterintent/nctl/src/nctl_core/drift/__init__.py
+/Users/eiji/projects/pj-clusterintent/nctl/src/nctl_core/drift/comparators.py
+/Users/eiji/projects/pj-clusterintent/nctl/src/nctl_core/drift/context.py
+/Users/eiji/projects/pj-clusterintent/nctl/src/nctl_core/drift/engine.py
+/Users/eiji/projects/pj-clusterintent/nctl/src/nctl_core/drift/evaluation_snapshot.py
+/Users/eiji/projects/pj-clusterintent/nctl/src/nctl_core/drift/evaluation.py
+/Users/eiji/projects/pj-clusterintent/nctl/src/nctl_core/drift/model.py
+/Users/eiji/projects/pj-clusterintent/nctl/src/nctl_core/drift/operations.py
+/Users/eiji/projects/pj-clusterintent/nctl/src/nctl_core/drift/registry.py
+/Users/eiji/projects/pj-clusterintent/nctl/src/nctl_core/drift/service_placement.py
+/Users/eiji/projects/pj-clusterintent/nctl/src/nctl_core/drift/status.py
+/Users/eiji/projects/pj-clusterintent/nctl/src/nctl_core/dumps.py
+/Users/eiji/projects/pj-clusterintent/nctl/src/nctl_core/events.py
+/Users/eiji/projects/pj-clusterintent/nctl/src/nctl_core/hosts_intent_render.py
+/Users/eiji/projects/pj-clusterintent/nctl/src/nctl_core/hosts_intent.py
+/Users/eiji/projects/pj-clusterintent/nctl/src/nctl_core/inventory_write.py
+/Users/eiji/projects/pj-clusterintent/nctl/src/nctl_core/jobs.py
+/Users/eiji/projects/pj-clusterintent/nctl/src/nctl_core/names.py
+/Users/eiji/projects/pj-clusterintent/nctl/src/nctl_core/nautobot.py
+/Users/eiji/projects/pj-clusterintent/nctl/src/nctl_core/observation.py
+/Users/eiji/projects/pj-clusterintent/nctl/src/nctl_core/output.py
+/Users/eiji/projects/pj-clusterintent/nctl/src/nctl_core/production_render.py
+/Users/eiji/projects/pj-clusterintent/nctl/src/nctl_core/production/__init__.py
+/Users/eiji/projects/pj-clusterintent/nctl/src/nctl_core/production/adapter.py
+/Users/eiji/projects/pj-clusterintent/nctl/src/nctl_core/production/composer.py
+/Users/eiji/projects/pj-clusterintent/nctl/src/nctl_core/production/contract.py
+/Users/eiji/projects/pj-clusterintent/nctl/src/nctl_core/production/profiles.py
+/Users/eiji/projects/pj-clusterintent/nctl/src/nctl_core/reconcile/__init__.py
+/Users/eiji/projects/pj-clusterintent/nctl/src/nctl_core/reconcile/classify.py
+/Users/eiji/projects/pj-clusterintent/nctl/src/nctl_core/reconcile/executor.py
+/Users/eiji/projects/pj-clusterintent/nctl/src/nctl_core/reconcile/fingerprint.py
+/Users/eiji/projects/pj-clusterintent/nctl/src/nctl_core/reconcile/ledger.py
+/Users/eiji/projects/pj-clusterintent/nctl/src/nctl_core/reconcile/lock.py
+/Users/eiji/projects/pj-clusterintent/nctl/src/nctl_core/reconcile/model.py
+/Users/eiji/projects/pj-clusterintent/nctl/src/nctl_core/reconcile/planner.py
+/Users/eiji/projects/pj-clusterintent/nctl/src/nctl_core/reconcile/profiles.py
+/Users/eiji/projects/pj-clusterintent/nctl/src/nctl_core/reconcile/reconcilers.py
+/Users/eiji/projects/pj-clusterintent/nctl/src/nctl_core/reconcile/registry.py
+/Users/eiji/projects/pj-clusterintent/nctl/src/nctl_core/sources/__init__.py
+/Users/eiji/projects/pj-clusterintent/nctl/src/nctl_core/sources/actual.py
+/Users/eiji/projects/pj-clusterintent/nctl/src/nctl_core/sources/desired.py
+/Users/eiji/projects/pj-clusterintent/nctl/src/nctl_core/sources/observed.py
+/Users/eiji/projects/pj-clusterintent/nctl/src/nctl_core/sources/snapshot.py
+/Users/eiji/projects/pj-clusterintent/nctl/src/nctl_core/status.py
+/Users/eiji/projects/pj-clusterintent/nctl/tests/test_ansible.py
+/Users/eiji/projects/pj-clusterintent/nctl/tests/test_artifacts.py
+/Users/eiji/projects/pj-clusterintent/nctl/tests/test_cli_apply_dnsmasq.py
+/Users/eiji/projects/pj-clusterintent/nctl/tests/test_cli_dashboard.py
+/Users/eiji/projects/pj-clusterintent/nctl/tests/test_cli_drift.py
+/Users/eiji/projects/pj-clusterintent/nctl/tests/test_cli_render_dnsmasq.py
+/Users/eiji/projects/pj-clusterintent/nctl/tests/test_cli_render_hosts_intent.py
+/Users/eiji/projects/pj-clusterintent/nctl/tests/test_cli_render_production.py
+/Users/eiji/projects/pj-clusterintent/nctl/tests/test_cli_status.py
+/Users/eiji/projects/pj-clusterintent/nctl/tests/test_config.py
+/Users/eiji/projects/pj-clusterintent/nctl/tests/test_dashboard_html.py
+/Users/eiji/projects/pj-clusterintent/nctl/tests/test_dashboard_push.py
+/Users/eiji/projects/pj-clusterintent/nctl/tests/test_dashboard_render.py
+/Users/eiji/projects/pj-clusterintent/nctl/tests/test_dnsmasq_apply.py
+/Users/eiji/projects/pj-clusterintent/nctl/tests/test_dnsmasq_query.py
+/Users/eiji/projects/pj-clusterintent/nctl/tests/test_dnsmasq_render.py
+/Users/eiji/projects/pj-clusterintent/nctl/tests/test_dnsmasq.py
+/Users/eiji/projects/pj-clusterintent/nctl/tests/test_drift_comparators.py
+/Users/eiji/projects/pj-clusterintent/nctl/tests/test_drift_engine.py
+/Users/eiji/projects/pj-clusterintent/nctl/tests/test_drift_evaluation_snapshot.py
+/Users/eiji/projects/pj-clusterintent/nctl/tests/test_drift_evaluation.py
+/Users/eiji/projects/pj-clusterintent/nctl/tests/test_drift_operations.py
+/Users/eiji/projects/pj-clusterintent/nctl/tests/test_drift_registry.py
+/Users/eiji/projects/pj-clusterintent/nctl/tests/test_drift_render.py
+/Users/eiji/projects/pj-clusterintent/nctl/tests/test_drift_status.py
+/Users/eiji/projects/pj-clusterintent/nctl/tests/test_dumps.py
+/Users/eiji/projects/pj-clusterintent/nctl/tests/test_events.py
+/Users/eiji/projects/pj-clusterintent/nctl/tests/test_hosts_intent_render.py
+/Users/eiji/projects/pj-clusterintent/nctl/tests/test_hosts_intent.py
+/Users/eiji/projects/pj-clusterintent/nctl/tests/test_jobs.py
+/Users/eiji/projects/pj-clusterintent/nctl/tests/test_nautobot.py
+/Users/eiji/projects/pj-clusterintent/nctl/tests/test_observation.py
+/Users/eiji/projects/pj-clusterintent/nctl/tests/test_output.py
+/Users/eiji/projects/pj-clusterintent/nctl/tests/test_production_adapter.py
+/Users/eiji/projects/pj-clusterintent/nctl/tests/test_production_composer.py
+/Users/eiji/projects/pj-clusterintent/nctl/tests/test_production_contract.py
+/Users/eiji/projects/pj-clusterintent/nctl/tests/test_production_profiles.py
+/Users/eiji/projects/pj-clusterintent/nctl/tests/test_production_render.py
+/Users/eiji/projects/pj-clusterintent/nctl/tests/test_reconcile_classify.py
+/Users/eiji/projects/pj-clusterintent/nctl/tests/test_reconcile_executor.py
+/Users/eiji/projects/pj-clusterintent/nctl/tests/test_reconcile_ledger.py
+/Users/eiji/projects/pj-clusterintent/nctl/tests/test_reconcile_lock.py
+/Users/eiji/projects/pj-clusterintent/nctl/tests/test_reconcile_planner.py
+/Users/eiji/projects/pj-clusterintent/nctl/tests/test_reconcile_profiles.py
+/Users/eiji/projects/pj-clusterintent/nctl/tests/test_reconcile_registry.py
+/Users/eiji/projects/pj-clusterintent/nctl/tests/test_service_placement.py
+/Users/eiji/projects/pj-clusterintent/nctl/tests/test_sources_actual.py
+/Users/eiji/projects/pj-clusterintent/nctl/tests/test_sources_desired.py
+/Users/eiji/projects/pj-clusterintent/nctl/tests/test_sources_observed.py
+/Users/eiji/projects/pj-clusterintent/nctl/tests/test_sources_snapshot.py
+/Users/eiji/projects/pj-clusterintent/nctl/tests/test_status.py
+---
+event-log.md
+output-format.md
+Read events.py
+Read event-log.md
+Read main.py
+Read output.py
+Update Todos
+
+Explore existing code: artifacts, config, reconcile executor artifact layout, test conventions
+
+Add subscriber bus to nctl_core.events
+
+Add nctl_core.operations_index module
+
+Add `nctl ops list` / `nctl ops show` CLI
+
+Write tests (bus isolation, index, corrupted JSONL)
+
+Run full test suite
+
+Write report1.md and commit
+Read artifacts.py
+Bash Find events config in config.py
+IN
+grep -n "log_dir\|events" /Users/eiji/projects/pj-clusterintent/nctl/src/nctl_core/config.py | head -30
+
+OUT
+56:    log_dir: Path = Path("~/.local/state/nctl/events")
+58:    def resolved_log_dir(self) -> Path:
+59:        return self.log_dir.expanduser()
+119:    events: EventsConfig = EventsConfig()
+Bash Find artifact layout in reconcile executor
+IN
+grep -n "write_json\|artifacts\.\|result.json\|plan.json\|OperationArtifacts\|OperationLog" /Users/eiji/projects/pj-clusterintent/nctl/src/nctl_core/reconcile/executor.py | head -40
+
+OUT
+30:from nctl_core.artifacts import ArtifactError, OperationArtifacts
+36:from nctl_core.events import OperationLog
+107:    op = OperationLog.start("reconcile", cfg.events.resolved_log_dir())
+116:        artifacts = OperationArtifacts.create(cfg.events.resolved_log_dir(), op.operation_id)
+119:    data.artifact_dir = str(artifacts.root)
+133:    cfg: Config, op: OperationLog, data: ReconcileData, artifacts: OperationArtifacts, scope: PlanScope
+140:    data.initial_drift_path = str(artifacts.write_json("round-00/drift-before.json", drift_data.model_dump(mode="json")))
+146:    data.plan_path = str(artifacts.write_json("plan.json", plan.model_dump(mode="json")))
+162:    op: OperationLog,
+164:    artifacts: OperationArtifacts,
+194:                artifacts.write_json("round-00/drift-before.json", drift_data.model_dump(mode="json"))
+201:        data.plan_path = str(artifacts.write_json("plan.json", plan.model_dump(mode="json")))
+245:            artifacts.write_json(
+259:    op: OperationLog,
+260:    artifacts: OperationArtifacts,
+344:    op: OperationLog,
+345:    artifacts: OperationArtifacts,
+402:    op: OperationLog,
+437:    op: OperationLog,
+438:    artifacts: OperationArtifacts,
+484:    op: OperationLog, action: ReconcileAction, target_slugs: list[str], detail: dict[str, Any], message: str
+527:    op: OperationLog,
+528:    artifacts: OperationArtifacts,
+560:def _write_dashboard(cfg: Config, op: OperationLog, data: ReconcileData, final_data: DriftData) -> None:
+636:def _finish(op: OperationLog, data: ReconcileData, state: str, errors: list[EnvelopeError]) -> Envelope[ReconcileData]:
+Read test_events.py
+Bash Read reconcile _finish and result.json writing
+IN
+sed -n 600,680p /Users/eiji/projects/pj-clusterintent/nctl/src/nctl_core/reconcile/executor.py
+
+OUT
+        )
+    except HostScopeError as exc:
+        return None, EnvelopeError(code="unknown_host", message=str(exc))
+    except UnclassifiedDiffCodeError as exc:
+        return None, EnvelopeError(code="unclassified_diff_code", message=str(exc))
+    return plan, None
+
+
+def _scope_summary(targets: list[TargetStatus], scope: PlanScope, snapshot: SourceSnapshot) -> dict[str, int]:
+    if scope.kind == "cluster":
+        selected = targets
+    else:
+        host_node = next((n for n in snapshot.desired.nodes if n.slug == scope.host_slug), None)
+        if host_node is None:
+            return {}
+        service_ids = {
+            p.service_id for p in snapshot.desired.placements if p.node_id == host_node.id and p.desired_state == "active"
+        }
+        services_by_slug = {s.slug: s for s in snapshot.desired.services}
+        selected = [
+            t
+            for t in targets
+            if t.target.kind == "global"
+            or (t.target.kind == "node" and t.target.slug == host_node.slug)
+            or (
+                t.target.kind == "service"
+                and services_by_slug.get(t.target.slug or "") is not None
+                and services_by_slug[t.target.slug].id in service_ids
+            )
+        ]
+    summary: dict[str, int] = {}
+    for t in selected:
+        summary[t.status.value] = summary.get(t.status.value, 0) + 1
+    return summary
+
+
+def _finish(op: OperationLog, data: ReconcileData, state: str, errors: list[EnvelopeError]) -> Envelope[ReconcileData]:
+    """Build the terminal envelope with `ok` driven by the reconcile *state*.
+
+    Unlike `Envelope.build` (`ok = not errors`), `manual_intervention_required`
+    and `non_converged` are failures even though they carry no `EnvelopeError`
+    -- the plan's `manual_review`/`unsupported` records are the reason, not a
+    run-level error -- so `ok` is set explicitly from the exit-criteria state
+    vocabulary instead.
+    """
+
+    data.state = state
+    ok = state in ("planned", "already_converged", "converged")
+    if state in ("already_converged", "converged"):
+        op.emit("drift_resolved", "reconcile converged", state=state)
+    elif state in ("manual_intervention_required", "non_converged"):
+        op.emit("non_converged", "reconcile stopped without full convergence", level="warning", state=state)
+    op.finish(ok=ok, message=state)
+    return Envelope(schema=RECONCILE_SCHEMA, generated_at=datetime.now(timezone.utc), ok=ok, data=data, errors=errors)
+
+
+def render_reconcile_text(envelope: Envelope[ReconcileData]) -> str:
+    data = envelope.data
+    lines = [
+        f"operation_id: {data.operation_id}",
+        f"mode: {data.mode}",
+        f"scope: {data.scope.label()}",
+        f"state: {data.state}",
+        f"event_log: {data.event_log_path}",
+    ]
+    if data.plan_path:
+        lines.append(f"plan: {data.plan_path}")
+    if data.final_drift_path:
+        lines.append(f"final_drift: {data.final_drift_path}")
+    status_line = " ".join(f"{status}={count}" for status, count in sorted(data.scope_summary.items()))
+    lines.append(f"scope summary: {status_line}" if status_line else "scope summary: (no targets)")
+    if data.manual_review:
+        lines.append(f"manual_review: {len(data.manual_review)} finding(s)")
+    if data.unsupported:
+        lines.append(f"unsupported: {len(data.unsupported)} finding(s)")
+    for round_summary in data.rounds:
+        lines.append(f"round {round_summary.round}: {len(round_summary.actions)} action(s)")
+        for action in round_summary.actions:
+            marker = "ok" if action.success else "FAILED"
+            lines.append(f"    [{marker}] {action.action_id} ({action.reconciler_id})")
+    for error in envelope.errors:
+Bash Find result.json usage and inspect real event log dir
+IN
+grep -rn "result.json" /Users/eiji/projects/pj-clusterintent/nctl/src /Users/eiji/projects/pj-clusterintent/nctl/tests | head; echo ---; ls ~/.local/state/nctl/events 2>/dev/null | tail -20
+
+OUT
+/Users/eiji/projects/pj-clusterintent/nctl/tests/test_artifacts.py:12:    path = artifacts.write_json("jobs/result.json", {"ok": True})
+---
+01KXPYJH1RFKTCQXZ7FSS772XC
+01KXPYJH1RFKTCQXZ7FSS772XC.jsonl
+01KXPYJMZXA7XKW18P6AHAXD3S
+01KXPYJMZXA7XKW18P6AHAXD3S.jsonl
+01KXPYJVN4MFQVXN5A1D0GSGQD
+01KXPYJVN4MFQVXN5A1D0GSGQD.jsonl
+01KXPYKQ73GYZZ52ZA7KS8S5AY
+01KXPYKQ73GYZZ52ZA7KS8S5AY.jsonl
+01KXPYKQTA406EX5CCDEYJHMHW
+01KXPYKQTA406EX5CCDEYJHMHW.jsonl
+01KXPYMM1BEXN0PDY6KCRG0V3A
+01KXPYMM1BEXN0PDY6KCRG0V3A.jsonl
+01KXPYNDV17GRYTW96M34JNAD8
+01KXPYNDV17GRYTW96M34JNAD8.jsonl
+01KXPYPSCXJX3RKVPR30CSYB10
+01KXPYPSCXJX3RKVPR30CSYB10.jsonl
+01KXPYQRCA8AHSNYCD371NXVQQ
+01KXPYQRCA8AHSNYCD371NXVQQ.jsonl
+01KXPYQRJ8GTNND0PC3KZSMPXC
+01KXPYQRJ8GTNND0PC3KZSMPXC.jsonl
+Bash Inspect real operation artifact layout
+IN
+find ~/.local/state/nctl/events/01KXPYQRJ8GTNND0PC3KZSMPXC -type f | head -20; echo ---; find ~/.local/state/nctl/events -maxdepth 2 -name "*.json" | sed 's|.*/events/||' | awk -F/ '{print $2}' | sort | uniq -c | sort -rn | head; echo ---; head -c 600 ~/.local/state/nctl/events/01KXPYQRJ8GTNND0PC3KZSMPXC.jsonl
+
+OUT
+---
+  15 plan.json
+---
+{"ts":"2026-07-17T02:33:23.272241Z","operation_id":"01KXPYQRJ8GTNND0PC3KZSMPXC","op":"reconcile","seq":0,"event":"started","level":"info","message":"reconcile started","data":{}}
+{"ts":"2026-07-17T02:33:23.273103Z","operation_id":"01KXPYQRJ8GTNND0PC3KZSMPXC","op":"reconcile","seq":1,"event":"finished","level":"info","message":"failed","data":{"ok":false}}
+Bash Survey real events dir structure and ops
+IN
+ls ~/.local/state/nctl/events | wc -l; ls -d ~/.local/state/nctl/events/*/ | head -3; find ~/.local/state/nctl/events -mindepth 2 -maxdepth 3 | sed 's|.*/events/[^/]*/||' | sort | uniq -c | sort -rn | head -15; echo ---; ls ~/.local/state/nctl/events/*.jsonl | head -2 | xargs -I{} sh -c 'echo {}; head -1 {} | python3 -c "import json,sys; print(json.loads(sys.stdin.read())[\"op\"])"'
+
+OUT
+      54
+/Users/eiji/.local/state/nctl/events/01KXGQHAGKPS2F43RNTQD4QFNV/
+/Users/eiji/.local/state/nctl/events/01KXGQJ6K50SMPFHVWQPMN6HKA/
+/Users/eiji/.local/state/nctl/events/01KXPXWGNAY26F69QAXC5WGPGF/
+  15 round-00/drift-before.json
+  15 round-00
+  15 plan.json
+  12 round-00/drift-final.json
+   6 round-00/jobs
+   6 jobs
+   2 artifacts/dnsmasq-records.conf
+   2 artifacts
+   1 slurp/agdnsmasq
+   1 slurp
+   1 probe-config/agdnsmasq.yaml
+   1 probe-config
+   1 jobs/f4cbaab1-0bef-4307-af89-50742a804eb6.json
+   1 jobs/e29e6dd5-5670-4c86-838c-39ce4f69cba1.json
+   1 jobs/b7874567-c10a-47de-a417-44fa2ee097a1.json
+---
+/Users/eiji/.local/state/nctl/events/01KXGA0M2M4K1TJSV86AKGNDAD.jsonl
+status
+/Users/eiji/.local/state/nctl/events/01KXGA0X6JQ7XPEJNKXNCRTW62.jsonl
+status
+Existing structure is clear. Now let me check the envelope/render conventions in one existing build module before writing code.
+
+Bash Read status.py and config.py heads
+IN
+sed -n 1,80p /Users/eiji/projects/pj-clusterintent/nctl/src/nctl_core/status.py; echo =====; sed -n 1,60p /Users/eiji/projects/pj-clusterintent/nctl/src/nctl_core/config.py
+
+OUT
+Exit code 1
+"""Pure library logic for `nctl status` (Step 0.6): the reference implementation of the
+envelope, event log, and independent-degradation conventions.
+"""
+
+from __future__ import annotations
+
+import subprocess
+from datetime import datetime, timezone
+from pathlib import Path
+
+from pydantic import BaseModel
+
+from nctl_core.config import Config, ConfigError
+from nctl_core.dumps import scan_dumps
+from nctl_core.events import OperationLog
+from nctl_core.nautobot import NautobotClient, NautobotConnectionError, NautobotInfo
+from nctl_core.output import Envelope, EnvelopeError
+
+STATUS_SCHEMA = "nctl.status.v1"
+
+
+class DumpHostSummary(BaseModel):
+    hostname: str
+    collected_at: datetime
+    age_hours: float
+
+
+class DumpsStatus(BaseModel):
+    dir: str
+    hosts: list[DumpHostSummary]
+    errors: list[str] = []
+
+
+class SubmoduleStatus(BaseModel):
+    name: str
+    commit: str
+    state: str  # clean | modified | uninitialized | out-of-sync | conflict
+
+
+class SubmoduleCheckError(Exception):
+    pass
+
+
+class StatusData(BaseModel):
+    operation_id: str
+    nautobot: NautobotInfo
+    dumps: DumpsStatus
+    submodules: list[SubmoduleStatus]
+
+
+def build_status(cfg: Config) -> Envelope[StatusData]:
+    op = OperationLog.start("status", cfg.events.resolved_log_dir())
+    errors: list[EnvelopeError] = []
+
+    op.emit("step_started", "checking nautobot")
+    nautobot_info, nautobot_error = _check_nautobot(cfg)
+    if nautobot_error is not None:
+        errors.append(nautobot_error)
+    op.emit("step_completed", "nautobot checked", ok=nautobot_error is None)
+
+    op.emit("step_started", "scanning dumps")
+    dumps_status = _check_dumps(cfg)
+    errors.extend(EnvelopeError(code="dump_parse_error", message=msg) for msg in dumps_status.errors)
+    op.emit("step_completed", "dumps scanned", host_count=len(dumps_status.hosts))
+
+    op.emit("step_started", "checking submodules")
+    submodules, submodule_error = _check_submodules(cfg)
+    if submodule_error is not None:
+        errors.append(submodule_error)
+    op.emit("step_completed", "submodules checked", ok=submodule_error is None)
+
+    ok = not errors
+    op.finish(ok=ok)
+
+    data = StatusData(
+        operation_id=op.operation_id,
+        nautobot=nautobot_info,
+        dumps=dumps_status,
+        submodules=submodules,
+    )
+(eval):1: ==== not found
+Update Todos
+
+Explore existing code: artifacts, config, reconcile executor artifact layout, test conventions
+
+Add subscriber bus to nctl_core.events
+
+Add nctl_core.operations_index module
+
+Add `nctl ops list` / `nctl ops show` CLI
+
+Write tests (bus isolation, index, corrupted JSONL)
+
+Run full test suite
+
+Write report1.md and commit
+Edit events.py
+Added 2 lines
+Edit events.py
+Added 97 lines
+Edit events.py
+Added 2 lines
+events.py のバス追加が完了。次に operations_index.py を作成します。
+
+Write operations_index.py
+152 lines
+次に CLI ビュー用の ops_render.py を作成します。
+
+Write ops_render.py
+110 lines
+Next, wire the ops subcommands into the CLI:
+
+Edit main.py
+Added 1 line
+Edit main.py
+Added 2 lines
+Edit main.py
+Added 38 lines
+Read test_cli_drift.py
+CLI 配線完了。テストを書きます。
+
+Update Todos
+
+Explore existing code: artifacts, config, reconcile executor artifact layout, test conventions
+
+Add subscriber bus to nctl_core.events
+
+Add nctl_core.operations_index module
+
+Add `nctl ops list` / `nctl ops show` CLI
+
+Write tests (bus isolation, index, corrupted JSONL)
+
+Run full test suite
+
+Write report1.md and commit
+Write test_events_bus.py
+125 lines
+Edit test_events_bus.py
+Added 3 lines
+Write test_operations_index.py
+159 lines
+Write test_cli_ops.py
+107 lines
+Bash Run new tests
+IN
+cd /Users/eiji/projects/pj-clusterintent/nctl && uv run pytest tests/test_events_bus.py tests/test_operations_index.py tests/test_cli_ops.py tests/test_events.py -q 2>&1 | tail -20
+
+OUT
+................................                                         [100%]
+32 passed in 0.53s
+Bash Run full test suite
+IN
+uv run pytest -q 2>&1 | tail -5
+
+OUT
+........................................................................ [ 64%]
+........................................................................ [ 80%]
+........................................................................ [ 96%]
+...............                                                          [100%]
+447 passed in 3.42s
+全447テスト成功。実CLIでスモークテストします。
+
+Bash Smoke test nctl ops against real event logs
+IN
+cd /Users/eiji/projects/pj-clusterintent && uv run --project nctl nctl ops list --limit 3 && uv run --project nctl nctl ops show 01KXPYQRJ8GTNND0PC3KZSMPXC --json | head -30
+
+OUT
+log_dir: /Users/eiji/.local/state/nctl/events
+operations: 3
+  01KXPYQRJ8GTNND0PC3KZSMPXC  reconcile    finished  FAILED  2026-07-17T02:33:23.272241+00:00 failed
+  01KXPYQRCA8AHSNYCD371NXVQQ  reconcile    finished  ok      2026-07-17T02:33:23.082324+00:00 already_converged
+  01KXPYPSCXJX3RKVPR30CSYB10  reconcile    finished  FAILED  2026-07-17T02:32:51.357149+00:00 non_converged
+{
+  "schema": "nctl.ops.show.v1",
+  "generated_at": "2026-07-17T15:03:22.709799Z",
+  "ok": true,
+  "data": {
+    "log_dir": "/Users/eiji/.local/state/nctl/events",
+    "operation": {
+      "operation_id": "01KXPYQRJ8GTNND0PC3KZSMPXC",
+      "op": "reconcile",
+      "state": "finished",
+      "ok": false,
+      "result": "failed",
+      "started_at": "2026-07-17T02:33:23.272241Z",
+      "updated_at": "2026-07-17T02:33:23.273103Z",
+      "last_seq": 1,
+      "event_count": 2,
+      "corrupt_lines": 0,
+      "log_path": "/Users/eiji/.local/state/nctl/events/01KXPYQRJ8GTNND0PC3KZSMPXC.jsonl",
+      "artifact_dir": "/Users/eiji/.local/state/nctl/events/01KXPYQRJ8GTNND0PC3KZSMPXC",
+      "artifacts": []
+    },
+    "events": [
+      {
+        "ts": "2026-07-17T02:33:23.272241Z",
+        "operation_id": "01KXPYQRJ8GTNND0PC3KZSMPXC",
+        "op": "reconcile",
+        "seq": 0,
+        "event": "started",
+        "level": "info",
+        "message": "reconcile started",
+Edit event-log.md
+Added 11 lines
+Bash Check p4 report conventions
+IN
+ls /Users/eiji/projects/pj-clusterintent/devdocs/vision/core_reconcile/p4/ && head -40 /Users/eiji/projects/pj-clusterintent/devdocs/vision/core_reconcile/p4/report1.md
+
+OUT
+plan.md
+report1.md
+report2.md
+report3.md
+report4.md
+report5.md
+report6.md
+report7.md
+report8.md
+report9.md
+# Phase 4 Report — Step 1 (shared operation, Ansible, and Nautobot Job transports)
+
+Date: 2026-07-16. Implements [p4/plan.md](plan.md) Step 1. This is the first suggested
+commit boundary; changes are confined to nctl plus this parent-repository report. Phase 4 Step 2
+collection/ingest behavior and the old Ansible orchestration path are intentionally untouched.
+
+## What was built
+
+### Private atomic operation artifacts
+
+New `nctl/src/nctl_core/artifacts.py` provides `OperationArtifacts`:
+
+- one resolved root at `<events.log_dir>/<operation_id>/`;
+- directory mode `0700` and file mode `0600` (also enforced on existing paths);
+- atomic same-directory temporary write + `fsync` + `os.replace` for text/JSON artifacts;
+- rejection of absolute paths and `..` traversal outside the operation root;
+- `ensure_writable()` preflight using a real atomic probe, exposed as typed `ArtifactError`.
+
+`nctl apply dnsmasq` now establishes this directory before rendering and writes its existing
+`artifacts/dnsmasq-records.conf` through the helper. Failure still returns the established
+`artifact_write_failed` envelope error and a failed terminal event.
+
+### Shared shell-free Ansible runner
+
+New `nctl/src/nctl_core/ansible.py` owns the generic code factored from
+`dnsmasq_apply.py`:
+
+- `AnsibleRunner` invokes argument arrays with `shell=False` (the `subprocess.run` default), a
+  configured timeout, captured text stdout/stderr, and an injectable runner seam for tests;
+- timeout is a bounded result (`exit_code=124`, `timed_out=true`) rather than an uncaught
+  `TimeoutExpired`; an executable/OS failure is likewise a typed result;
+- `AnsibleRunResult` carries the sanitized command, recap, sorted failed/unreachable hosts,
+  timeout flag, and optional stdout/stderr artifact paths;
+- sensitive `key=value`, JSON-shaped extra vars, and `--vault-password-file` values are redacted
+  from the recorded command while the original argument array is passed to Ansible;
+- `load_inventory`, recursive/cycle-safe `inventory_group_hosts`, and `parse_recap` are shared
+  helpers.
+
+`dnsmasq_apply.py` now consumes these services. Its public schema name, dry-run/apply modes,
+target selection, error codes, text rendering, and event order remain unchanged. It additionally
+Update Todos
+
+Explore existing code and conventions
+
+Add subscriber bus to nctl_core.events
+
+Add nctl_core.operations_index module
+
+Add `nctl ops list` / `nctl ops show` CLI
+
+Write tests (bus isolation, index, corrupted JSONL)
+
+Run full test suite
+
+Write report1.md and commit
+Write report1.md
+107 lines
+Bash Check nctl submodule log and status
+IN
+cd /Users/eiji/projects/pj-clusterintent/nctl && git log --oneline -5 && git status --short
+
+OUT
+0adde52 p4s9
+d6b7d29 p4s7
+ec047c0 p4s6
+dea9832 p4s5
+0edd9e2 p4s4
+ M docs/event-log.md
+ M src/nctl_core/cli/main.py
+ M src/nctl_core/events.py
+?? src/nctl_core/operations_index.py
+?? src/nctl_core/ops_render.py
+?? tests/test_cli_ops.py
+?? tests/test_events_bus.py
+?? tests/test_operations_index.py
+Bash Commit Step 1 in nctl submodule
+IN
+git add -A && git commit -q -m "p5s1
+
+Phase 5 Step 1: in-process event subscriber bus (publish after successful
+JSONL append, bounded per-subscriber queues, drop-oldest, failure-isolated),
+filesystem operations index over the event-log directory, and the
+nctl ops list/show CLI view (nctl.ops.list.v1 / nctl.ops.show.v1).
+
+Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>" && git log --oneline -1
+
+OUT
+2a2f455 p5s1
+Bash Commit report and submodule pointer in parent repo
+IN
+cd /Users/eiji/projects/pj-clusterintent && git add nctl devdocs/vision/core_reconcile/p5 && git commit -q -m "p5s1
+
+Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>" && git log --oneline -2 && git status --short
+
+OUT
+5b5ab81 p5s1
+da234e1 p5s9
+Update Todos
+
+Explore existing code and conventions
+
+Add subscriber bus to nctl_core.events
+
+Add nctl_core.operations_index module
+
+Add `nctl ops list` / `nctl ops show` CLI
+
+Write tests (bus isolation, index, corrupted JSONL)
+
+Run full test suite
+
+Write report1.md and commit
+Phase 5 Step 1（イベントバス＋オペレーションインデックス）を実装し、report1.md に報告を記入、nctl（p5s1 = 2a2f455）と親リポジトリ（p5s1 = 5b5ab81）にコミットしました。全447テスト成功（新規32件）。
+
+実装内容:
+
+イベントバス — events.py に subscribe(callback) -> unsubscribe を追加。JSONL への追記が成功した後にのみ配信し、サブスクライバーごとに専用ワーカースレッド＋有界キュー（満杯時は最古を破棄、stderr へ一度だけ警告）。例外を投げるコールバックも一度警告してミュート — emit を決してブロック・クラッシ
 | `GET /` | the reference live dashboard page |
 | `GET /openapi.json` | generated API description |
 
