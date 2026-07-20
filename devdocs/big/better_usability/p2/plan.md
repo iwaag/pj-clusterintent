@@ -371,7 +371,7 @@ against the new schema before the coordinated cutover.
    severity, converged status, dashboard visibility, HTML escaping, and reconcile omission.
 2. Make `node_existence` derive `required` from absence of `declared_host_os`; remove its old
    operational-config lookup.
-3. Make service placement evaluation consume the shared effective policy/OS. Declared hosts remain
+3. Make service placement evaluati0103-faceon consume the shared effective policy/OS. Declared hosts remain
    observation-exempt. Remove `service_placement_os_mismatch`, because expected OS is no longer an
    independent declared value.
 4. Update the canonical production blocker set, classification table, planner host filtering, and
