@@ -436,3 +436,85 @@ For each target schema change identified above:
 | **`missing_operational_config` global → node-local skip** (Phase 1) | None (`nctl`-only, no nintent schema involved) | N/A | New skip reason code integrated into `_host_actual_skip_reasons` and a new/updated `reconcile/classify.py` entry (§6) — this is itself effectively superseded once Phase 2 removes the field's required-ness, but Phase 1 ships first per the roadmap's sequencing rationale and must still handle the interim required-field state correctly | `nctl`-only, no coordinated nintent rollout | None |
 | **Placement `config` "recorded but not applied" finding** (Phase 1) | None | N/A | New drift/status code, classified in `reconcile/classify.py` (§6) | `nctl`-only | None |
 | **`IntentSourceForm` removes two Job-managed cache fields** (Phase 4) | None (form `Meta.fields` change only) | N/A | None | nintent-only | None (fields stay on the model, just not form-editable) |
+
+## 6. Failure-scope matrix for Phase 1 (Step 0.6)
+
+Every `raise ContractError(...)` reachable from `compose_production_inventory` (`production/composer.py` +
+`production/contract.py`), inventoried exhaustively by grep (57 call sites total: 1 in composer.py,
+56 in contract.py). Grouped by where in the composition pipeline each is raised, per
+`composer.py`'s own docstring split ("global contract violations... abort the whole
+run... host-specific actual state problems skip only the affected host").
+
+**Critical integration finding, central to this section:** today, *every* `ContractError` —
+regardless of which group below it falls in — is caught only at the outermost boundary
+(`production_render.py:73-82`, `drift/comparators.py:185-201`) and converted into a single
+`Target(kind="global")` diff. Because `reconcile/classify.py`'s `classify()` sends any
+`Target.kind == "global"` diff straight to `_GLOBAL_CLASSIFICATION` (always `MANUAL_REVIEW`) without
+ever consulting the per-code `CODE_CLASSIFICATION` table, **none of the 15 target-scoped codes in
+Group C below currently reach that table at all.** The moment Phase 1 changes any of them to a
+`Target(kind="node")` (or a new placement-scoped kind), `classify()` will look the code up in
+`CODE_CLASSIFICATION` for the first time — and because none of them are registered there today,
+every one would raise `UnclassifiedDiffCodeError` (classify.py:138-146) unless Phase 1 adds them.
+This is the concrete mechanism behind the roadmap's own warning ("moving `missing_operational_config`
+… changes it from the global blanket classification to a code that must be explicitly classified…
+do not let it become an `UnclassifiedDiffCodeError`") — and it applies to all 15 codes, not only the
+one the roadmap names by example.
+
+### Group A — shared deployment-profile schema (correctly global; raised by `validate_deployment_profiles`, before the per-node loop, composer.py:161)
+
+| Code | Origin (contract.py) | Scope | Required scope | Reconcile handling owner |
+|---|---|---|---|---|
+| `invalid_profile_json`, `invalid_profile_map`, `invalid_profile`, `duplicate_profile_group`, `unsupported_profile_schema`, `invalid_profile_variables`, `invalid_profile_variable`, `invalid_ansible_variable`, `duplicate_variable_assignment`, `unsupported_profile_type`, `invalid_profile_required`, `invalid_profile_item_type`, `unexpected_profile_items` | `validate_deployment_profiles` and its helpers (contract.py:110-190) | Global — malformed `ansible_agdev/vars/deployment_profiles.yml` affects every node/placement, no single target owns it | Stays global (`Target(kind="global")`, `MANUAL_REVIEW` via `_GLOBAL_CLASSIFICATION`) — no change needed | Unchanged |
+
+### Group B — final closed-output-contract validation (correctly global; raised after the per-node loop, composer.py:262-263)
+
+| Code | Origin (contract.py) | Scope | Required scope | Reconcile handling owner |
+|---|---|---|---|---|
+| `invalid_inventory_schema`, `dangling_group_member`, `invalid_report_schema`, `invalid_contract_keys`, `invalid_slug`, `unsupported_inventory_schema`, `invalid_generation_id`, `invalid_generated_at`, `invalid_report_path`, `invalid_profile_digest`, `invalid_connection_address` (when raised during document-level IP normalization), `unknown_host_variable`, `invalid_group_member` | `validate_production_inventory_document` / `validate_production_report` (contract.py:370-540) | Global — corruption of the fully-assembled document/report, not attributable to one node | Stays global | Unchanged |
+
+### Group C — per-node/per-placement composition (currently global by accident; Phase 1's actual work)
+
+| Code | Origin | Target kind/evidence | Required scope | Reconcile handling owner |
+|---|---|---|---|---|
+| `missing_operational_config` | composer.py:185-188, node loop | `node`, evidence = `node.slug` | **Local** — one node's missing config skips only that node (roadmap's flagship example) | **NEW**: register in `CODE_CLASSIFICATION` as `MANUAL_REVIEW` (operator must add/complete the config — or, once Phase 2 ships, this code disappears entirely since the field is no longer required) |
+| `invalid_actual_state_policy` | `evaluate_platform_policy`, contract.py:258,272,275, called from `_compose_host` (composer.py:313-319) | `node` | Local | **NEW**: `MANUAL_REVIEW` |
+| `unsupported_observed_host_os` | `evaluate_platform_policy`, contract.py:260 | `node` | Local | **NEW**: `MANUAL_REVIEW` (a human must fix the observation source or add a `declared_host_os` override — not an `OBSERVATION`-reconciler-fixable code, since a re-observation of a genuinely unsupported OS won't change the outcome) |
+| `invalid_platform_power` | `evaluate_platform_policy`, contract.py:277 | `node` | Local | **NEW**: `MANUAL_REVIEW` |
+| `endpoint_node_mismatch` | `validate_endpoint_ownership`, contract.py:239, called from `_validated_endpoint` (composer.py:375) | `node` (or `endpoint`, since the mismatch is between two records) | Local | **NEW**: `MANUAL_REVIEW` |
+| `unresolved_connection_path` | `resolve_connection_variables`, contract.py:338, called composer.py:323-330 | `node` | Local | **NEW**: `MANUAL_REVIEW` |
+| `invalid_connection_path` | `resolve_connection_variables`, contract.py:341 | `node` | Local | **NEW**: `MANUAL_REVIEW` |
+| `invalid_connection_address` | `resolve_connection_variables` → `_normalize_ip`, contract.py:547, when raised for a specific node's endpoint address (as opposed to the document-level use in Group B) | `node` | Local | **NEW**: `MANUAL_REVIEW` (this code's dual raise sites mean Phase 1 must distinguish *which* call site fired it — the per-node one is local, the document-level one in Group B stays global; do not blanket-classify by code name alone) |
+| `unknown_profile` | `map_placement_config`, contract.py:204, called from `_compose_host`'s per-placement loop (composer.py:356-361) | **Placement-scoped, not node-scoped** — a specific `DesiredServicePlacement` names a profile that doesn't exist; Phase 1 must decide whether `Target.kind` is `"node"` (attributed to the host it would have landed on, matching `production_policy`'s existing skip-reason pattern) or a new `"placement"` kind — Phase 0 flags this choice explicitly rather than presuming one | Local (to the one placement/node) | **NEW**: `MANUAL_REVIEW`; Phase 1 implementation plan must settle the `Target.kind` question before adding this to `CODE_CLASSIFICATION` |
+| `unsupported_config_schema` | `map_placement_config`, contract.py ~207-210 | Placement-scoped (same open question as `unknown_profile`) | Local | **NEW**: `MANUAL_REVIEW` |
+| `invalid_placement_config` | `map_placement_config`, contract.py:212 | Placement-scoped | Local | **NEW**: `MANUAL_REVIEW` |
+| `unknown_config_key` | `map_placement_config`, contract.py:216 | Placement-scoped | Local | **NEW**: `MANUAL_REVIEW` |
+| `missing_required_config` | `map_placement_config`, contract.py:221 | Placement-scoped | Local | **NEW**: `MANUAL_REVIEW` |
+| `invalid_profile_value_type` | `map_placement_config`, contract.py ~226-230 | Placement-scoped | Local | **NEW**: `MANUAL_REVIEW` |
+| `conflicting_host_variable` | `merge_host_variables`, contract.py:353, called composer.py:365 | `node` — roadmap's own rule: "a conflict between two assignments on one host is local to that host, even if the current merge helper raises a generic `ContractError`" | Local | **NEW**: `MANUAL_REVIEW` |
+
+### New "recorded but not applied" finding (Phase 1, discussion.md Example 1)
+
+Not a `ContractError` today — does not exist yet. Required per roadmap Phase 1 ("Surface
+ignored/derived intent"): whenever a `DesiredServicePlacement` is `desired_state=active` on a node
+that is *not* `PRODUCTION_ELIGIBLE_LIFECYCLES`-eligible, emit a visible finding rather than silence,
+including the placement/config evidence even when `config == {}}` (discussion.md's exact dnsmasq-
+loopback scenario).
+
+| Code (proposed) | Target kind/evidence | Severity | Reconcile handling owner |
+|---|---|---|---|
+| `placement_config_not_applied` (name TBD by Phase 1's implementation plan; must not collide with existing codes) | `node` (or `service`), evidence = placement id/instance_name + the node's current lifecycle + the `config` value that isn't taking effect | `WARNING` (matches drift's existing severity for a "the system chose not to enforce this yet" class of finding, e.g. `ingest_lag`) | **NEW**: `MANUAL_REVIEW` — the only fix is a human decision (promote the node, or accept the placement is intentionally inert); reconcile cannot automatically act on it |
+
+### Existing correctly-local skip-reason codes (for contrast — already right, not part of Phase 1's fix list)
+
+`_host_actual_skip_reasons` (composer.py:267-296) already returns a `list[str]`, not an exception,
+and is already surfaced as a per-node entry in the report's `"skipped"` array (composer.py:190-204,
+256) rather than aborting anything: `no_realized_device` / `unsupported_actual_type`
+(`actual_type_problem`), `missing_actual_data` / `stale_actual_data` / `invalid_actual_timestamp`
+(`actual_state_problem`), `missing_observed_system` / `missing_mac_address` /
+`missing_network_interface` (`missing_required_facts`, keyed by consumer — `host_os` needs
+`observed_system`, `wol` needs `mac_address`, `network_interface` needs `network_interface`). All
+of these already appear in `reconcile/classify.py`'s `_OBSERVATION_CODES` group
+(`reconciler_id="observe_node"`) — this is the pattern Group C's 15 codes should be integrated
+alongside, per roadmap's explicit instruction ("matching the existing
+`_host_actual_skip_reasons` pattern"), even though most of Group C is a data-correction problem
+(`MANUAL_REVIEW`) rather than an observation-freshness problem (`OBSERVATION`).
