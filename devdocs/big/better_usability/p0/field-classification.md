@@ -655,6 +655,47 @@ Every contradiction/transition item from §2–§7, assigned to exactly one owni
 10. Rewrite "add a basic service"/"register a new PC" recipes once Phases 1–3 land (roadmap's own
     Phase 4 goal).
 
+### Phase 4 resolution status (2026-07-21)
+
+All ten items above are resolved. See `p4/plan.md` Decisions 1–10 and `p4/report4.1.md`–
+`report4.6.md` for full evidence; summarized per item:
+
+1. **Done** (`p4/report4.2.md` item 3) — `last_import_status`/`last_import_summary` removed from
+   `IntentSourceForm.Meta.fields`; still rendered read-only on `intentsource.html`.
+2. **Done** (`p4/report4.2.md` items 5–6) — `create_desired_node_with_primary_endpoint` and Quick
+   Add both default `node_type=device`, matching the model. `generate_dnsmasq`/`ip_policy` were
+   *not* unified to one value: Decision 5 kept Quick Host Add's `True`/`dhcp_reserved` as a
+   deliberately named, narrower policy (`QUICK_HOST_GENERATE_DNSMASQ`/`QUICK_HOST_IP_POLICY` in
+   `operations/hosts.py`, shared with the form) distinct from the generic model/REST/YAML default
+   (`False`/now `external`, item 8 below) — a documented contextual difference, not a
+   contradiction left unresolved.
+3. **Done** (`p4/report4.2.md` item 5) — Quick Add's `accepted_actual_types` is now a visible,
+   optional override field with a live derived-value preview, replacing the `HiddenInput`.
+4. **Done** (`p4/report4.3.md` items 1–2) — `DesiredService.analysis_provenance` (closed
+   `status`/`confidence`/`reasons`/`warnings` shape) holds analysis metadata; migration `0013_*`
+   moved the four legacy keys out of `requirements` for existing rows; `AnalyzeIntentSources` no
+   longer writes analysis keys into `requirements` on refresh.
+5. **Done** (`p4/report4.2.md` items 1–2) — `placement_policy` deleted outright (migration
+   `0013_*`, guarded against non-empty rows; Step 4.1 confirmed zero live non-empty values first).
+   No runtime reader/writer remains in nintent or nctl (`p4/report4.4.md` item 1).
+6. **Done** (`p4/report4.6.md`) — `nauto/seed/service_repositories.yaml` kept under nauto's actual
+   `GenerateDesiredServices` reader, not renamed or fed to nintent's strict loader (Decision 9);
+   nintent's existing rejection test and a new nauto parse-through-the-real-loader test both cover
+   this boundary.
+7. **Done** (`p4/report4.3.md` items 3–4) — `AnalyzeIntentSources` now diffs
+   `DesiredDependency` rows by natural key (`plan_dependency_sync`) instead of blind
+   delete+recreate; retained rows' `notes`/`resolution_status`/`resolved_service` survive
+   re-analysis.
+8. **Done** (`p4/report4.2.md` item 6) — the generic model default is now `external` (matching
+   strict YAML's own no-address/no-policy result); `importers.desired_endpoint_defaults` dropped
+   its redundant `or "external"` fallback, becoming a pure projection of what the loader already
+   resolved.
+9. **Done** (`p4/report4.6.md`) — blank `IntentSource.ref` resolution (discovered default branch,
+   then deduplicated `HEAD`/`main`/`master`, explicit ref always tried first) documented in
+   `register-a-new-pc.md`.
+10. **Done** (`p4/report4.6.md`) — `nctl/docs/register-a-new-pc.md` added;
+    `nctl/docs/add-a-basic-service.md` rewritten around the current CRUD + drift + reconcile flow.
+
 ## 9. Open issues
 
 **None that can change schema shape, tier, derivation, default, failure scope, or phase ordering.**

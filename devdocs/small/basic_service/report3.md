@@ -3,6 +3,12 @@
 No nctl/ansible_agdev code changes in this step — data entry plus documentation, as the plan
 specifies.
 
+> **Superseded, 2026-07-21 (Better Usability Phase 4):** the `nautobot-server shell` step below
+> was necessary only because Django admin/form views need a browser session, not the bearer
+> token available to this transcript. The current recipe uses the Nautobot UI directly and needs
+> no shell — see [`nctl/docs/add-a-basic-service.md`](../../../nctl/docs/add-a-basic-service.md).
+> This transcript is left unchanged as a historical record.
+
 ## Live data entry
 
 Created on the dev Nautobot instance (`http://localhost:8000/`), via `nautobot-server shell`
