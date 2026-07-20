@@ -486,26 +486,26 @@ and live-check outcome; they must not copy the local API token from `.local/loca
 
 ## Exit criteria
 
-- [ ] Every one of Phase 0 §6 Group C's 15 codes is caught only at its target-owned stage and
+- [x] Every one of Phase 0 §6 Group C's 15 codes is caught only at its target-owned stage and
   produces a node-local structured skip/error; none becomes global.
-- [ ] Representative shared-profile and final-output contract failures still abort globally.
-- [ ] A mixed good+bad render succeeds, preserves healthy inventory/group/config output, and emits
+- [x] Representative shared-profile and final-output contract failures still abort globally.
+- [x] A mixed good+bad render succeeds, preserves healthy inventory/group/config output, and emits
   no partial membership for the skipped node.
-- [ ] Every active placement on a lifecycle-ineligible, production-capable node emits
+- [x] Every active placement on a lifecycle-ineligible, production-capable node emits
   `active_placement_not_applied`, including when `config == {}`; disabled placements do not.
-- [ ] Each Phase 1 finding defines and tests target kind, severity, message/evidence, source list,
+- [x] Each Phase 1 finding defines and tests target kind, severity, message/evidence, source list,
   render-report effect, drift/status/dashboard effect, and reconcile classification.
-- [ ] All 16 Phase 1 codes are `MANUAL_REVIEW`; classification coverage cannot miss a future local
+- [x] All 16 Phase 1 codes are `MANUAL_REVIEW`; classification coverage cannot miss a future local
   composer code.
-- [ ] `nctl reconcile` never raises `UnclassifiedDiffCodeError` for these findings and never runs a
+- [x] `nctl reconcile` never raises `UnclassifiedDiffCodeError` for these findings and never runs a
   production action against a blocked node.
-- [ ] A target-local blocker does not suppress independent healthy-target work; a global blocker
+- [x] A target-local blocker does not suppress independent healthy-target work; a global blocker
   still suppresses every action.
-- [ ] Phase 1 makes no nintent/schema/data change, leaves production inventory schema `1.0`, and
+- [x] Phase 1 makes no nintent/schema/data change, leaves production inventory schema `1.0`, and
   requires no Nautobot rebuild or compatibility shim.
-- [ ] Focused tests, full `nctl` tests, compatibility snapshots, and read-only live checks pass;
+- [x] Focused tests, full `nctl` tests, compatibility snapshots, and read-only live checks pass;
   unrelated submodules remain clean.
-- [ ] The implementation report records exact evidence and confirms Phase 2 can now derive/remove
+- [x] The implementation report records exact evidence and confirms Phase 2 can now derive/remove
   operational config without inheriting a global-failure landmine.
 
 ## Suggested commit order
