@@ -313,6 +313,83 @@ calls the plan requires explicitly, rather than hiding the reasoning inside indi
 | `DesiredServicePlacement.config` | keys declared per-profile in `ansible_agdev/vars/deployment_profiles.yml` (`dnsmasq`: `bind_interfaces`, `cache_size`, `dhcp_authoritative`, `enable_dhcp`, `interfaces`, `listen_addresses`, `local_domain`, `upstream_servers`; `grafana`: `datasource_is_default`, `datasource_name`, `datasource_provisioning_enabled`, `prometheus_port`, `prometheus_scheme`; `home_assistant`: none; `nomad_client`: `datacenter`, `node_class`, `raw_exec_enabled`, `region`; `nomad_server`: `bootstrap_expect`, `datacenter`, `region`, `retry_join`; `prometheus`: `listen_address`, `retention_time`; `prometheus_node_exporter`: none) | Intent (each key is a genuine per-placement mechanism choice the deployment profile schema explicitly allows) | Every key optional (`required: false` throughout today); type-checked by `map_placement_config` (contract.py) against the declared `type`/`items` |
 | `DesiredIPRange.dnsmasq_options` | `lease_time` | Intent/Override | Read at `nctl_core/dnsmasq.py:341`; other keys round-trip via `dnsmasq_query.py:88` without a confirmed consumer traced in this phase — non-blocking, cosmetic |
 
+## 4. Derivation and override rulebook (Step 0.4)
+
+### Common provenance contract
+
+Every derived/default/override output value must carry, at minimum:
+
+- **effective value** — what the system used;
+- **source kind** — one of `intent`, `derived`, `default`, `override`;
+- **source reference/input summary** — e.g. the endpoint id used, the observation timestamp, the
+  override row/field that won;
+- **override-won flag** — whether an explicit override replaced a derived/default candidate;
+- **finding** — present whenever derivation was impossible or ambiguous (never silently blank).
+
+This is the semantic contract; Phase 2 owns the concrete JSON field names and the production
+output-schema version bump that carries it (roadmap.md Phase 2 exit criteria).
+
+### Rulebook
+
+| Value | Inputs | Precedence/algorithm | Missing/stale/ambiguous behavior | Safe default | Override persistence | Output provenance |
+|---|---|---|---|---|---|---|
+| `DesiredNodeOperationalConfig.actual_state_policy` (target: **derived from the presence of a declared-platform override, not stored as its own field**) | Whether an explicit declared-platform override is set for this node | `declared` if a declared-platform override (see `declared_host_os` row) is present for the node; else `required`. This collapses `actual_state_policy` into a computed fact of `declared_host_os`'s presence rather than an independently-required field — the central simplification this audit recommends for Phase 2 | N/A — always resolvable from override presence; no ambiguity possible | `required` (assume observable until told otherwise) | N/A (derived, not itself overridable — the override lives on `declared_host_os`) | source=`derived`, reference="no declared-platform override present" or "declared_host_os=<value>" |
+| `DesiredNodeOperationalConfig.expected_host_os` | Latest nodeutils observation (`observed_system` custom field, `_OBSERVED_SYSTEM_MAP {"Linux":"linux","Darwin":"macos"}`, `sources/actual.py:77,91`); its freshness (`collected_at` vs. generation time, `contract.py:284-302`); whether a realized object exists at all (`actual_type_problem`) | If `actual_state_policy` resolves to `required`: take the latest fresh observation's `observed_system`, normalize via the map | No realized object → `missing_actual_node`-class finding, node stays bootstrap-observable only; stale (`> ACTUAL_MAX_AGE_HOURS`) → `stale_actual_data`; unparseable timestamp → `invalid_actual_timestamp`; present but not `Linux`/`Darwin` → `unsupported_observed_host_os`. **Never guessed** — production composition skips the node locally (`_host_actual_skip_reasons`) in every one of these cases rather than picking a default OS | None (no safe default OS exists) | `declared_host_os` (below) bypasses this entirely | source=`derived`, reference=`observed_system@<collected_at>`; on skip, a finding with the specific code above, no value |
+| `DesiredNodeOperationalConfig.declared_host_os` | Operator's explicit declaration (currently only `haos` is a valid value) | Set only when the node's actual platform is known non-observable by nodeutils; drives `actual_state_policy=declared` per the row above | N/A (optional; absence means "not a declared platform", not an error) | Not set (falls through to the observation-based derivation) | This field **is** the override persistence location | source=`override`, reference=the explicit value; override_won=true whenever set |
+| `DesiredNodeOperationalConfig.connection_path` + `local_endpoint` + `tailscale_endpoint` | The node's `DesiredEndpoint` rows: which are "usable local" (`_endpoint_is_usable_local` — has a usable IP, or a `dns_name`, or an `mdns_name`) vs. "usable Tailscale" (`endpoint_type=vpn` with a usable IP, `_endpoint_has_usable_ip`); whether any endpoint is designated `endpoint_type=primary` | 1) Exactly one usable-local endpoint and no forced-Tailscale override → `connection_path=local`, `local_endpoint=`that endpoint (today's live case, 5/5 nodes). 2) Multiple usable-local endpoints with exactly one `endpoint_type=primary` → deterministically pick the primary one. 3) A Tailscale/forced path is **never** auto-selected — it is Override-only (below) | 0 usable-local endpoints → node stays bootstrap/mDNS-exportable only (`hosts_intent.py`'s existing mDNS-only path), production connection cannot be derived, structured local finding, no silent fallback. Multiple usable-local endpoints with **no** designated primary → explicit ambiguity finding; never a lexical/arbitrary pick | None when 0 or >1-without-primary; otherwise the single/primary candidate is safe | Explicit `connection_path=tailscale` + an explicitly chosen `tailscale_endpoint`, or an explicit non-default `local_endpoint` pick, is the retained override route | source=`derived`, reference=endpoint id/name/type used for the pick; on override, source=`override`, reference=the operator-chosen endpoint |
+| `DesiredNodeOperationalConfig.ansible_port` | none (Override) | Use as given; when absent, downstream Ansible/production composition uses its own implicit default (outside this model's scope) | N/A — optional by design | `None` (implicit downstream default) | This field itself | source=`override` when set, else absent (no derived value asserted) |
+| `DesiredNodeOperationalConfig.power_control` | Platform (`expected_host_os`/`declared_host_os`) constrains the *valid* set (`allowed_power` in `clean()`, models.py:750-756) but does not choose a value | Model default `none` is always safe; loader should stop requiring it explicitly (§2 finding — a process fix, not a derivation change) | An invalid combination for the resolved platform is a target-local validation finding (`clean()` already enforces this) | `none` | This field itself | source=`default` when using `none` with no explicit input, `override` when explicitly set |
+| `DesiredNodeOperationalConfig.is_laptop` | none (Override) | Use as given | N/A | `False` | This field itself | source=`default`/`override` |
+| `DesiredNode.accepted_actual_types` | `node_type` | `_ACTUAL_TYPE_DEFAULTS[node_type]` (e.g. `device`→`["device"]`) unless explicitly overridden | N/A — every `node_type` has a default mapping | per-`node_type` default | Explicit list in form/YAML/REST | source=`derived`, reference=`node_type`; source=`override` when the list differs from the type default |
+| `DesiredEndpoint.dns_name` / `mdns_name` (for the node's `primary`/`primary` endpoint only) | `DesiredNode.name` | `default_dns_name(name)` / `default_mdns_name(name)` (`names.py`) when the endpoint is primary/primary and the field is unset | Non-primary endpoints or an explicitly-set value are never auto-filled | Computed from node name | Explicit `dns_name`/`mdns_name` value | source=`derived`, reference=node name; source=`intent` when explicitly set |
+| `DesiredNode.realized_device` / `realized_vm` | Actual-ledger Device/VM candidates matching this desired node (nodeutils ingest → Nautobot) | `link_actual_node` `AUTOMATIC` reconciler (`reconcile/classify.py:57`); ambiguity is already a `MANUAL_REVIEW` code (`ambiguous_actual_node_candidates`), absence is `missing_actual_node`/`no_realized_object` | Multiple candidates → `ambiguous_actual_node_candidates` (manual review, no arbitrary pick); none → `missing_actual_node` | None (no link) | Manual form edit is the de facto correction path for a wrong automatic link | source=`derived` (reconciler-linked) or `override` (manually corrected via form) — **currently unlabeled**, a Phase 2 provenance gap |
+| `DesiredEndpoint.realized_ip_address` | `DesiredEndpoint.ip_address`/`dns_name`/`ip_policy`, actual IPAM ledger state | `reconcile_ipam` `AUTOMATIC` reconciler (`operations/ipam.py` plan → `create_ip_address`/`link_ip_address` actions) | Conflicting/ambiguous IPAM state → existing `MANUAL_REVIEW` codes (`missing_ip_policy_range`, `ambiguous_ip_policy_range`, `ip_policy_range_mismatch`, etc.) | None (no link) | Manual form edit | Same unlabeled-provenance gap as `realized_device` |
+| `DesiredDependency.resolution_status` / `resolved_service` | `raw_ref`/`dependency_kind`/`namespace`/`name` matched against known `DesiredService` rows | System match: 0 candidates → `unresolved`; exactly 1 → `resolved` + `resolved_service` set; declared out-of-repo → `external`; explicitly suppressed → `ignored` | No unique match → stays `unresolved`, visible as such | `unresolved` | `resolution_status=external`/`ignored` are themselves the override/exception route | source=`derived` for `resolved`, `intent`/`override` for `external`/`ignored` |
+| `DesiredService.catalog_lifecycle` | Source catalog entity's own `spec.lifecycle` string | Verbatim copy at analysis time (importers.py:92) | Absent in source → stays blank, not an error | blank | N/A (purely descriptive) | source=`derived` (imported), reference=catalog entity |
+| `IntentSource.{last_import_status,last_imported_at,last_import_summary}`, `DesiredService.last_analyzed_at`, `{DesiredNode,DesiredService}.{reconciliation_status,reconciliation_checked_at}` | The owning Job/nctl run's own outcome | Last-write-wins by the sole writer (`AnalyzeIntentSources`/`ImportIntentSources` Jobs; nctl `dashboard/push.py`) | Blank/null = "never run yet", itself informative, not an error state | blank/null | N/A (pure cache, no override concept applies) | source=`derived`, reference=the run id/timestamp that wrote it |
+| `DesiredServicePlacement.config_schema_version` / `assignment_source` | none (Override, already correct) | Model default (`"1"`/`"manual"`) unless the creation path states otherwise | N/A | `"1"` / `"manual"` | Explicit value (YAML/import already stamps `"yaml"`/`"generated"`/`"policy"` when applicable — **`"generated"` and `"policy"` are reserved choice values with no current writer**, presumably intended for a future auto-placement/policy-engine feature) | source=`default`/`override` |
+
+### Minimum scenario matrix (roadmap-required)
+
+| Scenario | Required policy decision | Where enforced today / to be enforced |
+|---|---|---|
+| Fresh observed Linux/macOS with one usable primary endpoint | Ordinary derived production input: `actual_state_policy=required`, `expected_host_os` from observation, `connection_path=local` from the sole endpoint | Matches all 5 live nodes today; Phase 2 derivation rules above |
+| Fresh node known only by mDNS, no actual object yet | Bootstrap observation remains possible (`hosts_intent.py` mDNS-only export); production waits locally (`missing_actual_node`/`no_realized_object`, already `MANUAL_REVIEW`/skip-classified) | Already correct; Phase 2 must not regress it |
+| Missing/stale/unsupported observed OS | Never guess; structured local finding (`missing_actual_data`/`stale_actual_data`/`unsupported_observed_host_os`) and observation/review path | Already implemented in `contract.py`/`composer.py`; Phase 2 reuses, doesn't reinvent |
+| Declared/non-observable host such as HAOS | Explicit override (`declared_host_os=haos`) and validation (`clean()` already enforces the cross-field rules) | Retained override shape (§ decision below) |
+| Exactly one usable endpoint | Deterministic local endpoint/path derivation | New in Phase 2 (currently a required manual field) |
+| Multiple endpoints with exactly one designated primary | Deterministic designated-primary rule | New in Phase 2 |
+| Multiple equally plausible endpoints | Explicit ambiguity finding; no lexical/arbitrary winner | New in Phase 2 |
+| Forced Tailscale or non-standard SSH port | Optional override and visible provenance | Retained override shape; provenance labeling new in Phase 2 |
+| Unsafe OS/power combination | Target-local validation/finding, never silent coercion | Already enforced by `DesiredNodeOperationalConfig.clean()`'s `allowed_power` check; Phase 2 must preserve this validation in whatever shape replaces the model |
+
+### Phase 2 persistence-shape decision
+
+**Dissolve wins**, confirmed by this audit (roadmap's own favored default, now backed by concrete
+evidence rather than assumption):
+
+- Every ordinary-case value in the rulebook above (`actual_state_policy`, `expected_host_os`,
+  `connection_path`, `local_endpoint`) is fully computable from data the system already owns
+  (`DesiredEndpoint` topology + the actual-ledger observation), with `actual_state_policy` reducible
+  to a fact *about* `declared_host_os` rather than needing its own storage at all.
+  `DesiredNodeOperationalConfig` currently has **zero rows in the live cluster** and exactly one
+  programmatic creation path (the YAML import Job) — there is no persisted-row value being relied
+  upon anywhere today to justify keeping the required model.
+- What survives as **named override fields** (not a whole required model): `declared_host_os`
+  (drives the `declared` policy), `tailscale_endpoint` + forced `connection_path=tailscale`, a
+  forced non-default `local_endpoint`, `ansible_port`, `power_control`, `is_laptop`. These are
+  exactly the fields the roadmap and this audit agree are "the model done right" already — Phase 2
+  should persist them as an optional one-to-one override record (same shape, `OneToOne` to
+  `DesiredNode`, but every field genuinely optional with the whole row itself optional, i.e. no row
+  = "use pure derivation"), not delete the concept, only its required-ness.
+- `nintent_operational_config_id` (contract.py `_BASE_HOST_VARIABLES`) must be replaced or removed
+  from the production output contract per roadmap instruction once the row is no longer guaranteed
+  to exist; a stable derived host identifier (`nintent_desired_node_id`, already present) already
+  covers the same provenance need.
+- This decision must be re-confirmed, not silently assumed, if a later phase's implementation work
+  finds a concrete case the derivation can't handle safely — but no such case was found in this
+  audit's live-cluster/scenario-matrix review.
+
 ## 5. Reader/writer matrix — writer boundaries (Step 0.2)
 
 One row per creation/update ingress boundary, not one vague "nintent" row. Reader boundaries
