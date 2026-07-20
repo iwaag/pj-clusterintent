@@ -143,7 +143,17 @@ surfaces a reason the persisted row is needed — it removes an entire required-
 than automating around it. "Dissolve" does not mean "delete overrides": the design must name an
 optional override persistence shape for declared/non-observable hosts, forced connection path or
 endpoint, non-standard SSH port, power policy, laptop policy, and any other Phase 0 Override.
-Either way:
+
+**Phase 0 has confirmed (b)**, with evidence rather than assumption:
+`devdocs/big/better_usability/p0/field-classification.md` §4 finds zero live
+`DesiredNodeOperationalConfig` rows, exactly one programmatic creation path (the YAML import Job),
+and every ordinary-case value computable from data the system already owns. It also surfaces a
+stronger simplification than this section originally anticipated: `actual_state_policy` need not be
+its own stored field at all — it reduces to whether a `declared_host_os` override is present for the
+node (`declared` if so, else `required`), removing one more required field than a literal
+"auto-materialize the same fields" derivation would have. See field-classification.md §4 for the
+full rulebook (connection/endpoint selection, OS derivation, provenance contract) and §6 for the
+matching Phase 1 failure-scope integration this dissolution depends on. Either way:
 
 - Derivation inputs already exist: `DesiredEndpoint` rows (IP/mDNS/type) and the actual-state OS
   observed by nodeutils and stored on the Device custom fields
