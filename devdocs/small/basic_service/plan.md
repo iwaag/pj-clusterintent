@@ -130,6 +130,12 @@ Gaps this plan closes:
 
 ## End-to-end verification (the scenarios, replayed)
 
+> **Superseded by Better Usability Phase 3** (`devdocs/big/better_usability/p3/plan.md`): this
+> transcript is preserved as written for history, but a `DesiredNode` created today is `lifecycle:
+> active` by default and needs no manual promotion step before it's in production scope. Deliberate
+> staging still exists — create it explicitly `planned` and promote later with `nctl lifecycle
+> <slug> active` — but that is no longer the ordinary path scenario 1 below implies.
+
 Scenario 1:
 1. Register the new PC in nintent: `DesiredNode` + `DesiredEndpoint` with `mdns_name`
    (`<host>.local`) and `description`.
