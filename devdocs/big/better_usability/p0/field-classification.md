@@ -187,10 +187,110 @@ despite nominal REST writability.
 | `start_address` | `CharField`, required | Form; loader | Intent | — | None | Keep | — |
 | `end_address` | `CharField`, required | Form; loader | Intent | — | None | Keep | — |
 | `range_policy` | choices, default `static_pool` | Form; loader (falls back to `"static_pool"` only if somehow still `None` post-validation, loaders.py:881) | Intent | — | None | Keep | — |
-| `lifecycle` | choices, default `planned` | Form; **loader hard-codes `lifecycle or "planned"`** (loaders.py:882) — a second, independent site agreeing with the model default | Intent (this is a distinct lifecycle axis from `DesiredNode`/`DesiredService` — governs whether the range is in effect for dnsmasq/IPAM projection, not production-inventory eligibility) | No `PRODUCTION_ELIGIBLE_LIFECYCLES`-style gate was found referencing `DesiredIPRange.lifecycle` in the nctl inventory performed here — its consumption path was not traced beyond dnsmasq rendering (out of the files inventoried for this phase) | None found within the audited surface, but flagged as **unverified** rather than confirmed — the dnsmasq render path (`nctl_core/dnsmasq*.py`) was not in this phase's file list | Phase 4 residual sweep should confirm `DesiredIPRange.lifecycle`'s consumption before assuming it needs the same Phase-3 treatment as node/service lifecycle | Phase 4 (verification, not a confirmed change) |
+| `lifecycle` | choices, default `planned` | Form; **loader hard-codes `lifecycle or "planned"`** (loaders.py:882) — a second, independent site agreeing with the model default | Intent (distinct lifecycle axis from `DesiredNode`/`DesiredService`) | **Confirmed consumer:** gates dnsmasq range export via `ELIGIBLE_NODE_LIFECYCLES` (`nctl_core/dnsmasq.py:367-372`, code `range_lifecycle_not_exportable`) — the same lenient bootstrap-eligible set used for node export (`{"planned","approved","active"}`, hosts_intent.py:35), **not** the stricter `PRODUCTION_ELIGIBLE_LIFECYCLES` (`{"approved","active"}`) used for production composition | None — a range already at `planned` is already dnsmasq-exportable today, so a Phase 3 default-to-`active` change (if ever extended to this model) would not newly unlock anything already blocked | Confirmed no hidden gate risk; no change required unless Phase 3 is explicitly extended to this model (roadmap does not currently ask for that) | — |
 | `generate_dnsmasq` | `BooleanField`, default `False` | Form; loader default `False` (loaders.py:883) | Override (opt-in) | — | None | Keep | — |
-| `dnsmasq_options` | `JSONField`, default `{}` | Form; loader default `{}` (loaders.py:868-871,884) | Intent/Override container — see §3 | — | None | Keep | — |
+| `dnsmasq_options` | `JSONField`, default `{}` | Form; loader default `{}` (loaders.py:868-871,884) | Intent/Override container — see §3 | **Confirmed consumer:** subkey `lease_time` read at `nctl_core/dnsmasq.py:341` | None | Keep | — |
 | `description` | `TextField`, blank/null | Form | Intent | — | None | Keep | — |
+
+### Decision notes for difficult classification cases (Step 0.3)
+
+Per-field tier/rationale is recorded in the table above; this records the cross-field judgment
+calls the plan requires explicitly, rather than hiding the reasoning inside individual cells.
+
+1. **Node and service lifecycle are different axes despite sharing a vocabulary.**
+   `DesiredNode.lifecycle` gates two things: bootstrap/dnsmasq export eligibility
+   (`ELIGIBLE_NODE_LIFECYCLES = {"planned","approved","active"}`, hosts_intent.py:35,
+   dnsmasq.py:290) and production-inventory eligibility (`PRODUCTION_ELIGIBLE_LIFECYCLES =
+   {"approved","active"}`, composer.py:52) — real, escalating enforcement. `DesiredService.lifecycle`
+   gates nothing structurally; it only feeds a drift **warning** (`service_lifecycle_inactive` for
+   `deprecated`/`retired`, `missing_service_lifecycle` for empty/`unknown`, evaluation.py:493-505).
+   Decision: `DesiredNode.lifecycle` is the field Phase 3 must default to `active`; nothing found in
+   this audit requires changing `DesiredService.lifecycle`'s default away from `proposed` — the
+   value that matters is that analysis-derived services start `proposed` (they should get a human
+   look) while manually/YAML-declared services already set `active` explicitly today. Phase 3 owns
+   recording this as the decision, per roadmap's own instruction, with no forced default change.
+
+2. **`node_type` vs. `accepted_actual_types`.** `node_type` is Intent — the operator states what
+   kind of thing this is. `accepted_actual_types` is Derived from `node_type` via
+   `_ACTUAL_TYPE_DEFAULTS` (hosts.py:177-208, loaders.py:1160-1165), with an explicit override for
+   the genuine exception (a `service_host` that may realize as more than one actual type). Decision:
+   keep the tier split as-is; the only correction needed is surfacing (Quick Add currently hides the
+   derived value in a `HiddenInput` rather than showing it as a labeled, overridable derived value —
+   Phase 4, discussion.md Principle 3).
+
+3. **Identity/name/slug/source/catalog metadata, across all 8 models.** Every `name`/`slug`/
+   `display_name`/`catalog_*` field is Intent, full stop — auto-suggestion (slugify-from-name,
+   name-from-URL) is a convenience default for the *value*, not a change of *authority*. The test
+   ("if the operator never thought about this, is there a right answer?") fails here: the system can
+   *guess* a slug, but it cannot decide the operator meant that guess rather than something else, so
+   these remain Intent even where a default value exists. This distinguishes them from truly Derived
+   fields like `accepted_actual_types`, where the computed value is *the* right answer, not a guess to
+   confirm.
+
+4. **Endpoint fields and connection selection.** `endpoint_type`/`ip_address`/`protocol`/`port` are
+   Intent (declares what the endpoint is). `ip_policy` is Intent but has the cross-path default
+   contradiction logged in §2 (model `static` vs. import `external`). `dns_name`/`mdns_name` are
+   Derived-with-override (auto-filled from the node name, `names.py`). **Connection selection
+   itself — which endpoint `DesiredNodeOperationalConfig.local_endpoint`/`tailscale_endpoint` should
+   point to, and `connection_path`'s value — is Derived, spanning both models**: a node with exactly
+   one usable endpoint has one obvious path (today's live-cluster case, 5/5 nodes); a node with
+   several endpoints but exactly one designated primary has a deterministic pick; multiple equally
+   plausible endpoints must produce an explicit ambiguity finding, never a silent lexical/arbitrary
+   winner. This is the central Phase 2 derivation rule, detailed in §4.
+
+5. **Service requirements/dependencies/placement/desired_state/deployment_profile/config.**
+   `requirements`, `min_memory_gb`, `prefers_gpu` are Intent (placement preferences only a human or
+   delegated catalog states). `DesiredDependency`'s own reference fields are Intent with a Derived
+   `resolution_status`/`resolved_service` (the system matches, doesn't decide, what the dependency
+   *is*). `DesiredServicePlacement.desired_state` is Intent (the on/off switch). `deployment_profile`
+   is Intent (which mechanism template applies — Ansible cannot guess this). `config` is an Intent
+   container keyed by the chosen profile's declared schema (`ansible_agdev/vars/
+   deployment_profiles.yml`) — never Derived, since Ansible cannot guess e.g. dnsmasq
+   `listen_addresses`. None of this cluster is tier-misclassified; the defect here (discussion.md
+   Example 1) is entirely about **visibility of effect**, not authority — Phase 1's job, not a
+   reclassification.
+
+6. **Actual-state policy and observed vs. declared hosts.** `actual_state_policy` is Derived: a node
+   whose realized object is/should-be nodeutils-observable is `required`; a node whose declared
+   platform is known non-observable (today only HAOS, `home_assistant` deployment profile marked
+   `observe_only: true` in `deployment_profile_reconciliation`) is `declared`. This is not a coin
+   flip the operator should ever be asked — it follows directly from what kind of host this is.
+   Decision (detailed in §4): derive from node/placement context; declared-only hosts get an
+   explicit override marker rather than being inferred by absence of data.
+
+7. **Expected/declared OS.** `expected_host_os` is Derived from the latest **fresh** nodeutils
+   observation (`observed_system` custom field mapped `Linux→linux`/`Darwin→macos`,
+   `sources/actual.py:77,91`; freshness enforced by `actual_state_problem`, contract.py:284-302,
+   default `ACTUAL_MAX_AGE_HOURS`). `declared_host_os` is Override, used only for `haos` today.
+   Missing/stale/unsupported observation must never be guessed — it already has a structured local
+   skip path (`_host_actual_skip_reasons`, composer.py:267-296) that Phase 2 reuses rather than
+   invents new.
+
+8. **SSH port, power control, laptop behavior.** All three are Override, and are — per the roadmap's
+   own words — "the model done right" already: safe defaults (`ansible_port=None` implying the
+   downstream Ansible default port, `power_control=none`, `is_laptop=False`), consulted only when
+   present. The one correction found is process, not tier: the YAML loader marks `power_control`/
+   `is_laptop` as *required* keys (loaders.py:735) even though the model has safe defaults for both,
+   so every YAML author must restate the default explicitly. Phase 2 should relax the loader to let
+   these two fall through to the model default when absent, matching how the model already behaves.
+
+9. **Reconciliation status/timestamps and import-analysis status/timestamps.** Both families are
+   Derived caches written by an external process (nctl's dashboard REST push for
+   `reconciliation_status`/`reconciliation_checked_at`; nintent's own Jobs for
+   `last_import_status`/`last_imported_at`/`last_import_summary`/`last_analyzed_at`). Decision: the
+   `DesiredNode`/`DesiredService` reconciliation-cache fields are already correctly read-only in
+   their forms — no change. `IntentSource`'s two form-exposed cache fields are the one genuine
+   contradiction (§2), corrected in Phase 4.
+
+10. **IP range policy/lifecycle and dnsmasq projection controls.** `range_policy` is Intent — a human
+    states the pool's policy; Ansible/dnsmasq cannot infer whether a range is static, DHCP-reserved,
+    DHCP-dynamic, or excluded. `DesiredIPRange.lifecycle` **is** consumed (confirmed this step, not
+    left open): it gates dnsmasq range export via the same lenient `ELIGIBLE_NODE_LIFECYCLES` set
+    used for node bootstrap export (`dnsmasq.py:367-372`, code `range_lifecycle_not_exportable`),
+    which already includes `planned` — so unlike `DesiredNode.lifecycle`, a range at the model
+    default is already exportable today, and Phase 3's node-lifecycle default change carries no
+    hidden-gate risk here. `generate_dnsmasq`/`dnsmasq_options` are Override, consistent with the
+    equivalent `DesiredEndpoint` fields.
 
 ## 3. Structured JSON subfield appendix
 
@@ -211,7 +311,7 @@ despite nominal REST writability.
 | | `platform` / `os` | Intent | Compared for `platform_mismatch` |
 | `DesiredEndpoint` — no JSON fields | n/a | n/a | — |
 | `DesiredServicePlacement.config` | keys declared per-profile in `ansible_agdev/vars/deployment_profiles.yml` (`dnsmasq`: `bind_interfaces`, `cache_size`, `dhcp_authoritative`, `enable_dhcp`, `interfaces`, `listen_addresses`, `local_domain`, `upstream_servers`; `grafana`: `datasource_is_default`, `datasource_name`, `datasource_provisioning_enabled`, `prometheus_port`, `prometheus_scheme`; `home_assistant`: none; `nomad_client`: `datacenter`, `node_class`, `raw_exec_enabled`, `region`; `nomad_server`: `bootstrap_expect`, `datacenter`, `region`, `retry_join`; `prometheus`: `listen_address`, `retention_time`; `prometheus_node_exporter`: none) | Intent (each key is a genuine per-placement mechanism choice the deployment profile schema explicitly allows) | Every key optional (`required: false` throughout today); type-checked by `map_placement_config` (contract.py) against the declared `type`/`items` |
-| `DesiredIPRange.dnsmasq_options` | Not enumerated by any consumer inventoried in this phase (dnsmasq render path out of file scope) | Unverified | Phase 4 residual sweep item, same caveat as `DesiredIPRange.lifecycle` |
+| `DesiredIPRange.dnsmasq_options` | `lease_time` | Intent/Override | Read at `nctl_core/dnsmasq.py:341`; other keys round-trip via `dnsmasq_query.py:88` without a confirmed consumer traced in this phase — non-blocking, cosmetic |
 
 ## 5. Reader/writer matrix — writer boundaries (Step 0.2)
 
