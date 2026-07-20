@@ -48,6 +48,7 @@ uv run --project nctl nctl render production --out ansible_agdev/inventories/gen
 uv run --project nctl nctl dashboard
 uv run --project nctl nctl reconcile
 uv run --project nctl nctl reconcile --yes
+uv run --project nctl --extra serve nctl serve
 ```
 
 `nctl drift` is the structured desired-vs-actual source of truth. Bootstrap/production inventory
@@ -69,3 +70,11 @@ argument for the whole cluster). It replaces the old
 artifacts under `<events.log_dir>/<operation_id>/` only when a run stops short of `converged`, not
 to re-derive the workflow steps by hand each time. See [nctl/README.md](nctl/README.md) and
 [devdocs/vision/core_reconcile/p4/](devdocs/vision/core_reconcile/p4/) for the full contract.
+
+**`nctl serve`** exposes the same `nctl_core` functions over HTTP + WebSocket (single bearer
+token, LAN-only) so external processes — a future 3D/voice UI, scripts, AI tooling — can read
+state and trigger operations as "just another subscriber," without any backend changes and without
+going through the CLI. The CLI remains the primary, no-server way to drive the system day to day;
+`serve` is groundwork for realtime UIs that need to watch operations progress live rather than poll
+a terminal. See [nctl/README.md](nctl/README.md#serve-realtime-api) and
+[devdocs/vision/core_reconcile/p5/](devdocs/vision/core_reconcile/p5/) for the full contract.
