@@ -1,0 +1,806 @@
+{
+  "schema": "nctl.drift.v1",
+  "generated_at": "2026-07-20T17:41:31.221101Z",
+  "ok": true,
+  "data": {
+    "generated_at": "2026-07-20T17:41:30.966576+00:00",
+    "summary": {
+      "converged": 2,
+      "unknown": 3,
+      "drifting": 1
+    },
+    "severity_summary": {
+      "error": 5,
+      "warning": 4,
+      "info": 5
+    },
+    "targets": [
+      {
+        "target": {
+          "kind": "node",
+          "slug": "agdnsmasq",
+          "name": "agdnsmasq",
+          "id": "27818c12-fe15-4c9f-83d0-7949523f6c33"
+        },
+        "status": "converged",
+        "diffs": [
+          {
+            "target": {
+              "kind": "node",
+              "slug": "agdnsmasq",
+              "name": "agdnsmasq",
+              "id": "27818c12-fe15-4c9f-83d0-7949523f6c33"
+            },
+            "code": "active_placement_not_applied",
+            "severity": "warning",
+            "message": "agdnsmasq: placement 'dnsmasq' is recorded as active but not applied because node lifecycle 'planned' is outside production scope",
+            "desired": {
+              "placement": {
+                "id": "597dafda-720a-4abd-8913-8b15dff1ace9",
+                "instance_name": "dnsmasq",
+                "deployment_profile": "dnsmasq",
+                "config_schema_version": "1",
+                "desired_state": "active",
+                "config": {
+                  "listen_addresses": [
+                    "192.168.0.2"
+                  ]
+                }
+              }
+            },
+            "actual": {
+              "node_lifecycle": "planned",
+              "eligible_lifecycles": [
+                "active",
+                "approved"
+              ],
+              "application_status": "not_applied"
+            },
+            "sources": [
+              "desired",
+              "actual"
+            ]
+          },
+          {
+            "target": {
+              "kind": "node",
+              "slug": "agdnsmasq",
+              "name": "agdnsmasq",
+              "id": "27818c12-fe15-4c9f-83d0-7949523f6c33"
+            },
+            "code": "derived_value_provenance",
+            "severity": "info",
+            "message": "agdnsmasq: effective derived/default/override value provenance",
+            "desired": {
+              "operational": {
+                "values": {
+                  "actual_state_policy": {
+                    "value": "required",
+                    "source": "derived",
+                    "source_reference": {
+                      "kind": "override_absence",
+                      "field": "declared_host_os"
+                    },
+                    "override_won": false
+                  },
+                  "host_os": {
+                    "value": "linux",
+                    "source": "derived",
+                    "source_reference": {
+                      "kind": "nodeutils_observation",
+                      "observed_system": "Linux",
+                      "collected_at": "2026-07-20T09:27:21+00:00"
+                    },
+                    "override_won": false
+                  },
+                  "connection_path": {
+                    "value": "local",
+                    "source": "derived",
+                    "source_reference": {
+                      "kind": "desired_endpoint",
+                      "id": "0dea1561-bfb7-4058-8ba7-c71d18666cad",
+                      "name": "primary",
+                      "endpoint_type": "primary",
+                      "ip_address": "192.168.0.2",
+                      "dns_name": "agdnsmasq.home.arpa",
+                      "mdns_name": "agdnsmasq.local"
+                    },
+                    "override_won": false
+                  },
+                  "connection_endpoint": {
+                    "value": "primary",
+                    "source": "derived",
+                    "source_reference": {
+                      "kind": "desired_endpoint",
+                      "id": "0dea1561-bfb7-4058-8ba7-c71d18666cad",
+                      "name": "primary",
+                      "endpoint_type": "primary",
+                      "ip_address": "192.168.0.2",
+                      "dns_name": "agdnsmasq.home.arpa",
+                      "mdns_name": "agdnsmasq.local"
+                    },
+                    "override_won": false
+                  },
+                  "connection_address": {
+                    "value": "192.168.0.2",
+                    "source": "derived",
+                    "source_reference": {
+                      "kind": "nodeutils_observation",
+                      "field": "local_ip",
+                      "collected_at": "2026-07-20T09:27:21+00:00"
+                    },
+                    "override_won": false
+                  },
+                  "ansible_port": {
+                    "value": null,
+                    "source": "default",
+                    "source_reference": {
+                      "kind": "ansible_default"
+                    },
+                    "override_won": false
+                  },
+                  "power_control": {
+                    "value": "none",
+                    "source": "default",
+                    "source_reference": {
+                      "kind": "safe_default",
+                      "field": "power_control"
+                    },
+                    "override_won": false
+                  },
+                  "is_laptop": {
+                    "value": false,
+                    "source": "default",
+                    "source_reference": {
+                      "kind": "safe_default",
+                      "field": "is_laptop"
+                    },
+                    "override_won": false
+                  }
+                },
+                "finding": null
+              },
+              "source_summary": {
+                "operational_override_id": null,
+                "endpoint_candidates": [
+                  {
+                    "id": "0dea1561-bfb7-4058-8ba7-c71d18666cad",
+                    "name": "primary",
+                    "endpoint_type": "primary",
+                    "ip_address": "192.168.0.2",
+                    "dns_name": "agdnsmasq.home.arpa",
+                    "mdns_name": "agdnsmasq.local"
+                  }
+                ]
+              },
+              "persisted_values": [
+                {
+                  "field": "realized_device",
+                  "record": {
+                    "value": "36178882-1229-4aa1-9e50-faa7cb41188d",
+                    "source": "override",
+                    "source_reference": {
+                      "kind": "desired_field",
+                      "id": "27818c12-fe15-4c9f-83d0-7949523f6c33",
+                      "field": "realized_device"
+                    },
+                    "override_won": true
+                  }
+                },
+                {
+                  "field": "dns_name",
+                  "record": {
+                    "value": "agdnsmasq.home.arpa",
+                    "source": "intent",
+                    "source_reference": {
+                      "kind": "desired_field",
+                      "id": "0dea1561-bfb7-4058-8ba7-c71d18666cad",
+                      "field": "dns_name"
+                    },
+                    "override_won": true
+                  }
+                },
+                {
+                  "field": "mdns_name",
+                  "record": {
+                    "value": "agdnsmasq.local",
+                    "source": "intent",
+                    "source_reference": {
+                      "kind": "desired_field",
+                      "id": "0dea1561-bfb7-4058-8ba7-c71d18666cad",
+                      "field": "mdns_name"
+                    },
+                    "override_won": true
+                  }
+                }
+              ]
+            },
+            "actual": {},
+            "sources": [
+              "desired",
+              "actual"
+            ]
+          },
+          {
+            "target": {
+              "kind": "node",
+              "slug": "agdnsmasq",
+              "name": "agdnsmasq",
+              "id": "27818c12-fe15-4c9f-83d0-7949523f6c33"
+            },
+            "code": "missing_actual_ip_address",
+            "severity": "warning",
+            "message": "agdnsmasq: missing_actual_ip_address",
+            "desired": {},
+            "actual": {},
+            "sources": [
+              "desired",
+              "actual"
+            ]
+          }
+        ]
+      },
+      {
+        "target": {
+          "kind": "node",
+          "slug": "agbach",
+          "name": "agbach",
+          "id": "59406009-67e3-4668-8da9-a369fba71ae8"
+        },
+        "status": "converged",
+        "diffs": [
+          {
+            "target": {
+              "kind": "node",
+              "slug": "agbach",
+              "name": "agbach",
+              "id": "59406009-67e3-4668-8da9-a369fba71ae8"
+            },
+            "code": "derived_value_provenance",
+            "severity": "info",
+            "message": "agbach: effective derived/default/override value provenance",
+            "desired": {
+              "operational": {
+                "values": null,
+                "finding": {
+                  "code": "stale_actual_data",
+                  "field": "host_os",
+                  "evidence": {
+                    "collected_at": "2026-06-26T15:28:42+00:00"
+                  }
+                }
+              },
+              "source_summary": {
+                "operational_override_id": null,
+                "endpoint_candidates": [
+                  {
+                    "id": "060d8244-a3fd-4adb-aa02-4dfbbeb2560c",
+                    "name": "primary",
+                    "endpoint_type": "primary",
+                    "ip_address": "192.168.0.120",
+                    "dns_name": "agbach.home.arpa",
+                    "mdns_name": "agbach.local"
+                  }
+                ]
+              },
+              "persisted_values": [
+                {
+                  "field": "realized_device",
+                  "record": {
+                    "value": "da27c9b3-5613-412f-a71e-1a95167fda6f",
+                    "source": "override",
+                    "source_reference": {
+                      "kind": "desired_field",
+                      "id": "59406009-67e3-4668-8da9-a369fba71ae8",
+                      "field": "realized_device"
+                    },
+                    "override_won": true
+                  }
+                },
+                {
+                  "field": "dns_name",
+                  "record": {
+                    "value": "agbach.home.arpa",
+                    "source": "intent",
+                    "source_reference": {
+                      "kind": "desired_field",
+                      "id": "060d8244-a3fd-4adb-aa02-4dfbbeb2560c",
+                      "field": "dns_name"
+                    },
+                    "override_won": true
+                  }
+                },
+                {
+                  "field": "mdns_name",
+                  "record": {
+                    "value": "agbach.local",
+                    "source": "intent",
+                    "source_reference": {
+                      "kind": "desired_field",
+                      "id": "060d8244-a3fd-4adb-aa02-4dfbbeb2560c",
+                      "field": "mdns_name"
+                    },
+                    "override_won": true
+                  }
+                },
+                {
+                  "field": "realized_ip_address",
+                  "record": {
+                    "value": "004553c4-3c1f-4fdd-a945-325a57677df8",
+                    "source": "override",
+                    "source_reference": {
+                      "kind": "desired_field",
+                      "id": "060d8244-a3fd-4adb-aa02-4dfbbeb2560c",
+                      "field": "realized_ip_address"
+                    },
+                    "override_won": true
+                  }
+                }
+              ]
+            },
+            "actual": {},
+            "sources": [
+              "desired",
+              "actual"
+            ]
+          }
+        ]
+      },
+      {
+        "target": {
+          "kind": "node",
+          "slug": "aghub",
+          "name": "aghub",
+          "id": "7462b4ee-fb3b-4fa0-a89e-d9e1ded61387"
+        },
+        "status": "unknown",
+        "diffs": [
+          {
+            "target": {
+              "kind": "node",
+              "slug": "aghub",
+              "name": "aghub",
+              "id": "7462b4ee-fb3b-4fa0-a89e-d9e1ded61387"
+            },
+            "code": "derived_value_provenance",
+            "severity": "info",
+            "message": "aghub: effective derived/default/override value provenance",
+            "desired": {
+              "operational": {
+                "values": null,
+                "finding": {
+                  "code": "no_realized_device",
+                  "field": "host_os",
+                  "evidence": {}
+                }
+              },
+              "source_summary": {
+                "operational_override_id": null,
+                "endpoint_candidates": [
+                  {
+                    "id": "bb190120-82b5-4c57-abe5-251096564315",
+                    "name": "primary",
+                    "endpoint_type": "primary",
+                    "ip_address": "192.168.0.10",
+                    "dns_name": "aghub.home.arpa",
+                    "mdns_name": "aghub.local"
+                  }
+                ]
+              },
+              "persisted_values": [
+                {
+                  "field": "dns_name",
+                  "record": {
+                    "value": "aghub.home.arpa",
+                    "source": "intent",
+                    "source_reference": {
+                      "kind": "desired_field",
+                      "id": "bb190120-82b5-4c57-abe5-251096564315",
+                      "field": "dns_name"
+                    },
+                    "override_won": true
+                  }
+                },
+                {
+                  "field": "mdns_name",
+                  "record": {
+                    "value": "aghub.local",
+                    "source": "intent",
+                    "source_reference": {
+                      "kind": "desired_field",
+                      "id": "bb190120-82b5-4c57-abe5-251096564315",
+                      "field": "mdns_name"
+                    },
+                    "override_won": true
+                  }
+                }
+              ]
+            },
+            "actual": {},
+            "sources": [
+              "desired",
+              "actual"
+            ]
+          },
+          {
+            "target": {
+              "kind": "node",
+              "slug": "aghub",
+              "name": "aghub",
+              "id": "7462b4ee-fb3b-4fa0-a89e-d9e1ded61387"
+            },
+            "code": "missing_actual_ip_address",
+            "severity": "warning",
+            "message": "aghub: missing_actual_ip_address",
+            "desired": {},
+            "actual": {},
+            "sources": [
+              "desired",
+              "actual"
+            ]
+          },
+          {
+            "target": {
+              "kind": "node",
+              "slug": "aghub",
+              "name": "aghub",
+              "id": "7462b4ee-fb3b-4fa0-a89e-d9e1ded61387"
+            },
+            "code": "missing_actual_node",
+            "severity": "error",
+            "message": "aghub: missing_actual_node",
+            "desired": {},
+            "actual": {},
+            "sources": [
+              "desired",
+              "actual"
+            ]
+          },
+          {
+            "target": {
+              "kind": "node",
+              "slug": "aghub",
+              "name": "aghub",
+              "id": "7462b4ee-fb3b-4fa0-a89e-d9e1ded61387"
+            },
+            "code": "missing_interface_candidate",
+            "severity": "warning",
+            "message": "aghub: missing_interface_candidate",
+            "desired": {},
+            "actual": {},
+            "sources": [
+              "desired",
+              "actual"
+            ]
+          },
+          {
+            "target": {
+              "kind": "node",
+              "slug": "aghub",
+              "name": "aghub",
+              "id": "7462b4ee-fb3b-4fa0-a89e-d9e1ded61387"
+            },
+            "code": "no_realized_object",
+            "severity": "error",
+            "message": "aghub: observed operation is required but no realized device or VM is linked",
+            "desired": {
+              "actual_state_policy": "required"
+            },
+            "actual": {},
+            "sources": [
+              "desired"
+            ]
+          }
+        ]
+      },
+      {
+        "target": {
+          "kind": "node",
+          "slug": "agpc",
+          "name": "agpc",
+          "id": "c82421c3-c42a-4bea-91ce-7468ae8a249c"
+        },
+        "status": "unknown",
+        "diffs": [
+          {
+            "target": {
+              "kind": "node",
+              "slug": "agpc",
+              "name": "agpc",
+              "id": "c82421c3-c42a-4bea-91ce-7468ae8a249c"
+            },
+            "code": "derived_value_provenance",
+            "severity": "info",
+            "message": "agpc: effective derived/default/override value provenance",
+            "desired": {
+              "operational": {
+                "values": null,
+                "finding": {
+                  "code": "stale_actual_data",
+                  "field": "host_os",
+                  "evidence": {
+                    "collected_at": "2026-06-26T15:28:41+00:00"
+                  }
+                }
+              },
+              "source_summary": {
+                "operational_override_id": null,
+                "endpoint_candidates": [
+                  {
+                    "id": "baf13a73-43ff-4c67-8fc2-74037a5202d9",
+                    "name": "primary",
+                    "endpoint_type": "primary",
+                    "ip_address": "192.168.0.110",
+                    "dns_name": "agpc.home.arpa",
+                    "mdns_name": "agpc.local"
+                  }
+                ]
+              },
+              "persisted_values": [
+                {
+                  "field": "realized_device",
+                  "record": {
+                    "value": "cf67fc91-fc72-4c9a-b402-b2c4c1124207",
+                    "source": "override",
+                    "source_reference": {
+                      "kind": "desired_field",
+                      "id": "c82421c3-c42a-4bea-91ce-7468ae8a249c",
+                      "field": "realized_device"
+                    },
+                    "override_won": true
+                  }
+                },
+                {
+                  "field": "dns_name",
+                  "record": {
+                    "value": "agpc.home.arpa",
+                    "source": "intent",
+                    "source_reference": {
+                      "kind": "desired_field",
+                      "id": "baf13a73-43ff-4c67-8fc2-74037a5202d9",
+                      "field": "dns_name"
+                    },
+                    "override_won": true
+                  }
+                },
+                {
+                  "field": "mdns_name",
+                  "record": {
+                    "value": "agpc.local",
+                    "source": "intent",
+                    "source_reference": {
+                      "kind": "desired_field",
+                      "id": "baf13a73-43ff-4c67-8fc2-74037a5202d9",
+                      "field": "mdns_name"
+                    },
+                    "override_won": true
+                  }
+                },
+                {
+                  "field": "realized_ip_address",
+                  "record": {
+                    "value": "617a0e3e-4be8-48fc-92af-497b837d827d",
+                    "source": "override",
+                    "source_reference": {
+                      "kind": "desired_field",
+                      "id": "baf13a73-43ff-4c67-8fc2-74037a5202d9",
+                      "field": "realized_ip_address"
+                    },
+                    "override_won": true
+                  }
+                }
+              ]
+            },
+            "actual": {},
+            "sources": [
+              "desired",
+              "actual"
+            ]
+          },
+          {
+            "target": {
+              "kind": "node",
+              "slug": "agpc",
+              "name": "agpc",
+              "id": "c82421c3-c42a-4bea-91ce-7468ae8a249c"
+            },
+            "code": "stale_actual_data",
+            "severity": "error",
+            "message": "actual observation is missing, stale, or invalid",
+            "desired": {
+              "field": "host_os",
+              "collected_at": "2026-06-26T15:28:41+00:00"
+            },
+            "actual": {
+              "stage": "operational_derivation"
+            },
+            "sources": [
+              "desired",
+              "actual"
+            ]
+          }
+        ]
+      },
+      {
+        "target": {
+          "kind": "node",
+          "slug": "agstudio",
+          "name": "agstudio",
+          "id": "dc6dede2-9615-4236-b8e6-fd4df45c51bb"
+        },
+        "status": "unknown",
+        "diffs": [
+          {
+            "target": {
+              "kind": "node",
+              "slug": "agstudio",
+              "name": "agstudio",
+              "id": "dc6dede2-9615-4236-b8e6-fd4df45c51bb"
+            },
+            "code": "derived_value_provenance",
+            "severity": "info",
+            "message": "agstudio: effective derived/default/override value provenance",
+            "desired": {
+              "operational": {
+                "values": null,
+                "finding": {
+                  "code": "stale_actual_data",
+                  "field": "host_os",
+                  "evidence": {
+                    "collected_at": "2026-06-26T15:28:41+00:00"
+                  }
+                }
+              },
+              "source_summary": {
+                "operational_override_id": null,
+                "endpoint_candidates": [
+                  {
+                    "id": "930affda-b7dd-4a13-8115-2105a2dd0033",
+                    "name": "primary",
+                    "endpoint_type": "primary",
+                    "ip_address": "192.168.0.100",
+                    "dns_name": "agstudio.home.arpa",
+                    "mdns_name": "agstudio.local"
+                  }
+                ]
+              },
+              "persisted_values": [
+                {
+                  "field": "realized_device",
+                  "record": {
+                    "value": "f33f147d-2491-4c11-968a-fe1206b12da7",
+                    "source": "override",
+                    "source_reference": {
+                      "kind": "desired_field",
+                      "id": "dc6dede2-9615-4236-b8e6-fd4df45c51bb",
+                      "field": "realized_device"
+                    },
+                    "override_won": true
+                  }
+                },
+                {
+                  "field": "dns_name",
+                  "record": {
+                    "value": "agstudio.home.arpa",
+                    "source": "intent",
+                    "source_reference": {
+                      "kind": "desired_field",
+                      "id": "930affda-b7dd-4a13-8115-2105a2dd0033",
+                      "field": "dns_name"
+                    },
+                    "override_won": true
+                  }
+                },
+                {
+                  "field": "mdns_name",
+                  "record": {
+                    "value": "agstudio.local",
+                    "source": "intent",
+                    "source_reference": {
+                      "kind": "desired_field",
+                      "id": "930affda-b7dd-4a13-8115-2105a2dd0033",
+                      "field": "mdns_name"
+                    },
+                    "override_won": true
+                  }
+                },
+                {
+                  "field": "realized_ip_address",
+                  "record": {
+                    "value": "acafd50d-7fe9-42a4-99fc-bfa14ab0693e",
+                    "source": "override",
+                    "source_reference": {
+                      "kind": "desired_field",
+                      "id": "930affda-b7dd-4a13-8115-2105a2dd0033",
+                      "field": "realized_ip_address"
+                    },
+                    "override_won": true
+                  }
+                }
+              ]
+            },
+            "actual": {},
+            "sources": [
+              "desired",
+              "actual"
+            ]
+          },
+          {
+            "target": {
+              "kind": "node",
+              "slug": "agstudio",
+              "name": "agstudio",
+              "id": "dc6dede2-9615-4236-b8e6-fd4df45c51bb"
+            },
+            "code": "stale_actual_data",
+            "severity": "error",
+            "message": "actual observation is missing, stale, or invalid",
+            "desired": {
+              "field": "host_os",
+              "collected_at": "2026-06-26T15:28:41+00:00"
+            },
+            "actual": {
+              "stage": "operational_derivation"
+            },
+            "sources": [
+              "desired",
+              "actual"
+            ]
+          }
+        ]
+      },
+      {
+        "target": {
+          "kind": "service",
+          "slug": "dnsmasq",
+          "name": "dnsmasq",
+          "id": "e31d3b99-d4ab-4646-913a-27b92ccfdf66"
+        },
+        "status": "drifting",
+        "diffs": [
+          {
+            "target": {
+              "kind": "service",
+              "slug": "dnsmasq",
+              "name": "dnsmasq",
+              "id": "e31d3b99-d4ab-4646-913a-27b92ccfdf66"
+            },
+            "code": "service_missing",
+            "severity": "error",
+            "message": "dnsmasq: service_missing",
+            "desired": {
+              "expected": {
+                "placement_id": "597dafda-720a-4abd-8913-8b15dff1ace9",
+                "node_id": "27818c12-fe15-4c9f-83d0-7949523f6c33",
+                "node_slug": "agdnsmasq",
+                "deployment_profile": "dnsmasq",
+                "realized_device_id": "36178882-1229-4aa1-9e50-faa7cb41188d",
+                "observed_key": "dnsmasq"
+              }
+            },
+            "actual": {
+              "actual": {
+                "findings": [
+                  {
+                    "code": "service_missing"
+                  }
+                ],
+                "observed_at": "2026-07-20T09:27:21+00:00"
+              }
+            },
+            "sources": [
+              "desired",
+              "actual"
+            ]
+          }
+        ]
+      }
+    ],
+    "sources": {
+      "fetched_at": "2026-07-20T17:41:31.206170+00:00",
+      "observed_dump_count": 2,
+      "observed_errors": []
+    }
+  },
+  "errors": []
+}

@@ -1,0 +1,6 @@
+{
+    "error": "Could not resolve URL for hyperlinked relationship using view name \"plugins-api:nautobot_intent_catalog-api:intentsource-detail\". You may have failed to include the related model in your API, or incorrectly configured the `lookup_field` attribute on this field.",
+    "exception": "ImproperlyConfigured",
+    "nautobot_version": "3.1.3",
+    "python_version": "3.12.13"
+}

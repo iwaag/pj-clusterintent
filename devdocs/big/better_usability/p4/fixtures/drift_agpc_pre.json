@@ -1,0 +1,152 @@
+{
+  "schema": "nctl.drift.v1",
+  "generated_at": "2026-07-20T17:41:30.750846Z",
+  "ok": true,
+  "data": {
+    "generated_at": "2026-07-20T17:41:30.488659+00:00",
+    "summary": {
+      "unknown": 1
+    },
+    "severity_summary": {
+      "error": 1,
+      "warning": 0,
+      "info": 1
+    },
+    "targets": [
+      {
+        "target": {
+          "kind": "node",
+          "slug": "agpc",
+          "name": "agpc",
+          "id": "c82421c3-c42a-4bea-91ce-7468ae8a249c"
+        },
+        "status": "unknown",
+        "diffs": [
+          {
+            "target": {
+              "kind": "node",
+              "slug": "agpc",
+              "name": "agpc",
+              "id": "c82421c3-c42a-4bea-91ce-7468ae8a249c"
+            },
+            "code": "derived_value_provenance",
+            "severity": "info",
+            "message": "agpc: effective derived/default/override value provenance",
+            "desired": {
+              "operational": {
+                "values": null,
+                "finding": {
+                  "code": "stale_actual_data",
+                  "field": "host_os",
+                  "evidence": {
+                    "collected_at": "2026-06-26T15:28:41+00:00"
+                  }
+                }
+              },
+              "source_summary": {
+                "operational_override_id": null,
+                "endpoint_candidates": [
+                  {
+                    "id": "baf13a73-43ff-4c67-8fc2-74037a5202d9",
+                    "name": "primary",
+                    "endpoint_type": "primary",
+                    "ip_address": "192.168.0.110",
+                    "dns_name": "agpc.home.arpa",
+                    "mdns_name": "agpc.local"
+                  }
+                ]
+              },
+              "persisted_values": [
+                {
+                  "field": "realized_device",
+                  "record": {
+                    "value": "cf67fc91-fc72-4c9a-b402-b2c4c1124207",
+                    "source": "override",
+                    "source_reference": {
+                      "kind": "desired_field",
+                      "id": "c82421c3-c42a-4bea-91ce-7468ae8a249c",
+                      "field": "realized_device"
+                    },
+                    "override_won": true
+                  }
+                },
+                {
+                  "field": "dns_name",
+                  "record": {
+                    "value": "agpc.home.arpa",
+                    "source": "intent",
+                    "source_reference": {
+                      "kind": "desired_field",
+                      "id": "baf13a73-43ff-4c67-8fc2-74037a5202d9",
+                      "field": "dns_name"
+                    },
+                    "override_won": true
+                  }
+                },
+                {
+                  "field": "mdns_name",
+                  "record": {
+                    "value": "agpc.local",
+                    "source": "intent",
+                    "source_reference": {
+                      "kind": "desired_field",
+                      "id": "baf13a73-43ff-4c67-8fc2-74037a5202d9",
+                      "field": "mdns_name"
+                    },
+                    "override_won": true
+                  }
+                },
+                {
+                  "field": "realized_ip_address",
+                  "record": {
+                    "value": "617a0e3e-4be8-48fc-92af-497b837d827d",
+                    "source": "override",
+                    "source_reference": {
+                      "kind": "desired_field",
+                      "id": "baf13a73-43ff-4c67-8fc2-74037a5202d9",
+                      "field": "realized_ip_address"
+                    },
+                    "override_won": true
+                  }
+                }
+              ]
+            },
+            "actual": {},
+            "sources": [
+              "desired",
+              "actual"
+            ]
+          },
+          {
+            "target": {
+              "kind": "node",
+              "slug": "agpc",
+              "name": "agpc",
+              "id": "c82421c3-c42a-4bea-91ce-7468ae8a249c"
+            },
+            "code": "stale_actual_data",
+            "severity": "error",
+            "message": "actual observation is missing, stale, or invalid",
+            "desired": {
+              "field": "host_os",
+              "collected_at": "2026-06-26T15:28:41+00:00"
+            },
+            "actual": {
+              "stage": "operational_derivation"
+            },
+            "sources": [
+              "desired",
+              "actual"
+            ]
+          }
+        ]
+      }
+    ],
+    "sources": {
+      "fetched_at": "2026-07-20T17:41:30.733550+00:00",
+      "observed_dump_count": 2,
+      "observed_errors": []
+    }
+  },
+  "errors": []
+}

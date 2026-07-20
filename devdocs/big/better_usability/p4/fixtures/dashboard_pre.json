@@ -1,0 +1,30 @@
+{
+  "schema": "nctl.dashboard.v1",
+  "generated_at": "2026-07-20T17:41:54.040469Z",
+  "ok": true,
+  "data": {
+    "html_path": "/tmp/dash_pre_out/index.html",
+    "drift_json_path": "/tmp/dash_pre_out/drift.json",
+    "generated_at": "2026-07-20T17:41:30.966576+00:00",
+    "summary": {
+      "converged": 2,
+      "unknown": 3,
+      "drifting": 1
+    },
+    "severity_summary": {
+      "error": 5,
+      "warning": 4,
+      "info": 5
+    },
+    "status_push": {
+      "pushed": false,
+      "attempted": 0,
+      "updated": 0,
+      "skipped_no_row": 0,
+      "failed": 0,
+      "errors": []
+    },
+    "dashboard_url": null
+  },
+  "errors": []
+}
