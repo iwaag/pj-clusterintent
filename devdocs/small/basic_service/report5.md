@@ -46,9 +46,33 @@
 - Existing tests updated to accept the new `inventory=None` keyword on the stubbed
   `build_dnsmasq_apply`.
 
+## Bug found and fixed during live verification
+
+Live end-to-end testing (see `report6.md`) caught a real bug in the first version of this step:
+`inventory if inventory is not None else cfg.ansible.resolved_inventory(...)` used the raw
+`--inventory` argument unresolved, while `cfg.ansible.resolved_inventory(...)` always returns an
+absolute, `.resolve()`d path. `AnsibleRunner` always runs `ansible-playbook`/`ansible-inventory`
+with `cwd=playbook_dir`, so a relative `--inventory` path (the natural way to invoke it —
+`nctl apply dnsmasq --inventory ansible_agdev/inventories/generated/hosts_intent.yml` from the
+repo root) was silently resolved against `playbook_dir`, not the caller's cwd, producing a
+double-nested nonexistent path and a misleading `dnsmasq_inventory_group_empty` (not a "file not
+found") error. Fixed by resolving the override the same way: `inventory.expanduser().resolve()`
+before use. Added `test_inventory_override_relative_path_resolves_against_cwd_not_playbook_dir` as
+a regression test (`monkeypatch.chdir` to a directory other than `playbook_dir`, pass a relative
+override, assert `data.inventory_path` is the correctly resolved absolute path).
+
 ## Verification
 
 ```
 uv run pytest -q
 ```
-513 passed (full nctl suite, no regressions; +4 for the new override tests).
+514 passed (full nctl suite, no regressions; +5 for the new override tests, including the
+relative-path regression test).
+
+Live, against the dev Nautobot instance: `nctl render hosts-intent --out
+ansible_agdev/inventories/generated` then `nctl apply dnsmasq --inventory
+ansible_agdev/inventories/generated/hosts_intent.yml` (dry-run) correctly resolved the override,
+found `agdnsmasq` in `dnsmasq_server`, and invoked the daemon-setup playbook against it — it failed
+with `UNREACHABLE` (SSH host key verification), which is the already-documented, expected state of
+`agdnsmasq.local` in `.local/localenv_memo.md`, not a code defect. See `report6.md` for the full
+end-to-end verification writeup.
