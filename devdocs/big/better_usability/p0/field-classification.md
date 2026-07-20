@@ -504,6 +504,48 @@ loopback scenario).
 |---|---|---|---|
 | `placement_config_not_applied` (name TBD by Phase 1's implementation plan; must not collide with existing codes) | `node` (or `service`), evidence = placement id/instance_name + the node's current lifecycle + the `config` value that isn't taking effect | `WARNING` (matches drift's existing severity for a "the system chose not to enforce this yet" class of finding, e.g. `ingest_lag`) | **NEW**: `MANUAL_REVIEW` — the only fix is a human decision (promote the node, or accept the placement is intentionally inert); reconcile cannot automatically act on it |
 
+## 7. Lifecycle ingress matrix (Step 0.7)
+
+Every current source of `DesiredNode.lifecycle` and `DesiredService.lifecycle` defaults, per the
+plan's requirement to "pin every current source... rather than recording only `models.py`."
+`DesiredIPRange.lifecycle` is a third, independent lifecycle field (already fully covered in §2/§3's
+decision notes — it gates dnsmasq export via the same lenient set as node bootstrap export) and is
+not duplicated here since it has only two sources (model default, loader fallback) already listed
+in its own table row.
+
+### `DesiredNode.lifecycle`
+
+| Ingress | Current default | Agrees with model default (`planned`)? | Phase 3 required change |
+|---|---|---|---|
+| Model field (`models.py:296-300`) | `planned` | — (this is the reference) | Change to `active` |
+| `DesiredHostQuickAddForm` (`forms.py:34-37`) | `planned` (`initial=`) | Yes | Change to `active` |
+| `create_desired_node_with_primary_endpoint` (`hosts.py:37`) | `planned` (function-signature default) | Yes | Change to `active` |
+| YAML loader (`loaders.py:439`, `_choice(...,"planned")`) | `planned` | Yes | Change to `active` |
+| `ImportIntentSources` Job | No independent default — passes through whatever the loader/importer produced | N/A (inherits loader's default) | Automatically covered once the loader changes |
+| REST (`DesiredNodeSerializer`, `fields="__all__"`) | No serializer-level default; a `POST` omitting `lifecycle` falls through to the Django model field default | Yes (inherits model default) | Automatically covered once the model field changes |
+| `nauto/seed/intent_sources.yaml` (fixture, not a code default) | `active`, explicit on all 9 example nodes | **Disagrees today** (fixture is already aspirational) | None — fixture already matches the Phase 3 target; no fixture change needed |
+| Live cluster (data, not a code path) | All 5 real `DesiredNode` rows are `planned` (confirmed live 2026-07-20) | Yes, but this is the roadmap's core problem, not a "source" to change | Existing-row transition per §5's transition impact map (explicit promotion command or intentional one-time migration — not silent) |
+
+**Consistency check**: all 4 independent code-level defaults agree with each other today (`planned`
+everywhere) — Phase 3's change is a clean, non-conflicting batch update across exactly 4 sites (model,
+Quick Add form, operation function signature, YAML loader), plus the REST/Job paths which inherit
+automatically.
+
+### `DesiredService.lifecycle`
+
+| Ingress | Current default | Notes |
+|---|---|---|
+| Model field (`models.py:125-128`) | `proposed` | Reference default |
+| YAML loader, manually-declared path (`loaders.py:564-566`) | `proposed`, unless the YAML explicitly sets `lifecycle` | Agrees with model; YAML authors can and do override (`home_cluster.yaml` always sets `active`) |
+| `importers.desired_service_defaults`, analysis-derived path (`importers.py:85`) | `proposed`, **hard-coded unconditionally** — even if the Backstage catalog entity's own `spec.lifecycle` says otherwise (that value only flows into `catalog_lifecycle`, a separate field) | Intentional per §2's decision note: an auto-discovered service should default to needing a human look, regardless of what the catalog claims about itself |
+| REST (`DesiredServiceSerializer`, `fields="__all__"`) | Inherits model default | — |
+| `nauto/seed/home_cluster.yaml` (fixture) | `active`, explicit on all 5 example services | Fixture demonstrates the already-correct "declare it active if you mean it" pattern; no Phase 3 change needed since nothing here is gated (§2/§3 decision: `DesiredService.lifecycle` gates only a drift warning, never production composition) |
+
+**Consistency check**: no disagreement exists between the 4 sources; per §2/§3's decision, no Phase
+3 default change is required here — the field already behaves correctly for both the
+manually-declared (defaults `proposed`, override to `active` when meant) and analysis-derived
+(always starts `proposed`, correctly) creation paths.
+
 ### Existing correctly-local skip-reason codes (for contrast — already right, not part of Phase 1's fix list)
 
 `_host_actual_skip_reasons` (composer.py:267-296) already returns a `list[str]`, not an exception,
@@ -518,3 +560,160 @@ of these already appear in `reconcile/classify.py`'s `_OBSERVATION_CODES` group
 alongside, per roadmap's explicit instruction ("matching the existing
 `_host_actual_skip_reasons` pattern"), even though most of Group C is a data-correction problem
 (`MANUAL_REVIEW`) rather than an observation-freshness problem (`OBSERVATION`).
+
+## 8. Phase assignment and decision summary (Step 0.7)
+
+Every contradiction/transition item from §2–§7, assigned to exactly one owning phase.
+
+### Phase 1 (target-local failure isolation; unapplied-intent findings; drift/reconcile integration)
+
+1. Convert `missing_operational_config` (composer.py:185) from global `ContractError` to a
+   per-node skip, matching `_host_actual_skip_reasons` (roadmap's named example).
+2. Convert the other 14 Group C codes (§6) from global to node- or placement-scoped the same way:
+   `invalid_actual_state_policy`, `unsupported_observed_host_os`, `invalid_platform_power`,
+   `endpoint_node_mismatch`, `unresolved_connection_path`, `invalid_connection_path`,
+   `invalid_connection_address` (per-node call site only — the document-level call site in Group B
+   stays global), `unknown_profile`, `unsupported_config_schema`, `invalid_placement_config`,
+   `unknown_config_key`, `missing_required_config`, `invalid_profile_value_type`,
+   `conflicting_host_variable`.
+3. Register all 15 in `reconcile/classify.py`'s `CODE_CLASSIFICATION` as `MANUAL_REVIEW` (§6) —
+   mandatory before step 1/2 ship, or every one becomes an `UnclassifiedDiffCodeError`.
+4. Resolve the open `Target.kind` question for the 6 `map_placement_config`-sourced codes
+   (placement-scoped vs. node-scoped) as part of the Phase 1 implementation plan.
+5. Add the new `placement_config_not_applied`-class finding (name TBD) for discussion.md Example 1,
+   severity `WARNING`, classification `MANUAL_REVIEW` (§6).
+6. Fix the `ip_policy` model-default-vs-import-default disagreement (`static` vs. `external`, §2) —
+   assignable here or to Phase 4; recommend Phase 1 since it's a "silent different outcome" bug in
+   the same family as Example 1, not merely cosmetic.
+
+### Phase 2 (derivation implementation; optional override persistence/schema; operational-config consumers; provenance/output contract)
+
+1. Dissolve `DesiredNodeOperationalConfig` into: a computed `actual_state_policy` (derived from
+   `declared_host_os` presence, §4); derived `expected_host_os` (from fresh nodeutils observation);
+   derived `connection_path`/`local_endpoint` (from endpoint topology, §4); retained optional
+   override fields `declared_host_os`, `tailscale_endpoint` (+forced `connection_path=tailscale`),
+   forced non-default `local_endpoint`, `ansible_port`, `power_control`, `is_laptop`.
+2. Update every consumer: `sources/desired.py` GraphQL/typed snapshot, `production/adapter.py`,
+   `production/composer.py`, `drift/comparators.py`/`evaluation_snapshot.py` (follow adapter
+   changes even though drift's own node/endpoint/service checks don't gate on the operational-config
+   cluster directly), `reconcile/executor.py`'s OS-playbook selection (only reads
+   `expected_host_os`/`declared_host_os` — narrowest surface to preserve).
+3. Bump `PRODUCTION_INVENTORY_SCHEMA_VERSION` (currently `"1.0"`); replace/remove
+   `nintent_operational_config_id` from `_BASE_HOST_VARIABLES` (confirmed safe — no Ansible playbook
+   reads it, §5b) and add the common provenance contract (§4) fields.
+4. Relax the YAML loader's over-strict `power_control`/`is_laptop` required-ness to fall through to
+   the model default (§2/§3 minor finding).
+5. Add provenance labeling for already-Derived-with-override fields that currently have none:
+   `dns_name`/`mdns_name` auto-fill, `realized_device`/`realized_vm`/`realized_ip_address`
+   automatic-vs-manual linking (§4).
+6. Re-author `nauto/seed/intent_sources.yaml`'s 9 operational-config example rows to the new
+   override-only shape in the same change (§5's transition impact map).
+7. Decide `DesiredService.placement_policy`'s fate — documented future hook vs. removal (§2) — as
+   part of this phase's broader "what survives" sweep, since it's adjacent to the placement schema
+   work already happening here (or defer formally to Phase 4 if judged out of scope; either is
+   acceptable, but it must be decided once, not left ambiguous).
+
+### Phase 3 (node/service lifecycle; every creation ingress; promotion/demotion CLI; existing-row transition)
+
+1. Default `DesiredNode.lifecycle` to `active` across all 4 independent code-level sources (model,
+   `DesiredHostQuickAddForm`, `create_desired_node_with_primary_endpoint`, YAML loader) in one
+   batched nintent change (§7 — all 4 agree today, so this is a clean, non-conflicting update).
+2. Provide the explicit promotion/demotion `nctl` command (roadmap requirement) as the reviewed
+   one-time path for the 5 currently-`planned` live nodes — do not silently promote them via a data
+   migration (roadmap's own instruction, reaffirmed by §5's transition impact map).
+3. Record the decision-of-record that `DesiredService.lifecycle`'s default (`proposed`) needs no
+   change (§2/§3/§7) — it gates only a drift warning, not production composition, and its two
+   creation paths already behave correctly (analysis-derived always `proposed`; manually-declared
+   YAML already overrides to `active` when meant).
+4. Update `nctl/docs/add-a-basic-service.md` and the scenario-1 flow once Phases 1+2 land, per
+   roadmap (may also be executed as part of Phase 4's recipe rewrite — either phase may own the
+   actual doc edit as long as it happens after both dependencies are satisfied).
+
+### Phase 4 (recipe & feedback consolidation; residual tier contradictions)
+
+1. Remove `IntentSource.{last_import_status,last_import_summary}` from `IntentSourceForm.Meta.fields`
+   (§2) — a Job-managed cache should not be hand-editable.
+2. Reconcile `DesiredNode.node_type` (`device` vs. Quick Add/operation's `virtual_machine`) and
+   `DesiredEndpoint.generate_dnsmasq` (`False` vs. Quick Add/operation's `True`) default
+   disagreements (§2).
+3. Surface `DesiredNode.accepted_actual_types` as a visible, labeled derived value in Quick Add
+   rather than a `HiddenInput` (§2, discussion.md Principle 3).
+4. Separate `DesiredService.requirements`' blended analysis-provenance subkeys
+   (`analysis_status`/`analysis_confidence`) from genuine operator-declared requirements (§2/§3).
+5. Decide `DesiredService.placement_policy`'s fate if not already settled in Phase 2 (§2).
+6. Fix or remove the stale `nauto/seed/service_repositories.yaml` fixture, which uses a top-level
+   key the current loader explicitly rejects (§5).
+7. Consider diffing (rather than blind delete+recreate) `DesiredDependency` rows in
+   `AnalyzeIntentSources` so manual edits to `notes`/`resolution_status` survive a re-analysis run
+   (§5, residual, non-blocking).
+8. Consolidate the two-layer defaulting (loader dataclass default, then a separate importer-level
+   default) for fields like `ip_policy`/`dependency_type` into one clear layer per field (§5,
+   non-blocking cleanup).
+9. Document `IntentSource.ref`'s null-fetch-time resolution explicitly in the recipe sweep (§2, minor,
+   non-blocking cosmetic item).
+10. Rewrite "add a basic service"/"register a new PC" recipes once Phases 1–3 land (roadmap's own
+    Phase 4 goal).
+
+## 9. Open issues
+
+**None that can change schema shape, tier, derivation, default, failure scope, or phase ordering.**
+Every item that could have qualified was traced to a concrete answer within this phase (most
+notably `DesiredIPRange.lifecycle`'s consumption, §3, and the `UnclassifiedDiffCodeError` mechanism
+underlying Phase 1's scope, §6) rather than left open.
+
+The following are explicitly non-blocking / cosmetic, already assigned to a later phase above, and
+do not gate Phase 1→2→3 sequencing:
+
+- `IntentSource.ref`'s exact resolution when null at fetch time was not traced beyond the
+  passthrough into `IntentSourceEntry` (Phase 4, item 9).
+- `DesiredService.placement_policy`'s long-term fate (documented hook vs. removal) is a product
+  decision, not a classification question — assignable to either Phase 2 or Phase 4 (Phase 2 item
+  7 / Phase 4 item 5), whichever implementation plan reaches it first, but must be decided once.
+- The `Target.kind` shape (`"node"` vs. a new `"placement"` kind) for the 6
+  `map_placement_config`-sourced Group C codes is an implementation-detail choice explicitly
+  deferred to Phase 1's own plan (§6), not a Phase 0 classification question — Phase 1's exit
+  criteria already requires it be settled before those codes are registered.
+
+## 10. Consistency review (Step 0.7)
+
+Checked against every invariant the roadmap requires:
+
+- ✅ **Phase 3 is hard-blocked on completed Phase 1 and Phase 2.** Confirmed necessary: defaulting
+  `DesiredNode.lifecycle` to `active` without Phase 1's local-fail work would turn every
+  newly-active, config-incomplete node into a cluster-wide `ContractError` abort (today this is
+  accidentally prevented only because all 5 live nodes are `planned`); without Phase 2's derivation,
+  it would turn a newly-active node with no operational config into exactly that same global
+  failure by a different route. Both dependencies are load-bearing, not procedural caution.
+- ✅ **No Derived field remains required human input in the target design.** `actual_state_policy`
+  and `connection_path`/`local_endpoint` — today's two required-with-no-default fields — are both
+  resolved to computed values in §4's rulebook; `accepted_actual_types`, `dns_name`/`mdns_name`,
+  `realized_*`, `resolution_status` were already optional-with-computation.
+- ✅ **Every Override is optional, validated, persisted somewhere named, and visible when
+  effective.** `declared_host_os`, `tailscale_endpoint`, forced `local_endpoint`, `ansible_port`,
+  `power_control`, `is_laptop` all retain a named persistence location in the Phase 2 dissolved
+  shape (§4); `config_schema_version`/`assignment_source` on `DesiredServicePlacement` were already
+  correct and are unchanged.
+- ✅ **No derivation resolves ambiguity invisibly.** Every Derived rule in §4 that has more than one
+  candidate input (endpoint selection, actual-node linking, IPAM linking, dependency resolution)
+  specifies an explicit ambiguity finding rather than an arbitrary/lexical pick.
+- ✅ **No target-owned error remains classified global without a documented cross-target
+  invariant.** §6 traces all 57 `ContractError` sites; Groups A/B's global classification is
+  justified by a genuine shared/whole-document invariant (profile-schema, closed-output-contract);
+  Group C's 15 codes are reclassified local with no exception.
+- ✅ **Every new error-level code has a Phase 1/2 reconcile-classification task.** All 15 Group C
+  codes plus the new `placement_config_not_applied`-class finding are assigned `MANUAL_REVIEW` in
+  §6/§8.
+- ✅ **Existing rows and all creation ingress have an explicit transition owner.** `DesiredNode`'s 5
+  live `planned` rows: explicit promotion command, not silent migration (§5/§8 Phase 3 item 2). All
+  4 lifecycle-default code sites are enumerated with no ingress left uncovered (§7).
+- ✅ **Normal Django migration history is retained; only obsolete runtime surface is deleted.** §5's
+  transition impact map specifies `AlterField`/`DeleteModel` operations retained in history for
+  every schema change; the deletion lists name only form/view/URL/contract-variable/loader-validation
+  surface, never migration files.
+
+No item in this audit required stopping to ask the user for a judgment call; every ambiguity
+encountered during construction (IP range lifecycle consumption, the `UnclassifiedDiffCodeError`
+mechanism, the placement-vs-node `Target.kind` question) was either traced to a definite answer or
+explicitly and narrowly deferred to the implementation phase that owns the remaining
+implementation-shape choice, consistent with Phase 0 being documentation-only and making no such
+choices itself where the roadmap already reserves them for later.
