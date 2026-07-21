@@ -1,0 +1,110 @@
+{
+  "dependencies_count": 0,
+  "endpoints": [
+    {
+      "dns_name": "agbach.home.arpa",
+      "generate_dnsmasq": true,
+      "ip_policy": "dhcp_reserved",
+      "mdns_name": "agbach.local",
+      "name": "primary",
+      "node_slug": "agbach"
+    },
+    {
+      "dns_name": "agdnsmasq.home.arpa",
+      "generate_dnsmasq": true,
+      "ip_policy": "static",
+      "mdns_name": "agdnsmasq.local",
+      "name": "primary",
+      "node_slug": "agdnsmasq"
+    },
+    {
+      "dns_name": "aghub.home.arpa",
+      "generate_dnsmasq": true,
+      "ip_policy": "dhcp_reserved",
+      "mdns_name": "aghub.local",
+      "name": "primary",
+      "node_slug": "aghub"
+    },
+    {
+      "dns_name": "agpc.home.arpa",
+      "generate_dnsmasq": true,
+      "ip_policy": "dhcp_reserved",
+      "mdns_name": "agpc.local",
+      "name": "primary",
+      "node_slug": "agpc"
+    },
+    {
+      "dns_name": "agstudio.home.arpa",
+      "generate_dnsmasq": true,
+      "ip_policy": "dhcp_reserved",
+      "mdns_name": "agstudio.local",
+      "name": "primary",
+      "node_slug": "agstudio"
+    }
+  ],
+  "nodes": [
+    {
+      "accepted_actual_types": [
+        "device"
+      ],
+      "lifecycle": "planned",
+      "node_type": "device",
+      "role": null,
+      "slug": "agbach"
+    },
+    {
+      "accepted_actual_types": [
+        "device",
+        "virtual_machine"
+      ],
+      "lifecycle": "planned",
+      "node_type": "service_host",
+      "role": null,
+      "slug": "agdnsmasq"
+    },
+    {
+      "accepted_actual_types": [
+        "device"
+      ],
+      "lifecycle": "planned",
+      "node_type": "device",
+      "role": null,
+      "slug": "aghub"
+    },
+    {
+      "accepted_actual_types": [],
+      "lifecycle": "active",
+      "node_type": "device",
+      "role": null,
+      "slug": "agpc"
+    },
+    {
+      "accepted_actual_types": [],
+      "lifecycle": "active",
+      "node_type": "device",
+      "role": null,
+      "slug": "agstudio"
+    }
+  ],
+  "placements": [
+    {
+      "config": {
+        "listen_addresses": [
+          "192.168.0.2"
+        ]
+      },
+      "deployment_profile": "dnsmasq",
+      "desired_state": "active",
+      "instance_name": "dnsmasq",
+      "node_id": "27818c12-fe15-4c9f-83d0-7949523f6c33",
+      "service_id": "e31d3b99-d4ab-4646-913a-27b92ccfdf66"
+    }
+  ],
+  "services": [
+    {
+      "lifecycle": "active",
+      "requirements": {},
+      "slug": "dnsmasq"
+    }
+  ]
+}
