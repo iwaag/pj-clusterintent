@@ -51,8 +51,23 @@ This is not an `agpc` sudo-authority omission:
 The direct corrective target is the nctl/Ansible inventory-variable handoff, not a broad change to
 `agpc` sudoers. No correction was applied in this step.
 
+## 5. Follow-up correction
+
+The handoff was corrected after the failed operation in nctl commit `3f65248`
+(`Preserve shared inventory vars during observations`). Both the nodeutils collection and report
+slurp commands now pass the operation-scoped bootstrap inventory first and the configured normal
+inventory second. This preserves the fresh operation host selection while allowing Ansible to load
+the normal inventory's adjacent `group_vars`, including the vaulted become credentials.
+
+The exact two-inventory command shape was checked against the live local inventories: the generated
+operation inventory alone leaves `ansible_become_password` empty, while adding the configured
+production inventory makes it non-empty. Focused observation tests (6) and the full nctl suite
+(733 passed, one existing warning) pass at the correction commit.
+
+No second `reconcile --yes` was run after this correction. A new actual-state collection remains a
+separate approved operation.
+
 ## Discrepancies
 
-Step 3.4 cannot meet its fresh-observation or unexplained-service exit criteria until the
-operation-scoped collection receives the required become credentials (or the collection is redesigned
-not to require them) and a new report is successfully ingested.
+Step 3.4 cannot meet its fresh-observation or unexplained-service exit criteria until a post-fix
+collection is explicitly approved, succeeds, and a new report is ingested.
