@@ -5,7 +5,7 @@ Parent: [roadmap.md](../roadmap.md) — Phase 1.
 Contract: [Phase 0 plan](../p0/plan.md). Phase 0 is authoritative for domain semantics; this plan
 chooses implementation details without adding fields or behavior to that contract.
 
-Status: proposed.
+Status: complete. All 8 steps executed and verified; see `report1.1.md`–`report1.8.md`.
 
 ## Goal
 
