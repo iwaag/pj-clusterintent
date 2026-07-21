@@ -1,6 +1,6 @@
 # Step 3.4 — Refresh evidence and conduct the unexplained-service conversation
 
-Status: partially complete; fresh observation is restored and the unexplained-service disposition is pending.
+Status: complete.
 
 ## 1. Plan-only operation
 
@@ -84,8 +84,20 @@ observation is an intentional unmanaged workload, an experimental project, a ser
 management, or a candidate for separately confirmed removal. It does not classify it as unwanted
 and makes no desired-state or service-execution change.
 
+## 7. User disposition
+
+The user explicitly set the current policy that all unmanaged services are intentional unmanaged
+workloads for now. This was stored as a new `user_direct` Braindump
+`c1e2eb7c-0efc-4968-965c-2a40695d8049` with one current review
+`04b3c325-2f5c-4700-a3f9-61e8afc2c5ec`.
+
+Accordingly, the fresh `prometheus` observation on `agpc` is recorded as intentional unmanaged
+state. It remains absent from desired state, is not included in reconcile planning, and was neither
+stopped nor removed. The same policy applies to future fresh observations of unmanaged services;
+the older `agstudio` service inventory is not asserted to be current merely because this policy
+exists.
+
 ## Discrepancies
 
-The fresh-observation portion is complete. The unexplained-service conversation remains open until
-the user supplies a disposition; only then may a new user-originated/confirmed Braindump or a
-separately approved structured desired-state proposal be created.
+None for Step 3.4. Moving a named unmanaged service into desired state, stopping it, or removing it
+remains a separate user-confirmed action.
