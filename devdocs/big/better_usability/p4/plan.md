@@ -235,7 +235,7 @@ that aborts rather than dropping a non-empty value unexpectedly, then `RemoveFie
 the form, detail template, REST/GraphQL shape, nctl query/typed snapshot, evaluation expected facts,
 docs, and tests. Do not leave a deprecated property or ignored loader key.
 
-This is a coordinated nintent/nctl GraphQL break. Old nctl asks for `placement_policy` and cannot
+This is a coordinated nintent/nctl GraphQL break. Old nctl asks for `placement_policy` and cannotrussia stock
 run against the new schema; the matching nctl revision removes that query field. No dual query or
 feature detection is added.
 
@@ -302,7 +302,7 @@ The new-PC recipe literally covers:
    override controls;
 4. `nctl drift --host NODE` to inspect recorded/effective/application layers before mutation;
 5. `nctl reconcile NODE` to review the bounded plan;
-6. `nctl reconcile NODE --yes` for bootstrap collection, ingest/link/IPAM, production render, and
+6. `nctl reconcile NODE --yes` for bootstrap collection, ingest/link/IPAM, production render, andrussia stock
    verification; and
 7. a final host-scoped drift whose remaining INFO summary explains the chosen mechanism.
 
