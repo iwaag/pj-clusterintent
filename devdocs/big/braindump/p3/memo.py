@@ -17,21 +17,28 @@ verification failed" となり未実行で終わった。
 * これは desired state / actual-state ingest / dnsmasq service target の問題では
   なく、接続アイデンティティ（名前と IP）に対する SSH known_hosts の不整合である。
 
-次回の安全な進め方
-------------------
-1. 信頼できる既知のフィンガープリントと照合して、``agdnsmasq.local`` と
-   ``192.168.0.2`` が同一ホストの正しい host key を提示することを確認する。
-   未検証の ``ssh-keyscan`` 出力をそのまま信頼しない。
-2. 接続先を一意に決める。確認済みの IP 用 known_hosts エントリを追加するか、
-   production inventory 側も検証済みのホスト名を使うようにする。
-3. 明示的な承認を得てから plan-only reconcile を再実行し、結果を確認した上で
-   apply する。
+対応状況（完了）
+----------------
+根本原因（接続先アイデンティティのみに基づく SSH known_hosts と、
+DesiredNode の恒久的な身元との不整合）は
+``devdocs/small/fix_sshkey/plan.md`` の一連の変更で解消済み。
+``nctl-node-<DesiredNode UUID>`` を唯一の ``HostKeyAlias`` とし、
+bootstrap/production 両インベントリが同一のエイリアス・
+``ansible_ssh_common_args`` を持つようになったため、``ansible_host`` が
+``agdnsmasq.local`` から ``192.168.0.2`` に変わっても再 enroll 不要かつ
+同じ鍵で認証される。実装詳細・各ステップの報告は
+``devdocs/small/fix_sshkey/report_step1.md`` 〜 ``report_step6.md``、
+実機での再現検証（``agdnsmasq`` に対する enroll・bootstrap/production
+両経路での接続・reconcile 実行）は
+``devdocs/small/fix_sshkey/report_verification.md`` を参照。
 
-禁止事項
---------
+禁止事項（引き続き有効）
+------------------------
 * ``StrictHostKeyChecking=no``、グローバルな ``accept-new``、host key 検証の
   無効化を恒久対策にしない。
 * 広範囲な known_hosts 削除や、照合なしの鍵置換をしない。
+（上記は修正後も設計原則として維持されており、コード・テストのいずれにも
+現れない。）
 
 補足
 ----
