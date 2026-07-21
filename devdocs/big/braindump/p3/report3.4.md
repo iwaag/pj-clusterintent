@@ -1,6 +1,6 @@
 # Step 3.4 — Refresh evidence and conduct the unexplained-service conversation
 
-Status: blocked pending a fix to the operation-scoped Ansible privilege configuration.
+Status: partially complete; fresh observation is restored and the unexplained-service disposition is pending.
 
 ## 1. Plan-only operation
 
@@ -64,10 +64,28 @@ operation inventory alone leaves `ansible_become_password` empty, while adding t
 production inventory makes it non-empty. Focused observation tests (6) and the full nctl suite
 (733 passed, one existing warning) pass at the correction commit.
 
-No second `reconcile --yes` was run after this correction. A new actual-state collection remains a
-separate approved operation.
+## 6. Post-fix collection and unexplained-service result
+
+After explicit approval, the corrected nctl ran `nctl reconcile agpc --yes --json` as operation
+`01KY2ND30BVR6912R2NN222B9K`.
+
+- Terminal state: `converged`.
+- `observe_node` successfully collected `agpc` and the Nautobot ingest outcome was `updated`.
+- `agpc` actual and service-inventory timestamps are now `2026-07-21T15:41:20Z`.
+- A scoped post-operation drift has one `agpc` target, `converged`, with only
+  `intent_effect_summary`; the full cluster summary moved from `converged: 2, unknown: 4` to
+  `converged: 3, unknown: 3`.
+- Fresh observed services on `agpc` include `prometheus`.
+
+All three current Braindump bodies were checked through nctl and do not mention `prometheus`.
+The desired catalog still contains only `dnsmasq`, with no `prometheus` DesiredService or placement.
+The updated machine-placement review therefore asks the user whether the fresh `prometheus`
+observation is an intentional unmanaged workload, an experimental project, a service to bring under
+management, or a candidate for separately confirmed removal. It does not classify it as unwanted
+and makes no desired-state or service-execution change.
 
 ## Discrepancies
 
-Step 3.4 cannot meet its fresh-observation or unexplained-service exit criteria until a post-fix
-collection is explicitly approved, succeeds, and a new report is ingested.
+The fresh-observation portion is complete. The unexplained-service conversation remains open until
+the user supplies a disposition; only then may a new user-originated/confirmed Braindump or a
+separately approved structured desired-state proposal be created.
