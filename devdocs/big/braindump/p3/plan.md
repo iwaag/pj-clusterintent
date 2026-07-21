@@ -10,8 +10,9 @@ Contracts and completed handoffs:
 - [Phase 2 plan](../p2/plan.md) and [phase-close report](../p2/report2.8.md) — authoritative nctl
   commands, envelopes, live CRUD behavior, and isolation evidence.
 
-Status: proposed; Phase 3 execution has not started. The read-only preflight used to prepare this
-plan did not create a Braindump, change desired state, run reconcile, or actuate a host.
+Status: completed on 2026-07-22 (JST), with an accepted safe-stop boundary recorded in
+`report3.8.md`. The read-only preflight used to prepare this plan did not create a Braindump,
+change desired state, run reconcile, or actuate a host.
 
 ## Goal
 
@@ -450,7 +451,24 @@ exit criterion marked pass/fail.
 
 ## Verification summary
 
-Phase 3 is complete only when all of these independent gates pass:
+### Closeout decision — accepted safe-stop boundary
+
+The original gates below were intentionally stricter than the live validation needed to prove the
+minimal diary contract.  During execution, two gaps remained: a direct Nautobot UI-entry interval
+was not exercised, and the final configuration action could not authenticate the production SSH
+connection because host-key verification correctly stopped it.  The user accepted a Phase 3
+closeout that preserves both facts as follow-up work rather than weakening SSH verification or
+altering the design merely to make the apply pass.
+
+For this accepted closeout, Phase 3 is complete when the live workflow has proven the diary,
+review, explicit desired-state authority, separate plan/apply gates, fresh observation, and
+review-only isolation; when the blocked configuration path has a bounded, non-bypassing handover;
+and when no minimal-contract structure was added to conceal either gap.  The original UI-path and
+SSH completion gates remain follow-up acceptance criteria, not claims made by this phase.  See
+`memo.py` and `report3.8.md`.
+
+The following are the original, unamended gates.  The closeout decision above
+records which two are deferred and is authoritative for this completed Phase 3:
 
 1. the direct named-host case is stored and reviewed in one AI-mediated interaction;
 2. a user-created UI row is observed as genuinely unreviewed before the agent fills it;

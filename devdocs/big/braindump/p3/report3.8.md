@@ -4,11 +4,13 @@ Date: 2026-07-22 (JST)
 
 ## Result
 
-Phase 3 is **partially complete**.  The direct-source, review, desired-state,
-observation, and review-isolation paths were exercised.  The final dnsmasq
-apply did not fully converge because SSH host-key verification prevents the
-production inventory from connecting to `agdnsmasq`; the issue is recorded in
-`memo.py` for a separately approved remediation.
+Phase 3 is **complete with an accepted safe-stop boundary**.  The direct-source,
+review, desired-state, observation, and review-isolation paths were exercised.
+The final dnsmasq apply did not fully converge because SSH host-key verification
+prevents the production inventory from connecting to `agdnsmasq`.  The user
+accepted treating that safety stop as a separately scoped connection-baseline
+follow-up rather than weakening SSH verification or changing the Phase 3 design.
+The issue is recorded in `memo.py`.
 
 ## Evidence collected at closeout
 
@@ -44,8 +46,8 @@ production inventory from connecting to `agdnsmasq`; the issue is recorded in
 * Follow `memo.py` to verify the SSH host key and make the production
   connection identity consistent.  Do not weaken SSH verification.
 * After explicit approval, run a new plan-only reconcile for `agdnsmasq`,
-  inspect it, and only then apply it.  Amend Step 3.7 and this closeout report
-  with the resulting operation.
+  inspect it, and only then apply it.  Record the resulting operation in the
+  SSH follow-up work; it is not required to reopen this completed phase.
 * The direct Nautobot UI-entry case in Step 3.3 was not performed; Phase 3
   therefore does not claim UI-path coverage.  Perform it in a follow-up and
   review the resulting record.
@@ -57,3 +59,11 @@ production inventory from connecting to `agdnsmasq`; the issue is recorded in
 No SSH configuration, known_hosts entry, or host-key policy was changed in
 this step.  The handover records the diagnosis and safe decision points only.
 No source prose or credentials are copied into this report.
+
+## Accepted closeout scope
+
+This completion does not assert that the direct Nautobot UI-entry interval or
+the final SSH-backed configuration action succeeded.  It asserts that their
+absence/failure is explicit, safely bounded, and does not require new diary
+schema, review automation, or a reconciliation bypass.  The remaining SSH and
+UI-path work is a follow-up acceptance test for those respective surfaces.
