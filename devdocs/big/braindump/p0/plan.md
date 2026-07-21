@@ -440,15 +440,15 @@ remain explicitly non-blocking.
 ## Exit criteria
 
 - [ ] The user approves this plan as the authoritative minimal contract.
-- [ ] The nintent and nctl surface inventories have been checked against the current source tree.
-- [ ] Exact model fields, authorship semantics, cardinality, deletion behavior, and validation are
+- [x] The nintent and nctl surface inventories have been checked against the current source tree.
+- [x] Exact model fields, authorship semantics, cardinality, deletion behavior, and validation are
       settled.
-- [ ] Unreviewed and timestamp-based attention behavior are settled without persisted status.
-- [ ] The deterministic drift/reconcile separation and conversation-first unmanaged-service policy
+- [x] Unreviewed and timestamp-based attention behavior are settled without persisted status.
+- [x] The deterministic drift/reconcile separation and conversation-first unmanaged-service policy
       are explicit.
-- [ ] The Phase 1 test and coordinated rollout obligations are complete.
-- [ ] No schema-affecting open question remains.
-- [ ] `p0/report.md` records completion evidence without duplicating this contract.
+- [x] The Phase 1 test and coordinated rollout obligations are complete.
+- [x] No schema-affecting open question remains.
+- [x] `p0/report0.1.md`–`report0.8.md` record completion evidence without duplicating this contract.
 
 ## Phase 0 non-goals
 
