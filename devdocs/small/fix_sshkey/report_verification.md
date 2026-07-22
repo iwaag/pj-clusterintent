@@ -7,6 +7,31 @@
 ステータス: **完了**。plan.md「Verification / Live Phase 3 replay」の
 手順1〜9をすべて実施し、SSH host-key 不整合による障害無く収束を確認した。
 
+> **Notice (added by `devdocs/small/fix_sshkey2`, 2026-07-22, English per current
+> reporting convention):** Step 7's `nctl reconcile agdnsmasq --yes` run
+> (operation `01KY2WSZ4JC0A3AG6JV8CRS51T`) only executed `reconcile_ipam`;
+> `ssh_preflight` was an **empty list** because no SSH-requiring
+> (`service_profile`/`dnsmasq_config`) action was in that round's plan. This
+> report's Step 9 "残った摩擦点" and the final acceptance-criteria line
+> already flagged this as unconfirmed for the post-regeneration
+> service/dnsmasq path — that caveat was correct, and this notice exists
+> because a later read of this report described the acceptance criteria as
+> fully met without repeating the caveat. Do not read the last line of the
+> 受け入れ基準 section below as evidence that the post-regeneration
+> service-action SSH path was exercised live: it was not. All facts,
+> operation IDs, and fingerprints below remain accurate for what they
+> actually cover (enrollment, bootstrap mDNS connection, production IP
+> connection, and the `reconcile_ipam`-only apply round) and are preserved
+> unedited. `fix_sshkey2` (`devdocs/small/fix_sshkey2/`) independently fixed
+> two related implementation bugs found by review — a stale round-start
+> snapshot could disagree with the freshly regenerated production
+> inventory's route, and an empty explicit production route map fell back to
+> mDNS instead of failing closed — and its own
+> `devdocs/small/fix_sshkey2/report_verification.md` records the renewed
+> live proof of the post-regeneration service/dnsmasq path (Live
+> verification B), superseding the "残った摩擦点" note below rather than
+> this report's other findings.
+
 ## 実施内容と結果
 
 ### 1. 既存の `.local` トラストソースの確認
