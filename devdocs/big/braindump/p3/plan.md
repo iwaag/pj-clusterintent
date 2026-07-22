@@ -10,9 +10,11 @@ Contracts and completed handoffs:
 - [Phase 2 plan](../p2/plan.md) and [phase-close report](../p2/report2.8.md) — authoritative nctl
   commands, envelopes, live CRUD behavior, and isolation evidence.
 
-Status: completed on 2026-07-22 (JST), with an accepted safe-stop boundary recorded in
-`report3.8.md`. The read-only preflight used to prepare this plan did not create a Braindump,
-change desired state, run reconcile, or actuate a host.
+Status: completed against the original exit criteria on 2026-07-22 (JST). The phase first closed
+at an accepted safe-stop boundary; the separately approved SSH/dnsmasq verification and direct
+Nautobot UI-entry follow-up subsequently closed both deferred gates. See `report3.7.md` and
+`report3.8.md`. The read-only preflight used to prepare this plan did not create a Braindump, change
+desired state, run reconcile, or actuate a host.
 
 ## Goal
 
@@ -451,24 +453,21 @@ exit criterion marked pass/fail.
 
 ## Verification summary
 
-### Closeout decision — accepted safe-stop boundary
+### Closeout history and strict follow-up
 
-The original gates below were intentionally stricter than the live validation needed to prove the
-minimal diary contract.  During execution, two gaps remained: a direct Nautobot UI-entry interval
-was not exercised, and the final configuration action could not authenticate the production SSH
-connection because host-key verification correctly stopped it.  The user accepted a Phase 3
-closeout that preserves both facts as follow-up work rather than weakening SSH verification or
-altering the design merely to make the apply pass.
+During the original execution, two gaps remained: a direct Nautobot UI-entry interval was not
+exercised, and the final configuration action could not authenticate the production SSH connection
+because host-key verification correctly stopped it. The user accepted a safe-stop closeout rather
+than weakening SSH verification or altering the diary design merely to make the apply pass.
 
-For this accepted closeout, Phase 3 is complete when the live workflow has proven the diary,
-review, explicit desired-state authority, separate plan/apply gates, fresh observation, and
-review-only isolation; when the blocked configuration path has a bounded, non-bypassing handover;
-and when no minimal-contract structure was added to conceal either gap.  The original UI-path and
-SSH completion gates remain follow-up acceptance criteria, not claims made by this phase.  See
-`memo.py` and `report3.8.md`.
+Both deferred gates were subsequently exercised. The separately planned `fix_sshkey` through
+`fix_sshkey4` work established one UUID-derived SSH trust identity and proved a reversible live
+dnsmasq content change through production apply, observation, and no-repeat convergence. A later
+user-created Nautobot UI row was observed through nctl as genuinely unreviewed before the agent
+created its one current review. `report3.3.md`, `report3.7.md`, and `report3.8.md` are the
+authoritative follow-up record.
 
-The following are the original, unamended gates.  The closeout decision above
-records which two are deferred and is authoritative for this completed Phase 3:
+The following original, unamended gates are now complete:
 
 1. the direct named-host case is stored and reviewed in one AI-mediated interaction;
 2. a user-created UI row is observed as genuinely unreviewed before the agent fills it;
@@ -508,31 +507,31 @@ records which two are deferred and is authoritative for this completed Phase 3:
 
 ## Exit criteria
 
-- [ ] Three live cases cover direct/specific, dynamic/vague, and freshly observed unexplained
+- [x] Three live cases cover direct/specific, dynamic/vague, and freshly observed unexplained
       service input.
-- [ ] Every Braindump has correct explicit authorship; any agent transcription was confirmed before
+- [x] Every Braindump has correct explicit authorship; any agent transcription was confirmed before
       write, and agent recommendations remain review prose.
-- [ ] The direct case was written and reviewed in the same interaction after reading all relevant
+- [x] The direct case was written and reviewed in the same interaction after reading all relevant
       diary, desired, actual, drift, and freshness evidence.
-- [ ] A user-authored UI entry was visibly `unreviewed` with no placeholder/background review before
+- [x] A user-authored UI entry was visibly `unreviewed` with no placeholder/background review before
       the agent processed it.
-- [ ] The vague case was not converted into a fixed placement or structured policy without the
+- [x] The vague case was not converted into a fixed placement or structured policy without the
       user's missing decision.
-- [ ] Case C used a fresh observation, proved absence from both Braindumps and desired
+- [x] Case C used a fresh observation, proved absence from both Braindumps and desired
       services/placements, and asked a soft disposition question before any action.
-- [ ] A review-only replacement kept the review UUID, advanced its timestamp, left the normalized
+- [x] A review-only replacement kept the review UUID, advanced its timestamp, left the normalized
       desired projection and drift invariants unchanged, and triggered no operation/actuation.
-- [ ] One exact desired-state change was confirmed separately, written through its canonical
+- [x] One exact desired-state change was confirmed separately, written through its canonical
       nintent interface, and confirmed by refetch before reconcile.
-- [ ] Plan-only reconcile and scoped `--yes` apply used separate user confirmations and produced
+- [x] Plan-only reconcile and scoped `--yes` apply used separate user confirmations and produced
       inspectable operation artifacts.
-- [ ] Fresh observation and final drift grounded an in-place replacement review that describes the
+- [x] Fresh observation and final drift grounded an in-place replacement review that describes the
       actual result without claiming unsupported convergence.
-- [ ] Genuine current rows remain, unintended/synthetic rows do not, and there is still at most one
+- [x] Genuine current rows remain, unintended/synthetic rows do not, and there is still at most one
       review per Braindump with no history mechanism.
-- [ ] Friction is documented across independent cases; no schema/runtime structure was added without
+- [x] Friction is documented across independent cases; no schema/runtime structure was added without
       repeated evidence and a separate plan.
-- [ ] Regression checks pass, diffs contain no private prose/token/compatibility artifact, and
+- [x] Regression checks pass, diffs contain no private prose/token/compatibility artifact, and
       `report3.1.md` through `report3.8.md` provide redacted evidence for every gate.
 
 ## Suggested commit order
