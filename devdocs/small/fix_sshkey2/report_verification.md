@@ -133,10 +133,52 @@ complete a real dry-run (`--check --diff`) end to end against
 `agdnsmasq`, with zero writes to the managed known_hosts store (verified by
 file content/line count before and after).
 
+## Live verification A — OpenSSH lookup on a non-default port
+
+Date: 2026-07-22. Target: real `agdnsmasq`. No permanent host configuration
+was changed.
+
+1. A temporary `ssh -i ~/.ssh/ansible_key -L 127.0.0.1:12222:localhost:22
+   eiji@agdnsmasq.local -N -f` port-forward was started: local port `12222`
+   tunnels through an ordinary SSH connection to `agdnsmasq` into `agdnsmasq`'s
+   own `localhost:22`, i.e. its real sshd, presenting its real host key --
+   without touching `agdnsmasq`'s sshd configuration at all.
+2. A disposable known_hosts file was built containing only
+   `nctl-node-27818c12-fe15-4c9f-83d0-7949523f6c33 ssh-ed25519 <the same
+   already-trusted blob from the real managed store>` (bare alias, no
+   endpoint name, no port).
+3. `ssh -p 12222 -o HostKeyAlias=nctl-node-27818c12-fe15-4c9f-83d0-7949523f6c33
+   -o UserKnownHostsFile=<disposable bare file> -o StrictHostKeyChecking=yes
+   -o CheckHostIP=no -o UpdateHostKeys=no eiji@127.0.0.1` **succeeded**
+   (`bare-alias-non-default-port-OK`) -- confirming OpenSSH itself looks up
+   the bare alias regardless of the non-default connection port, exactly the
+   `ssh_config(5)` `HostKeyAlias` behavior fix_sshkey2 Step 1 fixed nctl's
+   lookup helpers to match.
+4. The same command against a disposable file containing only the obsolete,
+   pre-fix_sshkey2 `[nctl-node-27818c12-...]:12222 ssh-ed25519 <same blob>`
+   form **failed** (`No ED25519 host key is known for nctl-node-...`, exit
+   255) -- confirming the bracketed form is not what a real non-default-port
+   connection looks up, so a store containing only that form is correctly
+   treated as unenrolled.
+5. `nctl`'s own real functions (not just the `ssh` CLI) were exercised
+   directly against the tunnel, with no Nautobot mutation: `ssh_trust.managed_lookup_name`
+   confirmed the bare, port-independent lookup name;
+   `ssh_enroll.default_ssh_probe_runner()` + `scan_offered_keys(probe,
+   "127.0.0.1", 12222, ...)` scanned the real offered keys
+   (`ssh-rsa`/`ecdsa-sha2-nistp256`/`ssh-ed25519`); `ssh_enroll.entries_for_lookup_name`
+   against the *real* managed store (`~/.local/state/nctl/ssh/known_hosts`,
+   untouched) found all 3 entries under the bare alias; the offered/managed
+   key-pair intersection was non-empty -- the same READY determination
+   `reconcile.ssh_preflight.verify_offered_keys` would make.
+6. Cleanup: the port-forward process was killed, and
+   `/tmp/nctl-live-verify-A/` (the two disposable known_hosts files) was
+   removed. The real managed known_hosts store was never opened for writing
+   during this verification (read-only for the whole procedure) and remains
+   exactly 3 lines under the one alias, as before.
+
 ## Live verification status
 
-- **Live verification A** (non-default-port OpenSSH lookup, temporary
-  localhost port-forward to `agdnsmasq:22`) — not yet run.
+- **Live verification A** — complete (above).
 - **Live verification B** (a real `service_profile`/`dnsmasq_config` action
   after production regeneration via `nctl reconcile agdnsmasq --yes`,
   including the disposable-empty-store and mismatch-fixture negative cases)
