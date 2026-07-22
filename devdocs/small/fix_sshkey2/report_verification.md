@@ -2,12 +2,12 @@
 
 Date: 2026-07-22
 Scope: `nctl` (submodule), root `devdocs/`
-Status: **documentation and automated verification complete**. Live
-verification A (non-default-port OpenSSH lookup) and Live verification B
-(post-regeneration service/dnsmasq action) are **not yet run** — both touch
-real infrastructure or a real SSH connection and are paused for explicit
-operator confirmation per this project's execution convention. See
-"Live verification status" below.
+Status: Documentation and automated verification **complete**. Live
+verification A (non-default-port OpenSSH lookup) **complete**. Live
+verification B (post-regeneration service/dnsmasq action) **attempted, not
+completed** — blocked by a structural property of the reconciliation drift
+model unrelated to fix_sshkey2's own changes; all live state was restored
+and confirmed converged. See "Live verification status" below.
 
 ## Documentation
 
@@ -176,16 +176,103 @@ was changed.
    during this verification (read-only for the whole procedure) and remains
    exactly 3 lines under the one alias, as before.
 
+## Live verification B — attempted, blocked by a structural finding, not completed
+
+Date: 2026-07-22. Target: real `agdnsmasq` and the live Nautobot instance.
+**Not marked complete** -- see the finding below and plan.md's own
+instruction: "If a safe fixture cannot be created, do not mark this
+verification complete. Record the reason and the requirements for an
+alternative fixture."
+
+### What was attempted
+
+1. Confirmed steps 1-4 of plan.md's Live verification B were already
+   satisfied by the automated-verification section above: managed store
+   bare alias/fingerprint/permissions/absolute path; identical
+   alias/`ansible_ssh_common_args` with differing routes across both
+   generated inventories; a passing dry-run of `nctl apply dnsmasq
+   --inventory <bootstrap>`; a passing dry-run of `nctl apply dnsmasq`
+   (production).
+2. `nctl reconcile agdnsmasq` showed no drift (`scope_summary:
+   {"converged": 2}`), so step 5 required creating a temporary, reversible
+   desired-state change to force a real SSH-requiring action -- per operator
+   direction, this was done via the normal desired-state interface (the
+   Nautobot intent-catalog REST API), not by hand-editing the database.
+3. Created one new `DesiredEndpoint` on the real `agdnsmasq` node
+   (`id 2ff268e0-b5dd-4f5f-b3fb-4d95a748d243`, `name
+   nctl-fix-sshkey2-verify`, `endpoint_type service`, `dns_name
+   nctl-verify-test.home.arpa`, `ip_address 192.168.0.5` -- inside the
+   existing `network-infra` static-pool range, `generate_dnsmasq true`).
+   Confirmed via `nctl render dnsmasq` that this produced one new
+   `host-record=` line and via `nctl drift` that it entered the desired
+   snapshot with no `manual_review` findings.
+4. Ran `nctl reconcile agdnsmasq --yes`: `reconcile_ipam` and production
+   inventory regeneration both succeeded, but the round ended
+   `non_converged`/`no_progress` -- the plan **never** proposed a
+   `dnsmasq_config`/`service_profile` action, and `ssh_preflight` stayed
+   empty.
+
+### Finding: this drift model cannot be forced by a desired-state content change alone
+
+Reading `nctl_core/reconcile/reconcilers.py` (`plan_service_profile`) and
+`nctl_core/drift/service_placement.py` (`evaluate_active_placement`/
+`evaluate_placement_drift`) confirmed why: a `service_profile`/
+`dnsmasq_config` action is only planned from a placement drift **gap** code
+(`service_not_running`, `service_observation_missing`,
+`service_observation_stale`, `service_observed_on_wrong_node`) -- all
+derived from the last *observed* service state (`nodeutils`'s
+`service_inventory` facts), never from a comparison against the freshly
+rendered `dnsmasq.conf` content. Since the real `dnsmasq` daemon on
+`agdnsmasq` was already observed running (from the `fix_sshkey` live
+verification), adding a new DNS record produced zero placement drift no
+matter how the record was added -- this is a property of the reconciliation
+model, not something a desired-state fixture choice can work around.
+
+The only ways to produce a real gap are actually more invasive than what was
+authorized for this step: (a) briefly stopping the real `dnsmasq` daemon on
+`agdnsmasq` so `nodeutils` observes it as not running (a real, if short,
+service interruption on the actual host), or (b) writing a fabricated "not
+running" observation into Nautobot's actual-state store directly (bypassing
+`nodeutils`, misrepresenting the real machine's state -- explicitly the kind
+of "not a substitute for a verified source" workaround this whole plan
+exists to avoid). Presented to the operator; the operator chose to stop
+rather than authorize either.
+
+### Cleanup and restoration (completed)
+
+- Deleted the test `DesiredEndpoint` via `DELETE
+  /api/plugins/intent-catalog/endpoints/2ff268e0-.../` (`204`).
+- Confirmed restoration: `nctl render dnsmasq` is back to the original 5
+  `host-record=` lines (the test record is gone); `nctl reconcile agdnsmasq`
+  is back to `state: planned`, `scope_summary: {"converged": 2}`, no errors.
+- The managed known_hosts store was never written during this attempt
+  (still exactly 3 lines). `git status` is clean in both the root repo and
+  `ansible_agdev` (the regenerated inventories under
+  `inventories/generated/` are git-ignored working files, not tracked
+  changes).
+
+### Requirements for a future safe fixture
+
+To complete Live verification B without live-host disruption, a future
+session needs one of: (1) a disposable/staging `agdnsmasq`-like host whose
+`dnsmasq` service can be safely stopped/started for the test, or (2) the
+drift model extended to compare rendered config content (not just observed
+service state) -- out of scope for `fix_sshkey2`, which is a trust-contract
+fix, not a drift-model change. Steps 8-9 (disposable-empty-store and
+mismatch-fixture negative cases) were not attempted either, since they
+require the same SSH-requiring plan this finding shows cannot be safely
+forced right now; the equivalent behavior remains covered by
+`nctl/tests/test_reconcile_executor.py`'s
+`test_service_phase_blocks_on_mismatched_key_after_production_regen` and the
+Step 3/4 unit-test suites (deterministic, disposable fixtures, exactly as
+`fix_sshkey/report_verification.md`'s own Step 8 already concluded for the
+equivalent pre-fix_sshkey2 case).
+
 ## Live verification status
 
 - **Live verification A** — complete (above).
-- **Live verification B** (a real `service_profile`/`dnsmasq_config` action
-  after production regeneration via `nctl reconcile agdnsmasq --yes`,
-  including the disposable-empty-store and mismatch-fixture negative cases)
-  — not yet run.
-
-Both require either a temporary SSH port-forward against the real
-`agdnsmasq` host or a real (small, reversible) desired-state change followed
-by `nctl reconcile --yes` actuating Ansible against it — per this session's
-established execution convention, these are paused for explicit operator
-confirmation before proceeding, rather than run automatically.
+- **Live verification B** — attempted; **not completed**. Blocked by a
+  structural property of the drift model (see above), not by anything
+  `fix_sshkey2` changed or left unfixed. All live Nautobot state was
+  restored and confirmed converged. Left as an open item for a future
+  session with a safe fixture per the "Requirements" note above.
