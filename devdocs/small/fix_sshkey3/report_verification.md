@@ -2,6 +2,15 @@
 
 Date: 2026-07-22
 
+> **Superseded in part by `fix_sshkey4`** (`devdocs/small/fix_sshkey4/`, completed 2026-07-22):
+> the silent per-line SSH-store parse-error suppression, the observation-time store-failure
+> round-safety gap, the duplicated dnsmasq destination literal, the unscoped dnsmasq host
+> targeting, and the nodeutils lock/dev-dependency drift described as still-open in
+> `fix_sshkey4/plan.md`'s "Outstanding problems" were all real gaps in the state this report
+> describes as complete. The dnsmasq content-convergence result recorded below (digest, DNS
+> add/remove, fingerprints) remains accurate and reproduced again in
+> `fix_sshkey4/report_step7.md`. This report's historical evidence is left unchanged below.
+
 Status: automated verification and the reversible live dnsmasq-content
 verification are complete. The scoped reconcile operations correctly report
 `non_converged` after the content work because the pre-existing
