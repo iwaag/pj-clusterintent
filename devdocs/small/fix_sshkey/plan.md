@@ -1,3 +1,4 @@
+
 # fix_sshkey Implementation Plan: stable SSH trust across bootstrap and production endpoints
 
 Goal: make SSH host-key verification follow the stable nintent node identity rather than the
