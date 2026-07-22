@@ -1,5 +1,10 @@
 # Report — Documentation and automated verification
 
+> Superseded for the previously blocked Live verification B by
+> [`fix_sshkey3`](../fix_sshkey3/report_verification.md). This report preserves
+> the original attempt, operation IDs, and facts unchanged: its safe fixture
+> exposed the real dnsmasq content-convergence gap that `fix_sshkey3` closes.
+
 Date: 2026-07-22
 Scope: `nctl` (submodule), root `devdocs/`
 Status: Documentation and automated verification **complete**. Live

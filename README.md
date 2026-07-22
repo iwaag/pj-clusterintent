@@ -55,6 +55,10 @@ uv run --project nctl --extra serve nctl serve
 composition and dnsmasq rendering are also nctl responsibilities; nintent stores desired state,
 Nautobot stores actual ledger state, nodeutils supplies observations, and Ansible actuates
 generated artifacts.
+For dnsmasq, a healthy daemon alone is not convergence: nctl also compares the SHA-256 of its
+deterministic, nctl-owned records/ranges file with the digest nodeutils observed on the target.
+Only `/etc/dnsmasq.d/nintent-records.conf` is content-observed in this phase; other package and
+daemon settings remain separate concerns.
 `nctl dashboard` is the routine command for humans: it regenerates a self-contained static HTML
 dashboard (green/yellow/red/gray tiles, one per node/service, with drift details in prose on
 click) from a fresh `nctl drift` run and pushes each target's status back into nintent as a
