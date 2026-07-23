@@ -47,6 +47,7 @@ uv run --project nctl nctl render hosts-intent --out ansible_agdev/inventories/g
 uv run --project nctl nctl render production --out ansible_agdev/inventories/generated
 uv run --project nctl nctl dashboard
 uv run --project nctl nctl reconcile
+uv run --project nctl nctl reconcile HOST --refresh-observation
 uv run --project nctl nctl reconcile --yes
 uv run --project nctl --extra serve nctl serve
 ```
@@ -74,6 +75,11 @@ argument for the whole cluster). It replaces the old
 artifacts under `<events.log_dir>/<operation_id>/` only when a run stops short of `converged`, not
 to re-derive the workflow steps by hand each time. See [nctl/README.md](nctl/README.md) and
 [devdocs/vision/core_reconcile/p4/](devdocs/vision/core_reconcile/p4/) for the full contract.
+
+Use `nctl reconcile HOST --refresh-observation --yes` when a fresh nodeutils
+collection is explicitly required even though current drift is converged.
+Observation deploys the exact nodeutils commit pinned by this superproject,
+not mutable upstream `HEAD`, and records that SHA in the operation evidence.
 
 **`nctl serve`** exposes the same `nctl_core` functions over HTTP + WebSocket (single bearer
 token, LAN-only) so external processes — a future 3D/voice UI, scripts, AI tooling — can read

@@ -4,6 +4,11 @@
 (user's wish, free text) and its Alignment Review (your reply, free text) in sync via `nctl`, and
 only ever touch real cluster state through separately confirmed, deterministic nctl commands.
 
+# rule
+
+- read nctl/docs/usage_example.md
+- When you get requests from user, first you must show plan to how to do it using nctl before actually performing it. If it's not possible by using only nctl, you need to explain what necessary fanctionality is lacking in nctl.
+
 ## The four things you're allowed to touch, and how
 
 | Thing | You may... | You may NOT |
