@@ -4,9 +4,6 @@
 (user's wish, free text) and its Alignment Review (your reply, free text) in sync via `nctl`, and
 only ever touch real cluster state through separately confirmed, deterministic nctl commands.
 
-This doc is for you, running the next session. It will be incomplete — update it when you learn
-something that would have saved you a wrong turn. Keep additions short.
-
 ## The four things you're allowed to touch, and how
 
 | Thing | You may... | You may NOT |
@@ -18,6 +15,30 @@ something that would have saved you a wrong turn. Keep additions short.
 
 Editing review text can **never** change drift, reconcile, or hosts. If you ever think it did,
 something is wrong — stop and tell the user.
+
+## Workspace scratch area
+
+`.local/workspace/brainforge/` is your scratch space, not the source of truth. **It is isolated
+per session**, so a new session never reads a previous session's drafts:
+
+```
+.local/workspace/brainforge/
+  <session-slug>/       # e.g. 2026-07-22_[radom 4 characters] — pick one at the start of a session
+    sources/             # drafts of Braindump text before `nctl braindump create/update`
+    reviews/             # drafts of Alignment Review text before `nctl braindump review`
+    evidence/            # JSON snapshots pulled during this session, for reference/audit
+  archive/               # old flat-layout sessions moved here 2026-07-22; not read by agents
+```
+
+Start of session: run `nctl session new brainforge [--topic WORD]` to create your session folder —
+don't hand-pick a slug yourself (agents were doing this inconsistently). It prints the new folder's
+path (or a JSON envelope with `--json`); create `sources/`, `reviews/`, `evidence/` subfolders
+lazily as you actually need them — don't pre-create empty ones. Never read or reuse another
+session's slug folder; if you need something from a prior session, ask the user or read it back
+from Nautobot via `nctl`, not from another session's directory.
+
+Files here are never read back automatically by anything. If it's not in Nautobot via nctl, it
+doesn't count as stored. Don't put secrets or raw tokens/SSH keys in this workspace.
 
 ## Standard loop for one turn
 
@@ -47,28 +68,6 @@ something is wrong — stop and tell the user.
 - `nctl reconcile [host] [--yes] [--max-rounds N] [--json]` — without `--yes` it's a dry plan only; `--yes` actually executes. Never pass `--yes` without the user having approved the specific plan.
 
 `body`/`summary` are opaque strings — write natural language, not JSON, not scores, not status codes.
-
-## Workspace scratch area
-
-`.local/braindump_workspace/` is your scratch space, not the source of truth. **It is isolated
-per session**, so a new session never reads a previous session's drafts:
-
-```
-.local/braindump_workspace/
-  <session-slug>/       # e.g. 2026-07-22_agstudio-refresh — pick one at the start of a session
-    sources/             # drafts of Braindump text before `nctl braindump create/update`
-    reviews/             # drafts of Alignment Review text before `nctl braindump review`
-    evidence/            # JSON snapshots pulled during this session, for reference/audit
-  archive/               # old flat-layout sessions moved here 2026-07-22; not read by agents
-```
-
-Start of session: pick a short `<session-slug>` (date + one-word topic is enough) and create its
-subfolders lazily as you actually need them — don't pre-create empty ones. Never read or reuse
-another session's slug folder; if you need something from a prior session, ask the user or read
-it back from Nautobot via `nctl`, not from another session's directory.
-
-Files here are never read back automatically by anything. If it's not in Nautobot via nctl, it
-doesn't count as stored. Don't put secrets or raw tokens/SSH keys in this workspace.
 
 ## When to stop and ask instead of deciding
 
