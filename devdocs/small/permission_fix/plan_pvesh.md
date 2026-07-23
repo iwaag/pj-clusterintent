@@ -76,6 +76,7 @@ The helper must:
 
 - be owned by `root:root`;
 - be non-writable by group and other users;
+- use a fixed absolute, root-owned Python 3 interpreter in isolated mode;
 - accept exactly one API path argument;
 - reject empty input, extra arguments, control characters, query strings, `..`, shell
   metacharacters, and every path outside the explicit allowlist;
@@ -84,6 +85,12 @@ The helper must:
 - execute a validated, absolute, root-owned `pvesh` binary;
 - use an argv-based exec call, never a shell; and
 - return the original command exit status and JSON stdout.
+
+Implement the helper as a small standard-library-only Python program. Check the exact argument
+count directly, validate the complete API path with full-match allowlist expressions, and then
+replace the helper process with the fixed `pvesh` argv using `os.execv()`. Do not use a shell or
+inherit Python path configuration from the invoking user. The Python interpreter path is a
+security-protocol constant confirmed in Step 0; it is not inventory-configurable.
 
 The initial allowlist is limited to endpoints already used by `nodeutils/proxmox_inventory.py`:
 
@@ -248,7 +255,8 @@ The role should:
 
 1. Detect Proxmox by the validated absolute `pvesh` path, not merely by an inventory label.
 2. Validate `nodeutils_user`.
-3. Stat the selected `pvesh` binary and reject a non-root-owned or group/world-writable binary.
+3. Stat the selected Python interpreter and `pvesh` binary, including their parent directories,
+   and reject a non-root-owned or group/world-writable executable or directory.
 4. Create the fixed libexec directory as `root:root` without recursive ownership changes.
 5. Install the controller-owned helper as `root:root` mode `0755`.
 6. Install and validate the sudoers fragment as `root:root` mode `0440`.
@@ -329,12 +337,18 @@ Required order:
 
 1. Complete nodeutils changes and local tests.
 2. Commit the nodeutils change.
-3. Ask the user to push the nodeutils commit.
+3. Ask the user separately to push the nodeutils commit, and confirm that exact SHA is reachable
+   from `nodeutils_repo`. This is the only remote push required before the local live replay,
+   because aghub clones nodeutils from that remote.
 4. Commit the Ansible role/playbook change in `ansible_agdev`.
-5. Ask the user to push the Ansible commit.
-6. Update and commit both submodule gitlinks in the superproject.
-7. Confirm `resolve_nodeutils_version()` returns the new reachable nodeutils SHA.
-8. Confirm all worktrees are clean before the live replay.
+5. Update and commit both submodule gitlinks in the superproject.
+6. Confirm `resolve_nodeutils_version()` returns the new reachable nodeutils SHA.
+7. Confirm all worktrees are clean before the live replay. The local controller uses the committed
+   `ansible_agdev` checkout and the superproject's local `HEAD`, so their remote pushes are not
+   prerequisites for this replay.
+8. After the live result is accepted, ask the user separately to push the `ansible_agdev` commit
+   and then the superproject commit. Confirm the Ansible commit is remotely reachable before
+   publishing the superproject gitlink. Do not batch approval for multiple repository pushes.
 
 Do not fall back to mutable `HEAD`, copy an uncommitted helper from the remote checkout, or use a
 different collector SHA only for the acceptance run.
