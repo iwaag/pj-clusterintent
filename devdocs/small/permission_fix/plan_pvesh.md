@@ -4,7 +4,8 @@ Date: 2026-07-23
 
 ## Status
 
-**Proposed. Not implemented.**
+**Complete and deployed to `aghub`.** See `report0.md` through `report8.md` for the step-by-step
+implementation record; `report8.md` cross-checks every Definition of Done item below.
 
 This plan addresses only the confirmed Proxmox collection failure described in `problem.md`.
 The agstudio stale-observation problem and the controller dump-scan issue are completed separately
