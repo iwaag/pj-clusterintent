@@ -1,205 +1,142 @@
-# Permission Fix Investigation Report 1
+# Permission Fix Step 1 Report: Implement and Test the Privileged Helper
 
 Date: 2026-07-23
 
 ## Status
 
-**Partially complete.**
+**Complete. Committed locally in the `ansible_agdev` submodule; not pushed.**
 
-- The original Proxmox failure on `aghub` is confirmed but not fixed:
-  `pvesh` still requires root while the collection task runs as `nodeutils_user`.
-- The unrelated agpc stale-nodeutils problem is resolved live.
-- Two workflow defects that could recreate collector/reader skew were fixed in the current nctl
-  worktree and verified locally and on agpc.
-- The changes are not committed or pushed.
+Nothing was deployed to `aghub` in this step. All work is local implementation and unit
+verification only.
 
-## Corrected diagnosis
+## What was added
 
-`agpc` is Ubuntu 24.04.4, has neither `/etc/pve` nor `pveversion`, and nodeutils reports Proxmox
-`detected=false`. It never enters the failing `pvesh` path.
-
-Before repair:
-
-- remote `/opt/nodeutils`: `95a2dfcd4fead2d44358351f3d6793b4f8465135`
-  (`p4s2`, 2026-07-16);
-- superproject/GitHub nodeutils commit:
-  `e7b91860397abddee07801b438914e59e734ce57`;
-- remote `/var/lib/nodeutils/inventory.json`: `nodeutils.inventory.v1`;
-- controller `/var/lib/nodeutils/agpc.json`: `nodeutils.inventory.v1`;
-- last successful agpc collection: 2026-07-22 00:41 JST, before the v2 commit
-  `09d9227018711a9a78c7dea20e5f9c231ad41a50` at 12:20 JST.
-
-The earlier agpc `Missing sudo password` failure no longer reproduces: current Ansible normal-user
-execution and vault-backed root become both succeed.
-
-## Workflow defects
-
-### 1. Mutable collector version
-
-The Ansible playbook defaulted `nodeutils_version` to `HEAD`. The supported nctl observation path
-did not override it, so upstream nodeutils could advance to a new schema independently of the
-local nctl reader.
-
-### 2. No explicit refresh for a converged host
-
-After agpc SSH enrollment, a normal dry run returned:
+New role `ansible_agdev/roles/nodeutils_pvesh_helper/`:
 
 ```text
-scope: agpc
-state: planned
-scope summary: converged=1
+defaults/main.yml
+files/nodeutils-pvesh-read
+tasks/main.yml
+templates/nodeutils-pvesh.sudoers.j2
+tests/test_nodeutils_pvesh_read.py
 ```
 
-It planned no `observe_node` action. Therefore `nctl reconcile agpc --yes` would not update
-nodeutils or replace the v1 report when drift was already considered converged.
+Committed in `ansible_agdev` as `f304407` (local; per Step 4 of the plan, the submodule gitlink in
+the superproject is updated later, after the nodeutils change also lands).
 
-### 3. SSH enrollment was a missing prerequisite, not an update defect
+### Helper (`files/nodeutils-pvesh-read`)
 
-The nctl-managed alias for agpc was absent. Strict SSH correctly rejected the production
-inventory, while the ordinary `~/.ssh/known_hosts` entry matched all currently offered agpc keys.
-The alias was enrolled with:
+Standard-library-only Python program (`sys`, `os`, `re`), shebang
+`#!/usr/bin/python3.13 -I` (the exact interpreter confirmed root-owned on `aghub` in Step 0, used
+in isolated mode). It:
+
+- requires exactly one argument (`sys.argv` length 2), else exits non-zero without executing
+  anything;
+- validates that argument with `\A...\Z`-anchored regexes (not `$`, so an embedded newline cannot
+  smuggle a second command past the anchor) against the 10 allowlisted endpoint patterns from the
+  plan, with bounded `NODE` (`[A-Za-z0-9][A-Za-z0-9-]{0,62}`) and `VMID` (`[1-9][0-9]{0,8}`, no
+  leading zero, no negative/zero values) segments;
+- on success, calls `os.execve("/usr/bin/pvesh", ["/usr/bin/pvesh", "get", path,
+  "--output-format", "json"], {"PATH": "/usr/bin:/bin", "HOME": "/root"})` — an argv-based exec
+  with a minimal explicit environment, never inheriting the caller's environment and never
+  invoking a shell.
+
+### Sudoers template (`templates/nodeutils-pvesh.sudoers.j2`)
+
+```text
+{{ nodeutils_user }} ALL=(root) NOPASSWD: {{ nodeutils_pvesh_helper_path }} *
+```
+
+No `SETENV`, no shell, no interpreter, no direct `pvesh` grant — matches the plan's requirement
+that the sudoers wildcard stays permissive (it cannot itself validate Proxmox API paths) while the
+helper is the actual security boundary.
+
+### Role tasks (`tasks/main.yml`)
+
+1. Stats `nodeutils_pvesh_bin` (`/usr/bin/pvesh`) to detect Proxmox — this is the play's Proxmox
+   detection, independent of any inventory label.
+2. Everything else runs inside a `block: ... when: nodeutils_pvesh_bin_stat.stat.exists`, so
+   non-Proxmox hosts skip helper/sudoers installation entirely but continue the rest of the
+   collection play (an earlier draft used `meta: end_host`, which would have wrongly skipped
+   nodeutils collection too on non-Proxmox hosts — caught and fixed before committing).
+3. Validates `nodeutils_user` against `^[a-z_][a-z0-9_-]{0,31}$`.
+4. Stats the `pvesh` binary, the Python interpreter, and `/usr/bin`, `/usr`, `/`, then asserts each
+   is root-owned and not group/other-writable (`mode & 0o022 == 0`).
+5. Creates `/usr/local/libexec` as `root:root 0755` (no `recurse`, so no ownership change is
+   forced on existing unrelated content).
+6. Installs the controller's `files/nodeutils-pvesh-read` as `root:root 0755` — sourced from the
+   `ansible_agdev` checkout, never copied from the remote `/opt/nodeutils` checkout that
+   `nodeutils_user` can write to.
+7. Renders the sudoers fragment to an `ansible.builtin.tempfile`, validates it with
+   `visudo -cf`, then copies it (`remote_src: true`) to `/etc/sudoers.d/nodeutils-pvesh` as
+   `root:root 0440`, and removes the temp file. The candidate is never installed before validation
+   passes.
+8. Runs `sudo -n <helper> /cluster/status` as `nodeutils_user` (non-mutating preflight) and asserts
+   the stdout parses as JSON.
+
+## Tests
+
+### Helper unit tests (`tests/test_nodeutils_pvesh_read.py`, stdlib `unittest`, no dependencies)
+
+Loads the helper file directly via `importlib.machinery.SourceFileLoader` (it has no `.py`
+extension) and exercises `validate_path()` and `main()` without touching the filesystem or any
+real `pvesh`/`sudo`:
+
+- every one of the 10 required endpoints is accepted, including representative node names
+  (`aghub`, `pve-node-1`) and VMIDs (`100`, `9999`, `1`);
+- 20 rejected cases cover: empty/root path, unknown endpoints (`/access/users`), a wrong HTTP-verb-
+  shaped path, trailing slash, `..` traversal (both raw and inside a segment), embedded newline,
+  `;`, backtick and `$()` shell metacharacters, a query string, an extra option-looking suffix,
+  vmid `0`, negative vmid, leading-zero vmid, a space inside a node name, and option-like arguments
+  (`-e`, `--help`);
+- extra arguments (`["prog", "/cluster/status", "/cluster/resources"]`) and missing arguments are
+  rejected;
+- `main()` is monkeypatched at the `os.execve` boundary to assert the exact executed argv
+  (`["/usr/bin/pvesh", "get", "/cluster/status", "--output-format", "json"]`) for an accepted path,
+  and to assert `os.execve` is never called for a rejected path;
+- a source-text assertion confirms the file contains no `subprocess`, `os.system`, `os.popen`, or
+  `shell=True` — no code path can reach a shell.
+
+Result:
+
+```text
+Ran 8 tests in 0.004s
+OK
+```
+
+### Ansible syntax check
 
 ```bash
-uv run --project nctl nctl ssh enroll agpc --from-known-hosts --yes
+ansible-playbook --syntax-check <wrapper playbook including role: nodeutils_pvesh_helper>
 ```
 
-This remains an explicit verified trust operation; no automatic or unverified key acceptance was
-added.
+Passed (no target hosts required for a syntax check).
 
-## Implemented changes
+### Sudoers fixture
 
-### Reproducible nodeutils deployment
-
-- Added `nctl_core.repo_versions`.
-- Resolve the `nodeutils` gitlink from the superproject `HEAD`, not the submodule working-tree HEAD.
-- Allow a packaged controller to provide only a full 40- or 64-character Git object ID through
-  `[reconcile].nodeutils_version`.
-- Fail before Ansible when the pinned version cannot be resolved; never fall back to `HEAD`.
-- Pass `nodeutils_version=<full SHA>` to `run_nodeutils_collect.yml`.
-- Record the resolved SHA in `collection_started` and the observation action result.
-
-### Explicit observation refresh
-
-Added:
-
-```bash
-nctl reconcile HOST --refresh-observation
-nctl reconcile HOST --refresh-observation --yes
-```
-
-The flag:
-
-- requires host scope;
-- adds one forced `observe_node` action even if drift is converged;
-- records `evidence.forced_refresh=true` in the plan;
-- applies only to round 0, avoiding an infinite refresh loop; and
-- uses the normal SSH preflight, collection, validation, cache, ingest, production regeneration,
-  and fresh-drift workflow.
-
-### Documentation and remediation
-
-- Corrected the quick guide: dry reconcile reads and plans but does not run nodeutils.
-- Documented first-time verified SSH enrollment.
-- Documented the pinned collector contract and refresh command.
-- Expanded `ssh_host_key_unenrolled` remediation to name `--from-known-hosts`/`--fingerprint`
-  verification and the required `--yes` apply step.
-- Corrected `problem.md` so agpc and controller-local legacy dumps are not attributed to `pvesh`.
-
-## Automated verification
-
-Focused tests cover:
-
-- gitlink SHA resolution;
-- rejection of a non-gitlink and non-full override;
-- propagation of the pinned SHA into Ansible and operation evidence;
-- forced observation planning for an already-converged host;
-- exactly one forced observation followed by normal convergence; and
-- rejection of cluster-wide refresh without a host.
-
-Final test result:
+Rendered the template with `nodeutils_user=eiji`,
+`nodeutils_pvesh_helper_path=/usr/local/libexec/nodeutils-pvesh-read`, and validated with
+`visudo -cf`:
 
 ```text
-963 passed, 1 warning
+eiji ALL=(root) NOPASSWD: /usr/local/libexec/nodeutils-pvesh-read *
+
+<tmpfile>: parsed OK
 ```
 
-The warning is the pre-existing Starlette/httpx deprecation warning in `test_serve_ws.py`.
-`git diff --check` and Python bytecode compilation also passed.
+## Deviations from a literal reading of the plan
 
-## Live verification
+- The plan's ownership contract table lists the helper as mode `0755`; `tasks/main.yml` installs
+  it at `0755` (root-owned, executable by all, writable by none but root) — matches.
+- `execv()` vs `execve()`: the plan text says `os.execv()`; the implementation uses `os.execve()`
+  with an explicit minimal environment instead of inheriting the caller's environment, which is a
+  stricter reading of "do not inherit Python path configuration from the invoking user" applied to
+  the exec'd `pvesh` process too. This is a refinement, not a contradiction, and is covered by the
+  argv-assertion test.
 
-### Dry plan
+## Not yet done (subsequent steps)
 
-Operation `01KY6ZMJ9CCKJFFRYVV29D2Y41`:
-
-- scope: agpc;
-- `ssh_preflight: ready=[agpc]`;
-- one `observe_node` action despite `scope summary: converged=1`;
-- `evidence.forced_refresh=true`;
-- no writes.
-
-The resolved collector commit was:
-
-```text
-e7b91860397abddee07801b438914e59e734ce57
-```
-
-### First apply and infrastructure interruption
-
-Operation `01KY6ZMQ39ABH8SARYGRP618P5` successfully:
-
-- updated remote `/opt/nodeutils` to the pinned commit;
-- generated remote schema v2;
-- retrieved and validated the report; and
-- atomically replaced controller `/var/lib/nodeutils/agpc.json` with schema v2.
-
-The Nautobot ingest Job remained `PENDING` for 300 seconds because the healthy-looking worker was
-not consuming Redis's `default` queue. The operation truthfully ended `non_converged`; its
-observation action retained:
-
-- `collected=true`;
-- the pinned nodeutils SHA;
-- the cache path; and
-- the Job timeout error.
-
-The Nautobot worker container was restarted. It drained the queue, and the agpc ingest completed
-with `updated=1`.
-
-Operational side effect: two previously queued aghub IPAM Jobs were also consumed. One created the
-192.168.0.10 IP record; the other reported a duplicate uniqueness conflict. aghub state should be
-reviewed separately.
-
-### Successful bounded replay
-
-Operation `01KY700E999CA4KDRRQ98745DH` completed:
-
-```text
-state: converged
-ssh_preflight: ready=[agpc]
-[ok] observe_node
-[ok] regenerate_production_inventory
-```
-
-Action evidence:
-
-- `nodeutils_version`:
-  `e7b91860397abddee07801b438914e59e734ce57`;
-- `collected=true`;
-- `ingest_outcome=updated`;
-- no host or pipeline error.
-
-Post-run state:
-
-- remote checkout matches the superproject pin;
-- remote report is `nodeutils.inventory.v2`;
-- controller `agpc.json` is `nodeutils.inventory.v2`; and
-- `nctl drift --host agpc` reports `converged`.
-
-## Remaining work
-
-1. Design and implement the Proxmox privilege boundary without leaving root-owned checkout,
-   virtualenv, cache, config, or report files that break later non-root steps.
-2. Add the missing `permission_fix/plan.md` before changing the `aghub` playbook execution user.
-3. Review the two replayed aghub IPAM Job results.
-4. Decide how to quarantine or retire controller-local legacy dumps. In particular,
-   `/var/lib/nodeutils/inventory.json` still identifies `agstudio.local` and remains schema v1, so
-   it continues to appear in `sources.observed_errors` even though agpc is converged.
+- The role is not yet wired into `run_nodeutils_collect.yml` (Step 3).
+- `nodeutils/proxmox_inventory.py` does not yet call the helper (Step 2).
+- Nothing has been installed on `aghub`; the live preflight task has only been syntax-checked, not
+  executed against a real host.
