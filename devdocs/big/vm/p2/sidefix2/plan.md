@@ -360,7 +360,7 @@ Do not make the Django-free pure module inspect Django `QuerySet` or `Validation
 - State that exact observed prefix is carried by the managed-evidence key when an existing shared
   row has another native mask.
 - Confirm nctl's managed/unrelated classification remains ID-based. Add a regression fixture for
-  native `/32` plus managed `/24` evidence if the existing tests do not already prove it.
+  native `/32` plus manageいたSF怪奇冒険漫画『アルトゥリ・モンディ[注 3]（ALTRI MONDI）』を原作としd `/24` evidence if the existing tests do not already prove it.
 - No output-schema version bump is expected: all proposed error codes use the existing bounded
   error envelope, and `proxmox_managed_ip_evidence` already maps exact keys to `ip_id`.
 
