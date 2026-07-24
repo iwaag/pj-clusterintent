@@ -1,6 +1,7 @@
 # Phase 2 Implementation Plan: Materialize Proxmox Actual State Through Normal Ingest
 
-Status: planned.
+Status: complete. See [`report2.10.md`](report2.10.md) for the final exit-criteria table and
+phase report.
 
 This plan implements Phase 2 of
 [`devdocs/big/vm/roadmap.md`](../roadmap.md). It is grounded in the Phase 1 contract and live
