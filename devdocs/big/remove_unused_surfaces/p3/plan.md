@@ -776,8 +776,9 @@ active implementation/configuration match remains.
 1. Review the final nintent diff as one coherent model/migration/UI/API/test deletion.
 2. Commit nintent in a reviewable unit.
 3. Record the exact nintent commit and the exact Phase 2/VM-compatible nctl commit.
-4. Commit the superproject pointer, development config, and Phase 3 evidence/report in a
-   reviewable unit.
+4. Commit the superproject pointer and development config in a reviewable unit. Raw evidence
+   remains private under `.local/`; the final report is written in Step 9 and must not be
+   represented as already committed.
 5. Record the deployed pre-change nintent commit/migration state and the prior matched rollback
    tuple.
 6. Ask the user to push the nintent commit; do not push it.
@@ -812,6 +813,10 @@ Write `report.md` with:
 - explicit confirmation that no live migration/rebuild/state mutation occurred;
 - every omitted, substituted, failed, or optional check; and
 - an exit-criteria table referencing exact evidence.
+
+The report may be committed as later documentation bookkeeping. It must record the exact
+implementation/root revision it reports on and must not invent a self-referential commit hash for
+its own future documentation commit.
 
 Do not mark the phase `complete` if a required runtime path was not exercised, the disposable
 migration used only empty cache rows, scratch cleanup is incomplete, or the matched nintent commit
