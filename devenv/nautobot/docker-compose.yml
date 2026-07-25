@@ -34,7 +34,7 @@ services:
       - "8000:8080"
     environment:
       NAUTOBOT_SECRET_KEY: ${NAUTOBOT_SECRET_KEY}
-      NAUTOBOT_ALLOWED_HOSTS: "localhost 127.0.0.1 0.0.0.0 agstudio.local testserver"
+      NAUTOBOT_ALLOWED_HOSTS: "localhost 127.0.0.1 0.0.0.0 agstudio.local testserver nautobot.example.com"
       NAUTOBOT_DB_HOST: ${NAUTOBOT_DB_HOST}
       NAUTOBOT_DB_NAME: nautobot
       NAUTOBOT_DB_USER: nautobot
