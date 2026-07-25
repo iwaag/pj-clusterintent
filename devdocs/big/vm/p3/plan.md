@@ -19,16 +19,54 @@ only purpose is backward compatibility.
 [Phase 4](../../remove_unused_surfaces/p4/plan.md)):** the `nctl serve`/`nctl dashboard` surfaces
 and the nintent `reconciliation_status`/`reconciliation_checked_at` cache fields referenced below as
 presentation/status effects have been removed locally by that separate, coordinated initiative
-(Phases 0–4 implemented; the nintent removal migration `0016` and the matching nctl/root revisions
-are prepared but live deployment is still pending a coordinated maintenance window).
+(Phases 0–4 implemented; **status update, 2026-07-25:** the nintent removal migration `0016` and
+the matching nctl/root revisions are now live — `devdocs/big/interface_contract/p0/report0.md`
+independently reconfirmed migrations applied through
+`0016_remove_reconciliation_dashboard_surfaces` and nintent `c343c5a5...` installed identically on
+the web/worker/scheduler containers on that date. The rollout window described below is complete,
+not pending).
 Every "dashboard"/"status" effect in this plan is superseded by structured JSON drift, human-readable
 CLI drift output, and reconcile manual-review classification/evidence — the retained inspection
-surfaces `nctl drift`, `nctl reconcile`, and `nctl ops list/show`. The live rollout window applies
+surfaces `nctl drift`, `nctl reconcile`, and `nctl ops list/show`. The live rollout window applied
 local migration `0015_compute_platform_instance_and_endpoint_mac` and the removal migration
-`0016_remove_reconciliation_dashboard_surfaces` from one exact nintent revision, then activates one
-matching nctl revision, before routine operations resume (`remove_unused_surfaces/p0/plan.md` §3.2).
+`0016_remove_reconciliation_dashboard_surfaces` from one exact nintent revision, then activated one
+matching nctl revision, before routine operations resumed (`remove_unused_surfaces/p0/plan.md` §3.2).
 This note does not change any compute, endpoint-MAC, migration-`0015`, seed, safety, or
 no-actuation requirement elsewhere in this plan.
+
+**Interface-contract supersession note (added by
+[`devdocs/big/interface_contract/roadmap.md`](../../interface_contract/roadmap.md) Phase 0,
+2026-07-25; see [Phase 0 report](../../interface_contract/p0/report0.md) through
+[report7.md](../../interface_contract/p0/report7.md)):** the `interface_contract` roadmap
+supersedes this plan's broad UI/REST/Source YAML mutation assumptions everywhere below. Concretely:
+
+- Steps 9–12 of this plan (the canonical live seed / apply / repeat-import proof) now depend on
+  three inputs from the `interface_contract` initiative rather than being self-contained: (a) Phase
+  0's live-vs-YAML disposition ledger (`interface_contract/p0/report4.md`–`report6.md` — this
+  already independently confirmed the exact `aghub`/`agdnsmasq` scope Step 9 names above, plus 3
+  live-only `DesiredIPRange` rows and an endpoint-addressing correction for `agbach`/`agpc`/
+  `agstudio`, all attributed to Braindump-sourced intent); (b) Phase 1's strict canonical YAML and
+  dry-by-default Import Job implementation; and (c) the final matched live interface state that
+  `interface_contract` Phase 4 deploys.
+- Seeding the compute platform/instance/MAC intent through the nintent compute REST collections
+  (`compute-platforms`, `compute-instances` — scheduled for deletion, `interface_contract/p0/
+  report1.md`), the editable nintent UI (all `*_add`/`*_edit` mutation routes — scheduled for
+  deletion, same report), or the Source YAML diagnostic page (`source_yaml_list` — scheduled for
+  deletion, same report) is prohibited. The only supported seed path is YAML through the Import
+  Intent Sources Job.
+- The compute seed (platform/instance/endpoint-MAC rows) must be part of the one reviewed
+  `nauto/seed/intent_sources.yaml` proposal that `interface_contract` Phase 1 assembles — not a
+  separate nauto-seed or REST-driven write.
+- This plan (VM Phase 3) retains ownership of compute field values, desired-MAC behavior, dnsmasq
+  safety, target isolation, and the no-Proxmox-actuation proof — none of that is superseded.
+- `interface_contract` retains ownership of Import Job behavior, source identity/digest, the exact
+  preview/apply artifact shape, the coordinated desired-data transition (including the live/YAML
+  dispositions this plan's own Step 9 needs), and the REST/UI route contraction.
+- To prevent a duplicate apply, one approved Import apply plus its repeat-import proof may satisfy
+  both this plan's Step 10 and `interface_contract`'s Phase 1/4 apply-and-repeat requirement when
+  the operation's evidence carries both initiatives' required fields (this plan's exact
+  endpoint-MAC/platform/instance identities; `interface_contract`'s exact source digest and
+  create/update/unchanged scope). Do not run two separate applies for the same YAML revision.
 
 ## 1. Purpose and Required State Transition
 
