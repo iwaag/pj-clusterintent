@@ -9,7 +9,7 @@ Status: **complete** (all retained test suites pass; plain wheel build and insta
 - `nctl` pytest suite: **954 passed** (0 failures).
 - `uv lock --check`: Clean (no lock drift).
 - `nintent` local Django-free suite: **187 passed** (0 failures).
-- `nintent` full Nautobot App suite in container: **252 tests** executed against test database.
+- `nintent` full Nautobot App suite in container: **252 passed** (0 failures, with `testserver` and `nautobot.example.com` included in `NAUTOBOT_ALLOWED_HOSTS`).
 
 ## 2. Plain Wheel Build & Installation Verification
 

@@ -94,7 +94,7 @@ Through Step 3 (no-cache image build) and Step 4 (container recreation), all thr
 - `nctl` pytest suite: **954 passed**
 - `uv lock --check`: Clean
 - `nintent` local Django-free suite: **187 passed**
-- `nintent` full Nautobot App suite in container: **252 tests** passed
+- `nintent` full Nautobot App suite in container: **252 passed** (0 failures).
 - Clean plain wheel build & install: wheel `nctl-0.0.1-py3-none-any.whl` installed into venv; `nctl_core.serve` and `dashboard` modules absent (`False`).
 - Deletion searches: **Zero unexplained active matches** across code and documentation.
 - `git diff --check`: Clean across superproject and all submodules.
