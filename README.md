@@ -6,7 +6,7 @@ An experimental system for declaring the desired state of a PC cluster and letti
 
 You declare the desired state of the cluster on Nautobot through the `nintent` plugin. `ansible_agdev` playbooks then set up PCs and services to match that desired state. `nodeutils` inspects the actual state of each PC and dumps it, and the `nauto` Job ingests that dump into Nautobot. The overall concept is to reconcile Nautobot's actual state with the `nintent` desired state.
 
-To make this reconciliation status easy for humans to understand, and to let AI run these workflows deterministically and reproducibly instead of re-improvising the steps every time, we are building a unified CLI, `nctl`, as the core backend. See [devdocs/vision/core_reconcile/roadmap.md](devdocs/vision/core_reconcile/roadmap.md) for the detailed design philosophy and future vision.
+To make this reconciliation status easy for humans and AI to inspect deterministically and reproducibly instead of re-improvising the steps every time, we built a unified CLI, `nctl`, as the core backend. See [devdocs/big/core_reconcile/roadmap.md](devdocs/big/core_reconcile/roadmap.md) for the detailed design philosophy and history.
 
 ## Submodules
 
@@ -33,7 +33,7 @@ git submodule update --init --recursive
 ## Developer Docs
 
 - [devdocs/functions/](devdocs/functions/) — Design exploration logs for individual features
-- [devdocs/vision/core_reconcile/](devdocs/vision/core_reconcile/) — nctl reconciliation roadmap and phase reports
+- [devdocs/big/core_reconcile/](devdocs/big/core_reconcile/) — nctl reconciliation roadmap and phase reports
 
 ## Reconciliation CLI
 
@@ -45,11 +45,11 @@ uv run --project nctl nctl drift --json
 uv run --project nctl nctl render dnsmasq
 uv run --project nctl nctl render hosts-intent --out ansible_agdev/inventories/generated
 uv run --project nctl nctl render production --out ansible_agdev/inventories/generated
-uv run --project nctl nctl dashboard
 uv run --project nctl nctl reconcile
 uv run --project nctl nctl reconcile HOST --refresh-observation
 uv run --project nctl nctl reconcile --yes
-uv run --project nctl --extra serve nctl serve
+uv run --project nctl nctl ops list
+uv run --project nctl nctl ops show OPERATION_ID
 ```
 
 `nctl drift` is the structured desired-vs-actual source of truth. Bootstrap/production inventory
@@ -60,10 +60,10 @@ For dnsmasq, a healthy daemon alone is not convergence: nctl also compares the S
 deterministic, nctl-owned records/ranges file with the digest nodeutils observed on the target.
 Only `/etc/dnsmasq.d/nintent-records.conf` is content-observed in this phase; other package and
 daemon settings remain separate concerns.
-`nctl dashboard` is the routine command for humans: it regenerates a self-contained static HTML
-dashboard (green/yellow/red/gray tiles, one per node/service, with drift details in prose on
-click) from a fresh `nctl drift` run and pushes each target's status back into nintent as a
-derived cache. Run `nctl dashboard`, not `nctl drift`, whenever the page itself needs updating.
+Current cluster convergence is a fresh `nctl drift` computation, not a persisted dashboard — run it
+(with `--json` for structured agent/tool consumption) whenever status needs updating. Past or
+running operations are read through `nctl ops list`/`nctl ops show OPERATION_ID` over the durable
+on-disk evidence each `nctl reconcile` run writes.
 
 **`nctl reconcile --yes` is the routine path from drift to a freshly verified converged state** —
 drift, required ledger/Ansible actions, fresh nodeutils collection, verified Nautobot ingest, and a
@@ -74,17 +74,9 @@ argument for the whole cluster). It replaces the old
 `--yes` first to get a dry plan with zero writes. AI's role is to read the plan/drift/event
 artifacts under `<events.log_dir>/<operation_id>/` only when a run stops short of `converged`, not
 to re-derive the workflow steps by hand each time. See [nctl/README.md](nctl/README.md) and
-[devdocs/vision/core_reconcile/p4/](devdocs/vision/core_reconcile/p4/) for the full contract.
+[devdocs/big/core_reconcile/p4/](devdocs/big/core_reconcile/p4/) for the full contract.
 
 Use `nctl reconcile HOST --refresh-observation --yes` when a fresh nodeutils
 collection is explicitly required even though current drift is converged.
 Observation deploys the exact nodeutils commit pinned by this superproject,
 not mutable upstream `HEAD`, and records that SHA in the operation evidence.
-
-**`nctl serve`** exposes the same `nctl_core` functions over HTTP + WebSocket (single bearer
-token, LAN-only) so external processes — a future 3D/voice UI, scripts, AI tooling — can read
-state and trigger operations as "just another subscriber," without any backend changes and without
-going through the CLI. The CLI remains the primary, no-server way to drive the system day to day;
-`serve` is groundwork for realtime UIs that need to watch operations progress live rather than poll
-a terminal. See [nctl/README.md](nctl/README.md#serve-realtime-api) and
-[devdocs/vision/core_reconcile/p5/](devdocs/vision/core_reconcile/p5/) for the full contract.
