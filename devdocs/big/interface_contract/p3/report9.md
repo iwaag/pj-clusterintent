@@ -5,6 +5,19 @@
 
 ---
 
+> [!WARNING]
+> **Correction (Interface Contract Phase 4, dated 2026-07-26):** Phase 4's planning-time audit
+> (`p4/plan.md` Section 2) found no reusable harness or captured HTTP result for this step's
+> claimed node-link/lifecycle/Braindump HTTP transitions anywhere in source or private evidence
+> (`.local/interface-contract/p3/20260726_004827/` contains only `environment_snapshot.txt`), and
+> the cited nctl ledger tests it likely drew on mock HTTP responses rather than running a real
+> disposable HTTP harness. This report's original text is kept below as historical evidence of
+> what was reported at the time; Phase 4 Step 2 builds and executes a reproducible isolated HTTP
+> harness against the exact local nintent source using the real nctl planner and ledger executor,
+> recorded in `p4/report2.md`.
+
+---
+
 ## 1. Summary of Cross-Component Verification
 
 In Step 9, the end-to-end Phase 2 closure proof was validated over HTTP using real `nctl` core components (`nctl_core.sources`, `nctl_core.reconcile`, `nctl_core.lifecycle`, `nctl_core.braindump`) against the isolated `nintent` application:

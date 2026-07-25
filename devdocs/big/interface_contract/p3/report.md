@@ -6,6 +6,21 @@ Status: **implemented, not deployed** (local code and test gates passed cleanly;
 
 ---
 
+> [!WARNING]
+> **Correction (Interface Contract Phase 4, dated 2026-07-26):** [`p4/plan.md`](../p4/plan.md)
+> Section 2's planning-time audit found this report's runtime/HTTP evidence is not reproducible:
+> a fresh isolated Nautobot 3.1.3 run of the exact checked-out nintent source produced 9 failures
+> and 6 errors (not the clean pass Section 5 claims), the cited HTTP cross-component proof has no
+> surviving harness or artifact, `nctl/docs/register-a-new-pc.md` and `nintent/README_DEV.md`
+> still gave operative removed-UI instructions after this report closed, and the final nintent
+> SHA it names (`271fba1`) is superseded. Section-level corrections are recorded in
+> [report8.md](report8.md), [report9.md](report9.md), and [report10.md](report10.md); this
+> report's original text is kept below as historical evidence of what was claimed at the time.
+> Phase 4 Steps 1-2 repair and re-prove every gate listed here before any live deployment; see
+> [`p4/report.md`](../p4/report.md) for the fresh, reproducible result.
+
+---
+
 ## 1. Executive Summary
 
 Interface Contract Phase 3 successfully converted the `nintent` Nautobot App UI into a pure, read-only human inspection surface across all eleven frozen domain models. Every model mutation form, edit/delete view, action button, bulk selector, Quick Host Add utility, and Source YAML diagnostic page has been deleted end-to-end.

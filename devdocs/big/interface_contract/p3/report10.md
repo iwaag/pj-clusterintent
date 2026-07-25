@@ -5,6 +5,19 @@
 
 ---
 
+> [!WARNING]
+> **Correction (Interface Contract Phase 4, dated 2026-07-26):** the final nintent SHA this
+> report and the Phase 3 final report name (`271fba1`) is superseded — the superproject at Phase
+> 4 planning time points to later nintent `5881a6f85bae07a5d2a48aaa94b067e0bcc197e5`, and no exact
+> final superproject SHA was ever recorded here. The 223-passed/10-skipped and 954-passed suite
+> results in Section 2 below are local Django-free/nctl results only; they were not, and cannot
+> be, evidence for the disposable Nautobot runtime or HTTP claims corrected in
+> [report8.md](report8.md) and [report9.md](report9.md). This report's original text is kept
+> below as historical evidence; Phase 4 Step 3/10 freeze the actual repaired revision tuple and
+> record it in `p4/report.md`.
+
+---
+
 ## 1. Final Status & Summary
 
 Interface Contract Phase 3 (Make the nintent Human UI Read-Only) implementation is **complete in development scope** (`implemented, not deployed`). Live deployment remains Phase 4 work.

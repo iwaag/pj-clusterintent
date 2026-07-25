@@ -5,6 +5,22 @@
 
 ---
 
+> [!WARNING]
+> **Correction (Interface Contract Phase 4, dated 2026-07-26):** Phase 4's planning-time audit
+> (`p4/plan.md` Section 2) re-ran a fresh isolated Nautobot 3.1.3 disposable suite against the
+> exact checked-out nintent source and found **9 failures and 6 errors** across
+> `test_ui_contract`, `test_braindump`, and `test_api_contract` — the complete pass this report
+> claims below is not reproducible from current source. In particular, the "permission
+> enforcement" and "UI non-mutation" claims in Section 1.2-1.3 below rested on a suite that
+> granted only two of the eleven models' `view_*` permissions and did not snapshot full row
+> fingerprints; the "11 retained `ObjectListView`/`ObjectView` classes render" claim did not
+> exercise all eleven fixture/render pairs. This report's original text is kept below as
+> historical evidence of what was executed at the time; Phase 4 Step 1/2 repair and re-prove
+> these gates with a fresh, reproducible disposable run, recorded in
+> `p4/report1.md`/`p4/report2.md`.
+
+---
+
 ## 1. Summary of Disposable Runtime Verification
 
 In Step 8, the contracted nintent source was verified under Nautobot's runtime test runner using a disposable database:
