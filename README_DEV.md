@@ -26,6 +26,25 @@ A change is not complete merely because each component works in isolation. It
 is complete only when the relevant path through this loop is exercised and the
 expected state transition is observed.
 
+## Current development phase permits coordinated breaking changes
+
+This project is currently in a breaking-change phase. When an authoritative
+model, API, configuration key, output schema, or ownership boundary changes,
+update all in-scope producers and consumers to the final contract and remove
+the superseded implementation in the same coordinated rollout.
+
+Do not leave compatibility-only artifacts such as dual readers or writers,
+shadow fields or tables, deprecated aliases, fallback routes, old configuration
+keys, legacy serializers, or permanent version branches. A maintenance window
+and a matched-version deployment are preferable to carrying an obsolete
+contract forward.
+
+Database migrations that safely transform confirmed existing data, normal
+Django migration history, rollback instructions, and historical reports are
+not compatibility artifacts. If live data cannot be translated without
+inventing intent or losing evidence, stop and request an operator decision
+instead of preserving both old and new ownership models indefinitely.
+
 ## What happened in the SSH/dnsmasq incident
 
 The original live failure was straightforward: bootstrap connected to
