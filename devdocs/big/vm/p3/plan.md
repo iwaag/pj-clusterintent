@@ -15,9 +15,12 @@ only purpose is backward compatibility.
 
 **Supersession/coordinated-rollout note (added by
 [`devdocs/big/remove_unused_surfaces/roadmap.md`](../../remove_unused_surfaces/roadmap.md) and its
-[Phase 0 plan](../../remove_unused_surfaces/p0/plan.md)):** the `nctl serve`/`nctl dashboard`
-surfaces and the nintent `reconciliation_status`/`reconciliation_checked_at` cache fields referenced
-below as presentation/status effects are being removed by that separate, coordinated initiative.
+[Phase 0 plan](../../remove_unused_surfaces/p0/plan.md); status updated by
+[Phase 4](../../remove_unused_surfaces/p4/plan.md)):** the `nctl serve`/`nctl dashboard` surfaces
+and the nintent `reconciliation_status`/`reconciliation_checked_at` cache fields referenced below as
+presentation/status effects have been removed locally by that separate, coordinated initiative
+(Phases 0–4 implemented; the nintent removal migration `0016` and the matching nctl/root revisions
+are prepared but live deployment is still pending a coordinated maintenance window).
 Every "dashboard"/"status" effect in this plan is superseded by structured JSON drift, human-readable
 CLI drift output, and reconcile manual-review classification/evidence — the retained inspection
 surfaces `nctl drift`, `nctl reconcile`, and `nctl ops list/show`. The live rollout window applies

@@ -216,23 +216,26 @@ access.
 **Exit criteria:** the exchange-diary loop works end to end on the local cluster, including an
 unexplained service conversation, while the deterministic reconciliation path remains unchanged.
 
-## Phase 4 — Optional presentation and API integration
+## Phase 4 — Optional presentation and API integration (superseded)
 
-**Goal: expose the proven minimal workflow to other local clients without changing its meaning.**
+**Superseded by [remove_unused_surfaces/roadmap.md](../remove_unused_surfaces/roadmap.md):**
+`nctl serve` and both nctl dashboards were removed as unused, so the `nctl serve`
+read/write-endpoint and dashboard-summary options below no longer have a host to build on. No
+remote/presentation extension of Braindump is planned without a named consumer and a separate
+roadmap. This does not change anything else in this roadmap: the models, the minimal Nautobot UI,
+GraphQL reads, REST mutations, the nctl CLI workflow, user/agent authorship, and the non-executable
+prose boundary are all unaffected and remain exactly as specified above.
 
-This phase is optional and starts only after Phase 3 demonstrates a real need.
+**Original goal (kept for context, not active): expose the proven minimal workflow to other local
+clients without changing its meaning.** This phase was optional and would have started only after
+Phase 3 demonstrated a real need; it never started.
 
-- Add read/write endpoints to `nctl serve` by wrapping the same `nctl_core` operations. Existing
-  single-token, LAN-only security is sufficient; dummy local authentication is acceptable during
-  experimentation.
-- Add a small dashboard or Nautobot summary showing Braindump title, authorship, update time,
-  review presence/update time, and the natural-language review. Do not create an alignment score or
-  merge it into green/yellow/red convergence health.
-- Consider a cluster-wide prose summary, structured findings, per-object links, review triggers, or
-  stronger authorization only when live operation supplies a specific use case and exit criterion.
-
-**Exit criteria:** any added client is a thin reader/writer of the same two-model contract; no
-second alignment engine or reconciliation source of truth exists.
+- ~~Add read/write endpoints to `nctl serve` by wrapping the same `nctl_core` operations.~~
+- ~~Add a small dashboard or Nautobot summary showing Braindump title, authorship, update time,
+  review presence/update time, and the natural-language review.~~
+- Considering a cluster-wide prose summary, structured findings, per-object links, review triggers,
+  or stronger authorization remains open for a future roadmap with its own concrete consumer — not
+  as a revival of the two options above.
 
 ---
 

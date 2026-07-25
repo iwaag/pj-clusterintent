@@ -18,6 +18,15 @@ adapters in this initiative.
 Phases in this roadmap begin at Phase 1 intentionally. Concrete implementation plans and reports
 should live under `devdocs/big/vm/pN/` when each phase is started.
 
+**Removed-surfaces note:** `nctl serve`, both `nctl` dashboards, and nintent's derived
+reconciliation-status cache were removed as unused by
+[`remove_unused_surfaces/roadmap.md`](../remove_unused_surfaces/roadmap.md). Every "dashboard" or
+"status effect" mentioned below as a future finding/output target means structured JSON drift,
+human-readable CLI drift text, reconcile classification, and durable operation evidence read through
+`nctl ops list/show` — not a dashboard tile, status-cache write, or served API. This does not weaken
+any desired-MAC mismatch/ambiguity blocking, digest suppression, planner/direct-apply suppression,
+zero-SSH/zero-Ansible, recovery, scope-isolation, or non-repetition requirement below.
+
 ## Current state and the gap
 
 Several pieces already exist, but they do not yet form a desired-versus-actual control loop:
@@ -468,9 +477,9 @@ Concrete phase plans may refine names, but all of these cases need structured tr
 - the guest OS is healthy but its compute-platform observation is stale; and
 - an observed guest has no matching desired compute instance.
 
-Each code must define target kind, severity, human evidence, dashboard/status effect, and reconcile
-classification. Bad data for one guest is target-local unless a shared platform contract or
-credential makes every action on that platform unsafe.
+Each code must define target kind, severity, structured JSON/human-readable drift evidence, and
+reconcile classification. Bad data for one guest is target-local unless a shared platform contract
+or credential makes every action on that platform unsafe.
 
 ## Phase 1 — Freeze the minimal contract and live baseline
 
@@ -593,7 +602,7 @@ mixed-version compatibility reader.
 agdnsmasq` relationship, invalid or unknown Proxmox fields are rejected, and creating the desired
 records alone performs no host or guest actuation.
 
-## Phase 4 — Add compute drift, explicit ledger linking, and dashboard explanation
+## Phase 4 — Add compute drift, explicit ledger linking, and drift-output explanation
 
 **Goal: deterministically compare desired platforms/instances with the actual Proxmox ledger and
 produce truthful plans without actuating Proxmox guests. This phase may perform separately
@@ -610,8 +619,8 @@ approved Nautobot/nintent link writes; it is not globally read-only.**
   provenance. Applying a link is an explicit ledger mutation: require a dry plan, separate
   approval, exact-scope write, refetch confirmation, and fresh drift proving the action is not
   repeated.
-- Add all compute findings to status, human drift rendering, JSON envelopes, dashboard tiles, and
-  reconcile classification.
+- Add all compute findings to structured JSON envelopes, human drift rendering, and reconcile
+  classification (no dashboard or serve output; see the removed-surfaces note above).
 - Display both realization layers for a guest: compute resource and guest OS.
 - Build plan-only reconcilers for missing guest, power mismatch, and resource mismatch. In this
   phase they remain unsupported/manual actions except safe ledger linking.
@@ -751,8 +760,9 @@ deterministic convergence.
 
 - Document the ordinary “request/add/reconcile a Proxmox guest” workflow with the minimum genuine
   intent inputs.
-- Make dashboard and CLI views explain platform, compute realization, guest-OS realization,
-  effective defaults, provenance, freshness, and blockers without exposing raw provider payloads.
+- Make structured JSON and human-readable CLI drift output explain platform, compute realization,
+  guest-OS realization, effective defaults, provenance, freshness, and blockers without exposing
+  raw provider payloads.
 - Add failure recovery guidance for guest-created-but-not-observed, waiting for manual initial
   access, waiting for SSH enrollment, manual completion-check failure, platform unreachable,
   credential denied, template missing, IP/MAC collision, stale ledger, and ambiguous
@@ -779,8 +789,9 @@ Every concrete phase plan must:
   execution target;
 - state the manual-initial-access and SSH trust transitions for every newly created guest kind,
   including both expected safe stops and any later approved automatic profile;
-- inventory model, UI, loader, REST, GraphQL, snapshot, drift, planner, executor, dashboard,
-  Ansible, observation, ingest, documentation, and test impacts as applicable;
+- inventory model, UI, loader, REST, GraphQL, snapshot, drift, planner, executor,
+  Ansible, observation, ingest, documentation, and test impacts as applicable (no dashboard or
+  serve impact — that surface was removed; see the removed-surfaces note above);
 - classify all new findings and distinguish shared-platform failures from target-local failures;
 - define migration, coordinated rollout, rollback, and treatment of existing rows;
 - reject unknown provider config rather than ignoring it;

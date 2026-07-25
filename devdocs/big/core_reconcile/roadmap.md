@@ -8,21 +8,28 @@
 
 ## Vision
 
-Treat the drift between the desired state held by `nintent` and the actual state held by `nodeutils` / Nautobot, as computed by a **Reconciliation Engine, as the single source of truth**, and distribute its output in three directions:
+Treat the drift between the desired state held by `nintent` and the actual state held by `nodeutils` / Nautobot, as computed by a **Reconciliation Engine, as the single source of truth**, and distribute its output in two directions:
 
-1. **Humans** — a dashboard that visualizes drift (a static HTML page for now, a 3D/voice UI in the future)
-2. **AI** — reads structured JSON to diagnose issues and handle exceptions
-3. **Automation** — a CLI, `nctl`, that deterministically executes standard workflows (e.g. generating dnsmasq config)
+1. **Humans and AI** — read structured JSON (`--json`) and human-readable CLI text from the same
+   schema to diagnose issues, handle exceptions, and understand cluster health; bounded operations
+   persist their plan, round/final drift, action evidence, and `result.json` to disk, inspected
+   through `nctl ops list`/`nctl ops show`.
+2. **Automation** — a CLI, `nctl`, that deterministically executes standard workflows (e.g. generating dnsmasq config)
 
 AI's role should be upgraded from "an executor that assembles steps every time" to "an exception handler that calls `nctl` and only reads the drift JSON when reconciliation fails to converge."
 
-### Design conventions for a future UI (common across all phases)
+Phase 3's static/live dashboard and Phase 5's HTTP/WebSocket realtime API (below) were built and
+then removed as unused; see
+[remove_unused_surfaces/roadmap.md](../remove_unused_surfaces/roadmap.md). CLI output plus JSONL
+events and on-disk operation artifacts are the current and only supported presentation surface. A
+future remote/presentation interface requires a new concrete consumer and a separate roadmap, not a
+revival of this one.
 
-To keep future frontends (a 3D scene rendered by a game engine, voice commands, etc.) as "just another subscriber of the reconciliation engine's output," follow these from the start:
+### Design conventions (common across all phases)
 
-1. **Separate the core library from a thin CLI** — put the implementation in a Python library (`nctl_core`); the CLI is a thin wrapper. In the future, the same core can be wrapped by an HTTP/WebSocket API.
+1. **Separate the core library from a thin CLI** — put the implementation in a Python library (`nctl_core`); the CLI is a thin wrapper. (Phase 5 explored wrapping the same core in an HTTP/WebSocket API; that wrapper was built and later removed — see the note above. This layering is retained for CLI/library separation, not as groundwork for a future server.)
 2. **JSON schema for all output** — every command returns a stable schema via `--json`. Human-readable text is just a rendering of that JSON.
-3. **Event logs for long-running operations** — long-running operations like reconcile get an operation ID and emit events (`started` / `step_completed` / `drift_resolved` / `failed`, etc.) as JSON Lines. For now the consumers are a log file and AI; in the future a realtime UI can attach to the same stream.
+3. **Event logs for long-running operations** — long-running operations like reconcile get an operation ID and emit events (`started` / `step_completed` / `drift_resolved` / `failed`, etc.) as JSON Lines, read by `nctl ops`. The realtime in-process subscriber bus once built for `nctl serve` was removed with the server; JSONL remains the durable evidence.
 
 ---
 
@@ -88,9 +95,16 @@ Detailed plan: [p1/plan.md](p1/plan.md)
 
 **Exit criteria**: `nctl drift --json` returns cluster-wide drift in a single run, and AI can read just that to explain the current state. The production inventory is composed by nctl and the deployment-profiles byte-contract machinery is gone.
 
-## Phase 3: Visualization dashboard
+## Phase 3: Visualization dashboard (superseded and removed)
 
-**Goal: let humans grasp the situation from a single screen without touring Nautobot.**
+**Superseded and removed by
+[remove_unused_surfaces/roadmap.md](../remove_unused_surfaces/roadmap.md):** the static dashboard
+described below was built, then deleted as unused with no compatibility fallback. Current status is
+`nctl drift`; current operation evidence is `nctl ops list/show`. This section is kept to explain
+the historical [p3/](p3/) reports, which remain truthful records of what was implemented and later
+removed — they are not rewritten as though the dashboard never existed.
+
+**Original goal: let humans grasp the situation from a single screen without touring Nautobot.**
 
 - `nctl dashboard` — generate static HTML from the drift JSON produced in Phase 2. Show the whole cluster as green/yellow/red, with drift details in prose on click.
 - Regenerate on every reconcile/drift run. Hosting can be a local file or LAN-only static serving; no auth needed.
@@ -113,9 +127,17 @@ Detailed plan: [p1/plan.md](p1/plan.md)
 
 **Exit criteria**: The happy path converges via `nctl reconcile` with no human or AI involvement; only failure cases go to AI diagnosis.
 
-## Phase 5: Realtime API layer (groundwork for a future UI)
+## Phase 5: Realtime API layer (superseded and removed)
 
-**Goal: make it possible for advanced UIs (3D, voice, etc.) to connect as "new subscribers."**
+**Superseded and removed by
+[remove_unused_surfaces/roadmap.md](../remove_unused_surfaces/roadmap.md):** `nctl serve` and its
+subscriber/WebSocket machinery described below were built, then deleted as unused — no external
+process ever consumed them. No MCP, HTTP, WebSocket, daemon, or other remote/presentation interface
+is planned under this roadmap; a future one requires a new concrete consumer and a separate roadmap.
+This section is kept to explain the historical [p5/](p5/) reports, which remain truthful records of
+what was implemented and later removed.
+
+**Original goal: make it possible for advanced UIs (3D, voice, etc.) to connect as "new subscribers."**
 
 - `nctl serve` — an HTTP API wrapping `nctl_core` (state snapshot, drift fetch, reconcile trigger) plus a WebSocket for streaming events. Minimal auth (roughly a single token) is enough.
 - Start firming up the event schema toward a freeze (from this phase onward, start caring about compatibility as UI development begins).
@@ -160,4 +182,4 @@ Stays where it is (correctly placed):
 
 - Phase 1 comes before the drift engine because the dnsmasq workflow is where the payoff (token spend, reproducibility) shows up fastest.
 - Phases 2–3 solve the "situational awareness" problem; Phase 4 generalizes and solves the "routine workflow" problem.
-- Phase 5 doesn't need to start until the future UI plans are concrete, but if the Phase 0 design conventions are followed, the added cost will be limited to a thin API layer.
+- Phase 5 was built, then removed as unused (see the Phase 5 section above); a future remote/presentation interface starts from a new concrete consumer, not from reviving this phase.
