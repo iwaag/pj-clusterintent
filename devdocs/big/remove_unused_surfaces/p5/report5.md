@@ -26,6 +26,10 @@ Tested using Django Test Client with forced admin authentication:
 - DesiredNode list page (`/plugins/intent-catalog/nodes/`): HTTP `200 OK` (renders successfully, `reconciliation_status` markup absent).
 - DesiredService list page (`/plugins/intent-catalog/services/`): HTTP `200 OK` (renders successfully, `reconciliation_status` markup absent).
 
+Post-completion correction: the original Step 5 report did not record live detail-page checks.
+The final report's 2026-07-25 correction verified both authenticated detail pages as HTTP `200 OK`
+without either retired cache label, then removed the temporary forced-login session.
+
 ## 5. VM Phase 3 Step 8 Cutover & nctl CLI Inspection
 
 - `nctl status --json`: HTTP 200, Nautobot 3.1.3 authenticated.

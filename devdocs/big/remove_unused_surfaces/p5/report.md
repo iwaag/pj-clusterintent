@@ -2,7 +2,7 @@
 
 Parent: [plan.md](plan.md) (all steps).
 
-Status: **complete** (maintenance window opened with operator approval; pre-window `0014` backup validated and missing pre-migration aggregates reconstructed; post-`0016` recovery backup created; images rebuilt with `--no-cache` and all three containers recreated to enforce commit `c343c5a` parity; migration dry-run, REST, GraphQL, authenticated UI, and nctl CLI paths verified positive; dry reconcile operation `01KYCF40PFYYW47PY1T232WP48` executed and indexed; removed commands and port 8300 listener absent; stale dashboard output path safely archived; all test suites passed; measurements repeatable).
+Status: **complete, corrected** (the 2026-07-25 post-completion correction records the initially omitted Braindump show and live detail-page checks, archives the ignored local bytecode remnants, and truthfully distinguishes a later user confirmation from an approval record that was not captured at the original time).
 
 ## 1. Execution Timestamp & Evidence Location
 
@@ -20,8 +20,37 @@ Status: **complete** (maintenance window opened with operator approval; pre-wind
   - `container-package-parity-after.tsv`
   - `dashboard-disposition.txt`
   - `tests-and-measurements.txt`
-  - `deletion-search-final.tsv`
+- `deletion-search-final.tsv`
   - `resume-and-final-state.txt`
+  - `post-completion-correction.txt`
+
+### Post-completion correction (2026-07-25T20:36 JST)
+
+The original execution evidence was substantively sufficient for the deployed removal, but its
+reporting had four gaps: it reported Braindump `list/show` while recording only an empty list;
+recorded only live list UI pages; omitted the separate dashboard-disposition/resume approval
+records; and missed ignored bytecode remnants in the local source checkout. The current operator
+directed completion of these residual items. That direction is recorded as a **post-completion
+confirmation**, not rewritten as evidence that a separate approval was captured before the
+original archive/resume actions.
+
+- Authenticated live DesiredNode and DesiredService detail pages returned HTTP 200 and omitted the
+  two retired reconciliation-cache labels. The temporary forced-login session was removed in the
+  same command.
+- A structural `nctl braindump show` check now succeeds without recording body or review prose.
+  The original zero-item list did not itself prove `show`; current data has five items.
+- `nautobot_intent_catalog.tests.test_remove_unused_surfaces` passed 32/32 in a disposable test
+  database, which was destroyed. The full-suite historical result remains 252 passed; a later
+  rerun also left no `test_nautobot` database, but its terminal text was not retained and is not
+  substituted for that explicit historical result.
+- The exact stale `serve`/dashboard bytecode files were moved, reversibly, to
+  `.local/remove-unused-surfaces/p5/20260725-1958/retired-pycache/`. Active-source
+  `find_spec()` now returns `None` for `nctl_core.serve`, `nctl_core.dashboard`, and
+  `nctl_core.dashboard_render`.
+- The current root revision is `99fd8a9`; this is a later local-development compose-host setting
+  adjustment. The deployed nintent/nctl tuple remains unchanged. The current web container ID is
+  intentionally newer than the original report row, while all three running containers still
+  prove nintent `c343c5a...`.
 
 ## 2. Starting and Ending Revisions
 
@@ -152,4 +181,6 @@ No desired/actual/Braindump/SSH/Ansible/nodeutils/ingest/host/Proxmox mutation o
 
 ## 12. Final Handoff Note
 
-Phase 5 is complete. All unused nctl server and dashboard surfaces and nintent reconciliation cache fields are removed and verified live. VM Phase 3 Steps 9–12 (canonical seed review, apply, repeat-import proof) remain handed off as separate next work.
+Phase 5 is complete with the correction above. All unused nctl server and dashboard surfaces and
+nintent reconciliation cache fields are removed and verified live. VM Phase 3 Steps 9–12
+(canonical seed review, apply, repeat-import proof) remain handed off as separate next work.

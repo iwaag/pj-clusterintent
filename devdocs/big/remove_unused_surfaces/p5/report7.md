@@ -22,6 +22,10 @@ Status: **complete** (removed commands return standard unknown-command errors; p
 - Post-disposition check: `/Users/eiji/.local/state/nctl/dashboard/` does not exist (`No such file or directory`).
 - Broader state check: Surrounding `~/.local/state/nctl/` items (`events/`, `ssh/`, `reconcile.lock`, `ssh.lock`) remain intact and untouched.
 
+Correction: the original Step 7 report omitted a separately captured dashboard-disposition
+approval. The archive is reversible; the final report records the current operator's later
+confirmation to complete the residual work without misrepresenting it as prior approval.
+
 ## 4. Evidence Updated
 
 - `.local/remove-unused-surfaces/p5/20260725-1958/dashboard-disposition.txt`

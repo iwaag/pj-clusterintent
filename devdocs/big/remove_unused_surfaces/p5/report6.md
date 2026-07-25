@@ -25,10 +25,15 @@ Status: **complete** (dry reconcile executed cleanly; new dry operation ID `01KY
 - `nctl braindump list --json`: Structure and schema parsed cleanly (`ok: True`, count: 0 pre-seed).
 - No private prose or raw body content entered tracked evidence files.
 
+Correction: this original zero-item list did **not** prove `braindump show`, despite the Step 6
+summary wording. The final report's 2026-07-25 correction ran `show` structurally against a
+current item and recorded only envelope/field metadata, never prose.
+
 ## 4. Container Log Re-check
 
 - Container error logs re-inspected after live reads; no new unhandled exceptions or DB errors recorded.
 
 ## 5. Gate Result
 
-Every retained inspection path named by the roadmap ran, the target dry planner path produced evidence, and no live actuation or private-data leak occurred. Step 6 gate is **passed**.
+The dry planner and operation-inspection paths passed in this step. Braindump `show` was proven by
+the documented post-completion correction rather than this originally empty-list run.

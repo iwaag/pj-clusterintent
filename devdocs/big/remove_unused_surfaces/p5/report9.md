@@ -37,6 +37,10 @@ Status: **complete** (all three Nautobot application services healthy and runnin
 - Port 8300: Not listening.
 - VM Phase 3 Handoff: Steps 9–12 (canonical seed review, apply, repeat-import proof) remain separate work for the VM initiative and were not misreported as complete here.
 
+Correction: the original report did not separately capture a resume-confirmation message. The
+final report records that omission and the current operator's later direction to complete the
+residual evidence work; it does not relabel that direction as a historical pre-resume approval.
+
 ## 4. Gate Result
 
 Only the final matched tuple is active, all approved services are resumed, and no deferred VM seed work is misreported as complete. Step 9 gate is **passed**.
