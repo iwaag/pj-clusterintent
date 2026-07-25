@@ -2,12 +2,146 @@
 
 Plan: [plan.md](plan.md), Step 3.
 
-Status: **implemented, not fully closed**. Items 1-3 and 5-12 are complete and disposable-proven.
-Item 4 (push) surfaced a genuine defect mid-step that produced one more required commit
-(`e8732f1`); that commit is not yet pushed, so the *fully final* pinned candidate has not been
-rebuilt against it. No live mutation, no live service stop/restart/rebuild, no live database/media
-action. Everything below is disposable-only, as authorized without a live-maintenance approval by
-Section 3.4.
+Status: **complete**. Items 1-12 are done and disposable-proven end to end. The remainder flagged
+in the original report below (nintent `e8732f1` unpushed, candidate still pinned to the earlier
+`179a12a`) is now closed: `e8732f1` was pushed by the user, the Dockerfile's pinned commit was
+bumped to it, and the candidate was rebuilt and re-verified from scratch against the real pushed
+commit — not a hot-patch. No live mutation, no live service stop/restart/rebuild, no live
+database/media action. Everything below is disposable-only, as authorized without a live-maintenance
+approval by Section 3.4.
+
+## Original Step 3 work (2026-07-26, first pass)
+
+The rest of this report is unchanged from the original pass; see Sections 1-7 and "What Step 3 does
+not close" below for the full record of the Dockerfile/compose/config changes, the test-portability
+defect found and fixed (nintent `e8732f1`), the first candidate build (pinned to `179a12a`), and the
+first disposable triplet verification.
+
+## Step 3 remainder (2026-07-26, second pass) — close-out against the pushed tuple
+
+### 1. Remote push confirmed
+
+`git fetch origin main` in `nintent` showed `origin/main == e8732f1...` — the user pushed the commit
+described as still-local in the original report. The superproject's `nintent` submodule pointer
+(committed in the first pass, `ba5a847`) already matched. `nctl` and the other submodules were
+unchanged and already at their pushed `origin/main` SHAs; the superproject working tree was clean
+before this remainder began.
+
+### 2. Dockerfile bump
+
+[`devenv/nautobot/Dockerfile`](../../../../devenv/nautobot/Dockerfile)'s `ARG NINTENT_COMMIT`
+default changed from `179a12ac48b00f33512acc739c9a9ec01a3c6854` to
+`e8732f17ae35d8c72d4d593e8d7311bd234fc0bf` — the only change; `NAUTO_COMMIT` is unchanged
+(`2635e648469d6e6bad87af113f7427b878b0a387`).
+
+### 3. Candidate rebuild from the real pushed commit
+
+```
+docker build -f devenv/nautobot/Dockerfile -t nic-p4-candidate:20260726b .
+```
+
+from the superproject root. `pip install git+https://github.com/iwaag/nintent.git@e8732f1...`
+cloned and resolved the real pushed commit (visible in the build log as `Resolved
+https://github.com/iwaag/nintent.git to commit e8732f17ae35d8c72d4d593e8d7311bd234fc0bf`); the
+build-time `direct_url.json` commit-equality check passed inline.
+
+- Image ID: `sha256:ef28300287a39646b9a1c0f58bdcd2b80e4ab5b9e3e16227796962bc53a9f952`
+- `/opt/nautobot/build_info.json`: `{"nintent_commit":
+  "e8732f17ae35d8c72d4d593e8d7311bd234fc0bf", "nauto_commit":
+  "2635e648469d6e6bad87af113f7427b878b0a387"}`
+- `/opt/nautobot/intent_sources.yaml.sha256`:
+  `598391e02041c433df468629cc86d2a2c948c94b80f89a1746a28057b557455b` — identical to
+  `sha256sum nauto/seed/intent_sources.yaml` on the checked-out `nauto` submodule (unchanged from
+  the first pass, since `NAUTO_COMMIT` did not change).
+
+### 4. Full App suite and migration check inside the candidate
+
+`nautobot-server test nautobot_intent_catalog` inside a disposable container from
+`nic-p4-candidate:20260726b`: **304/304 pass**, 0 failures, 0 errors — this time via the real
+`pip install`ed package, not the Section 3 hot-patch. This confirms
+`_first_existing_canonical_intent_sources_path()`'s fix (nintent `e8732f1`) is genuinely correct
+under the real installation path, closing the gap the original report left open.
+
+`nautobot-server makemigrations nautobot_intent_catalog --check --dry-run`: "No changes detected."
+`showmigrations nautobot_intent_catalog` ends at `0016_remove_reconciliation_dashboard_surfaces` —
+unchanged.
+
+### 5. Disposable web/worker/scheduler triplet
+
+New compose project `nic-p4-step3b` at
+`.local/interface-contract/p4/20260726_step3_remainder/docker-compose.yml` (fresh Postgres/Redis,
+port `18002` — distinct from live's `8000` and the prior disposable projects' `18000`/`18001`), all
+three services running `nic-p4-candidate:20260726b` and bind-mounting the real
+`devenv/nautobot/nautobot_config.py`.
+
+- `nautobot-server check --deploy`: same 5 expected `security.W00x` warnings as every prior step.
+- All three services independently reported the identical image ID
+  (`sha256:ef28300287a39646b9a1c0f58bdcd2b80e4ab5b9e3e16227796962bc53a9f952`), the identical
+  `build_info.json`, the identical YAML SHA-256, and the identical installed
+  `direct_url.json.vcs_info.commit_id` (`e8732f17ae35d8c72d4d593e8d7311bd234fc0bf`).
+- `settings.PLUGINS_CONFIG` inside the running `nautobot` service:
+  `{'intent_sources_file': '/opt/nautobot/intent_sources.yaml'}`.
+- nintent Job discovery (via `nautobot-server shell`): exactly 3 Jobs, all `installed=True` —
+  `Analyze Intent Sources`, `Import Intent Sources`, `Reconcile Desired IPAM Intent`.
+
+One disposable-compose startup-order artifact, not a candidate defect: `nautobot-scheduler` exited
+once at startup (`relation "extras_scheduledjob" does not exist`) because celery beat started before
+the `nautobot` service's automatic `migrate` step completed — the three services depend only on
+Postgres's healthcheck, not on each other's readiness, in this compose file. `docker start` on the
+same container succeeded once migrations had completed, and it then reported the identical
+image/commit/YAML digest as the other two services, so this did not affect the deployment-tuple
+verification.
+
+Full evidence: `.local/interface-contract/p4/20260726_step3_remainder/verification_summary.txt`,
+`build.log`, `app_suite.log`.
+
+### 6. Teardown and live-stack isolation
+
+`docker compose -p nic-p4-step3b down -v` removed all 5 containers, both volumes, and the network;
+confirmed absent by name afterward. The three live `nautobot-*` containers were running, healthy,
+and untouched (`Up 7 hours`) before and after this remainder. The `nic-p4-candidate:20260726`
+(first-pass, `179a12a`-pinned) image was left in the local image store as historical evidence
+alongside the new `20260726b` image; neither is a running service.
+
+### 7. Evidence retention
+
+`.local/interface-contract/p4/20260726_step3_remainder/` (directory mode `0700`, files `0600`):
+`docker-compose.yml`, `build.log`, `app_suite.log`, `verification_summary.txt`. Checked for
+tokens/credentials before setting permissions — the only `PASSWORD`-named strings are the fixed
+disposable Postgres/Nautobot placeholders (`nautobot`/`nautobot`, `admin-disposable-only`), identical
+in kind to the original Step 3 evidence.
+
+## Step 3 — now fully closed
+
+- exact remote commits: superproject `ba5a847` (unchanged), nintent `e8732f17ae35d8c72d4d593e8d7311bd234fc0bf`
+  (pushed), nctl `79b6d6b3e8025722ae1a408daacbf706e845e11d` (unchanged), nauto
+  `2635e648469d6e6bad87af113f7427b878b0a387` (unchanged);
+- one reproducible candidate image built from the real pushed tuple:
+  `sha256:ef28300287a39646b9a1c0f58bdcd2b80e4ab5b9e3e16227796962bc53a9f952`
+  (tag `nic-p4-candidate:20260726b`);
+- web, worker, and scheduler independently verified identical on image ID, installed nintent commit,
+  and canonical YAML digest;
+- full App suite (304/304) and clean `makemigrations --check` inside the real candidate;
+- exactly 3 nintent Jobs and the final nauto Job set (confirmed unchanged from the first pass —
+  `NAUTO_COMMIT` did not move) discoverable.
+
+Rebuilding the same source tuple selected the same nintent and YAML commit both times (no silent
+drift), and rebuilding after `e8732f1`'s push now proves the fix under the real installation path
+rather than only under a hot-patch.
+
+Next: Step 4 (approve maintenance, freeze writers, verify backups) — a live-adjacent step requiring
+explicit operator approval per plan Section 3.4. Not started; this remainder only closes Step 3.
+
+---
+
+## Original report (first pass, 2026-07-26)
+
+Status at first pass: **implemented, not fully closed**. Items 1-3 and 5-12 are complete and
+disposable-proven. Item 4 (push) surfaced a genuine defect mid-step that produced one more required
+commit (`e8732f1`); that commit was not yet pushed, so the *fully final* pinned candidate had not
+been rebuilt against it. No live mutation, no live service stop/restart/rebuild, no live
+database/media action. Everything below is disposable-only, as authorized without a live-maintenance
+approval by Section 3.4.
 
 ## 1. Remote-SHA check at step start (plan items 4-5)
 
@@ -107,6 +241,8 @@ pushed to `github.com/iwaag/nintent` before a final candidate can be rebuilt and
 it** — that rebuild is a small remainder of Step 3, not a new step, and is otherwise identical to
 the verification already performed below.
 
+*(Closed above: `e8732f1` was pushed and the rebuild-and-reverify remainder completed successfully.)*
+
 ## 4. Candidate build (plan items 9-10)
 
 ```
@@ -196,7 +332,7 @@ confirmed absent by name in `docker ps -a`/`docker volume ls`/`docker network ls
 built `nic-p4-candidate:20260726` image was left in the local Docker image store (a build artifact,
 not a running service — not required to be removed by Section 3.4).
 
-## What Step 3 does not close
+## What Step 3 does not close (first-pass state; now closed above)
 
 - **`e8732f1` is not pushed.** The candidate image, and everything verified against it above, is
   pinned to `179a12a`/`2635e64` — the tuple that was actually resolvable via `git+https://...` at
@@ -231,6 +367,6 @@ not a running service — not required to be removed by Section 3.4).
 - Disposable teardown: containers/volumes/network confirmed removed; live stack confirmed
   untouched throughout (`docker ps` before/after identical for `nautobot-*`).
 
-Next: push nintent `e8732f1`, rebuild+re-verify the candidate against it (small remainder of this
-step), then Step 4 (approve maintenance, freeze writers, verify backups) — a live-adjacent step
-requiring explicit operator approval per plan Section 3.4.
+Next (superseded — see remainder above): push nintent `e8732f1`, rebuild+re-verify the candidate
+against it (small remainder of this step), then Step 4 (approve maintenance, freeze writers, verify
+backups) — a live-adjacent step requiring explicit operator approval per plan Section 3.4.
