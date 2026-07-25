@@ -1,0 +1,11 @@
+.git
+**/.git
+.local
+devdocs
+.claude
+.vscode
+.pytest_cache
+.ruff_cache
+**/__pycache__
+**/*.pyc
+**/node_modules
