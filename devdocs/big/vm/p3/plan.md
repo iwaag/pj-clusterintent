@@ -13,6 +13,20 @@ This repository is currently in the coordinated breaking-change phase described 
 does not add or retain dual readers, deprecated aliases, shadow fields, or other artifacts whose
 only purpose is backward compatibility.
 
+**Supersession/coordinated-rollout note (added by
+[`devdocs/big/remove_unused_surfaces/roadmap.md`](../../remove_unused_surfaces/roadmap.md) and its
+[Phase 0 plan](../../remove_unused_surfaces/p0/plan.md)):** the `nctl serve`/`nctl dashboard`
+surfaces and the nintent `reconciliation_status`/`reconciliation_checked_at` cache fields referenced
+below as presentation/status effects are being removed by that separate, coordinated initiative.
+Every "dashboard"/"status" effect in this plan is superseded by structured JSON drift, human-readable
+CLI drift output, and reconcile manual-review classification/evidence — the retained inspection
+surfaces `nctl drift`, `nctl reconcile`, and `nctl ops list/show`. The live rollout window applies
+local migration `0015_compute_platform_instance_and_endpoint_mac` and the removal migration
+`0016_remove_reconciliation_dashboard_surfaces` from one exact nintent revision, then activates one
+matching nctl revision, before routine operations resume (`remove_unused_surfaces/p0/plan.md` §3.2).
+This note does not change any compute, endpoint-MAC, migration-`0015`, seed, safety, or
+no-actuation requirement elsewhere in this plan.
+
 ## 1. Purpose and Required State Transition
 
 ### 1.1 Desired transition
@@ -149,8 +163,9 @@ query result that actually exercised the intended path.
 - [ ] Desired MAC is a real current consumer: dnsmasq uses it before actual observation, falls
       back to existing observed behavior when omitted, and makes a desired/actual mismatch or
       ambiguity non-deployable.
-- [ ] `desired_mac_mismatch` has target, severity, bounded evidence, dashboard/status effect, and
-      manual-review reconcile classification. A blocked diagnostic preview has no authoritative
+- [ ] `desired_mac_mismatch` has target, severity, bounded evidence, structured JSON drift and
+      human-readable CLI drift presentation, and manual-review reconcile classification. A blocked
+      diagnostic preview has no authoritative
       artifact or desired digest and can never reach direct apply or reconcile actuation.
 - [ ] The final migration asserts the closed-write legacy link count, adds the new schema, and
       removes `DesiredNode.realized_vm(+_source)` in one coordinated breaking rollout. No
@@ -198,7 +213,9 @@ Phase 3 does not:
 - change nodeutils collection, nauto Proxmox ingest, Cluster/VM/VMInterface/IP matching, or
   freshness semantics completed in Phase 2;
 - add compute-platform or compute-instance drift codes, matching candidates, link plans,
-  dependency-closure plans, dashboard compute tiles, or reconcile actions;
+  dependency-closure plans, or reconcile actions (the "dashboard compute tiles" surface this
+  non-goal originally also named no longer exists as a target at all, per the supersession note
+  above — there is nothing left to avoid adding to it);
 - write `realized_cluster` or `realized_vm` for the live seed;
 - expose actual-link writes through ordinary UI, REST, or YAML CRUD;
 - infer the existing `agdnsmasq` template origin from its running guest;
@@ -773,7 +790,7 @@ path; do not retain the old behavior as a version branch.
 | severity | `conflict` |
 | scope | target-local diagnosis; shared dnsmasq file deployment is blocked |
 | evidence | desired canonical MAC, bounded actual candidates/references, no raw provider payload |
-| dashboard/status | owning node and affected dnsmasq service display red/conflict |
+| drift presentation | structured JSON drift finding plus human-readable CLI drift output for the owning node and affected dnsmasq service |
 | reconcile classification | `manual_review` |
 | remediation | operator corrects desired intent or actual NIC identity; no automatic rewrite |
 
@@ -950,7 +967,7 @@ No rollback step modifies Proxmox or actual Cluster/VM rows.
 | nctl | desired GraphQL query/models/builders, schema validation, effective defaults/provenance |
 | nctl | row-scoped desired-source issue envelope and target/platform isolation tests |
 | nctl | dnsmasq desired-MAC selection, deployability gate, finding/classification, and multi-round safety tests |
-| nctl | drift/status/dashboard/CLI/serve output updates for the final blocked/deployable schema |
+| nctl | drift/CLI output updates for the final blocked/deployable schema (retained JSON/human drift and reconcile/ops evidence only; no dashboard or serve output) |
 | nctl | final removal of legacy query/consumer code |
 | nauto | reviewed `seed/intent_sources.yaml` additions only after exact live-row comparison |
 | root docs | this plan and one report per procedure step, with final exit-criteria report |
@@ -1070,7 +1087,7 @@ last instance leaves zero preceding writes.
 2. Add typed platform/instance/config/effective-value models and endpoint MAC.
 3. Remove every legacy field query/builder/evaluation/production consumer and test fixture.
 4. Add row-scoped source-issue parsing and platform dependency blocking.
-5. Keep valid compute collections out of compute drift/planner/dashboard/reconcile dispatch.
+5. Keep valid compute collections out of compute drift/planner/reconcile dispatch.
 6. Add invalid-instance, invalid-platform, invalid-MAC, duplicate/reference, and global-envelope
    fixtures.
 7. Prove a malformed compute sibling blocks only its target/platform while an unrelated healthy
@@ -1088,8 +1105,9 @@ unrelated targets without adding a compute action.
 2. Implement desired/no-actual, desired=actual, desired!=actual, desired-absent, and
    actual-ambiguous rules.
 3. Implement the deployable-versus-blocked result and final render envelope.
-4. Wire structured mismatch finding, dashboard/status behavior, manual-review classification,
-   drift digest suppression, planner suppression, and direct-apply/executor rechecks.
+4. Wire the structured mismatch finding into JSON drift and human-readable CLI drift output, with
+   manual-review classification, drift digest suppression, planner suppression, and
+   direct-apply/executor rechecks (zero SSH calls, zero Ansible calls).
 5. Prove through the real `SourceSnapshot -> compute_dnsmasq_render()` path that a complete
    desired endpoint with no endpoint evaluation, actual reference, Device, VM, or interface emits
    the reservation with null actual provenance.
@@ -1129,7 +1147,8 @@ artifact remains.
 5. Run the migration; require its in-transaction legacy assertion and exact final schema.
 6. Activate the matching nctl revision before routine operations resume.
 7. Prove final GraphQL roots, REST/UI behavior, migration state, desired snapshot, drift,
-   production, hosts-intent, dnsmasq read path, dashboard read path, and dry reconcile.
+   production, hosts-intent, dnsmasq read path, `nctl ops list`/`nctl ops show` evidence for an
+   existing operation, and dry reconcile.
 8. Confirm ordinary REST/YAML/UI paths cannot write actual links.
 9. Resume operations only after every smoke test passes.
 
@@ -1173,10 +1192,11 @@ Gate: exact rows changed once, repeat is a no-op, and no compute/Proxmox action 
    endpoint and assert no actual provenance is fabricated.
 2. Run the deployed code against a disposable/simulated managed-file fixture containing an
    existing reservation, then introduce desired/actual mismatch.
-3. Assert the structured finding reaches JSON, human drift, dashboard/status derivation, and
+3. Assert the structured finding reaches JSON drift, human-readable CLI drift output, and
    manual-review reconcile classification.
 4. Run direct apply dry-run/apply and reconcile dry/apply with fake command boundaries; assert
-   zero SSH/Ansible calls and stable deployed bytes/digest.
+   zero SSH/Ansible calls, no dnsmasq action, and stable deployed bytes/digest (this is the
+   zero-actuation proof for this fixture).
 5. Include a malformed planned compute instance beside a healthy unrelated live-like node and
    prove only the malformed target is blocked.
 6. Re-run the ordinary live dnsmasq render without changing desired intent and verify no
@@ -1323,8 +1343,9 @@ Phase 3 hands Phase 4:
 - a proven transactional structured-write path and rollback point; and
 - no Proxmox actuation capability.
 
-Phase 4 may then implement actual matching, compute findings, dashboard explanation, scoped
-dependency closure, dry link plans, and separately approved Cluster/VM link writes. It must not
+Phase 4 may then implement actual matching, compute findings, structured CLI/drift/reconcile
+evidence, scoped dependency closure, dry link plans, and separately approved Cluster/VM link
+writes. It must not
 reinterpret Phase 3's seed as permission to actuate a guest, infer a missing template, or create
 desired rows for unexplained actual guests.
 
