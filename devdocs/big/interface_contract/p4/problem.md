@@ -104,3 +104,79 @@ contraction this Phase 4 plan governs.
 
 This is a separate decision from Interface Contract Phase 4's own step sequence and does not
 block Step 2.
+
+---
+
+# Phase 4 Step 6 — Open Problem: official live Import preview overwrites live `description`/`notes`
+that were never captured in `intent_sources.yaml`
+
+Found while running Step 6's official `apply=false` `Import Intent Sources` Job against live
+Nautobot (`report6.md`). Step 6 was stopped before requesting apply approval; recorded here for
+an explicit user decision before apply.
+
+## Where
+
+- Live artifact: `.local/interface-contract/p4/20260726_step6/intent-import-result.json`
+  (`nintent.intent-import.v1`, `mode: preview`, `totals: {create: 0, update: 13, unchanged: 9,
+  conflict: 0}`).
+- Field ownership: `nintent/nautobot_intent_catalog/importers.py:321-331`
+  (`desired_node_update_fields()` excludes only `lifecycle` from the fields Import may overwrite
+  on an existing `DesiredNode`; `description` and `notes` are not excluded). `DesiredEndpoint` and
+  `DesiredIPRange` have no excluded fields at all, so their `description` is always in
+  `update_fields`.
+- Ledger check: `devdocs/big/interface_contract/p0/report7.md`'s "Ownership rules frozen" section
+  names only `lifecycle` (create-only, nctl-owned after creation) and, separately, `DesiredService`
+  `lifecycle`/`requirements`/`notes` (analysis-owned, preserved). It says nothing about
+  `DesiredNode`/`DesiredEndpoint`/`DesiredIPRange` `description`/`notes` being safe to overwrite.
+
+## What happens
+
+`nauto/seed/intent_sources.yaml` has never carried a `description` or `notes` key for any
+`desired_nodes`/`desired_endpoints`/`desired_ip_ranges` row (confirmed by reading the checked-in
+file). The five live `DesiredNode` rows, however, carry human-written `description` values from
+before this file existed:
+
+| Node | Live `description` (would become `null` on apply) |
+|---|---|
+| `agbach` | "main macbook" |
+| `agdnsmasq` | "dnsmasq should be running on VE or light PC" |
+| `aghub` | "proxmox VE mini pc" |
+| `agpc` | "powerful ubuntu with graphic card" |
+| `agstudio` | "powerful mac studio" |
+
+Because the plan engine (`import_plan.py:plan_upsert`) treats any `update_fields` key present in
+`create_fields` but absent from the YAML row as `None`, and diffs that against the stored value,
+each of these rows is planned as an `update` that nulls the field. The remaining 6 updates in the
+same preview are cosmetic (`notes: '' -> None`, `DesiredEndpoint`/`DesiredIPRange`
+`description: '' -> None`) and the 2 `IntentSource.source_config` updates are benign schema-default
+population (`{} -> {computed defaults}`), not data loss. Only the 5 `DesiredNode.description`
+values above are real content that would be silently erased.
+
+## Why this wasn't fixed here
+
+Plan Section 5.3 requires the preview to show "22 unchanged rows or only field updates already
+authorized by Phase 0's disposition ledger," and Section 6 Step 6 requires the phase to stop
+before apply on "any... unexplained field update." These 5 updates are exactly that: not
+create/conflict/delete-like, but also not named anywhere in the Phase 0 ledger as an
+authorized change, and their effect (erasing existing operator-written prose) is the kind of
+silent loss the whole disposition-ledger exercise existed to prevent. Deciding unilaterally to
+either (a) treat the clearing as acceptable and proceed to apply, or (b) change importer field
+ownership to preserve `description`/`notes` the way `DesiredService` already preserves its
+analysis-owned fields, is a data-ownership decision, not an implementation detail — hence stopping
+here instead of choosing on the user's behalf.
+
+## Decision needed
+
+1. Add `description`/`notes` values to `intent_sources.yaml` matching the live values above (and
+   equivalent blank-safe entries for `DesiredEndpoint`/`DesiredIPRange`) so the next preview is a
+   true no-op, then re-run Step 6.
+2. Change `desired_node_update_fields()` (and the `DesiredEndpoint`/`DesiredIPRange` equivalents)
+   to exclude `description`/`notes` from Import's writable set, treating them as operator-owned
+   free text the same way `DesiredService.notes` already is — then re-run Step 6.
+3. Approve clearing these five `description` values as an intentional, acceptable one-time change
+   and proceed to apply as previewed.
+4. Something else — e.g. only preserve `DesiredNode.description`/`notes` and accept the cosmetic
+   empty-string-to-null changes elsewhere.
+
+This must be resolved before Step 6's apply approval request; Step 6 is otherwise ready (preview
+executed, artifact captured, schema/zero-write verified) once a decision is made.
