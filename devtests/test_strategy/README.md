@@ -15,3 +15,12 @@ this is a required Phase 3 gate. The test creates an ED25519 host key, client ke
 file, managed store, and loopback-only `sshd` under pytest's temporary directory; teardown stops
 only that exact process and pytest removes the directory.
 
+Run the Ansible boundary gate from the superproject root:
+
+```bash
+uv run --project nctl pytest -q devtests/test_strategy/test_ansible_conformance.py
+```
+
+It requires `ansible-inventory` and `ansible-playbook`. Its inventory has nctl's closed SSH policy;
+the fixture playbook declares `connection: local` only so its exact-host check/apply proof writes
+temporary markers rather than contacting an SSH target.
