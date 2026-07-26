@@ -39,14 +39,16 @@ Status: **partially complete** (Step 0 complete: baseline revision tuple frozen,
 
 ## 4. Tracked Test File Digest Inventory
 
-Recorded SHA-256 digests for all 96 tracked test files across 5 submodules into `.local/test-strategy/p0/20260726T034839Z/tracked-test-files.tsv`.
+Recorded SHA-256 digests for all 98 tracked test modules and shared test-only fixture/helper
+files across 5 submodules into
+`.local/test-strategy/p0/20260726T034839Z/tracked-test-files.tsv`.
 
 - `nctl`: 72 test files
-- `nintent`: 12 test files
+- `nintent`: 14 files (12 `test_*.py` modules plus `tests/__init__.py` and `tests/factories.py`)
 - `nauto`: 8 test files
 - `nodeutils`: 3 test files
 - `ansible_agdev helper`: 1 test file
-- **Total**: 96 test files
+- **Total**: 98 tracked files (96 `test_*.py` modules plus 2 shared fixture/helper files)
 
 ## 5. Evidence Artifacts Created
 

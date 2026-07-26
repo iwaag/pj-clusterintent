@@ -6,7 +6,7 @@ Status: **`complete`** (all active tests and fixtures cataloged and assigned tie
 
 ## 1. Execution Overview
 
-- **Execution Window**: 2026-07-26T03:48:39Z to 2026-07-26T04:29:35Z (UTC)
+- **Execution Window**: 2026-07-26T03:48:39Z to 2026-07-26T04:29:35Z (UTC); amended 2026-07-26T04:45:00Z-04:48:00Z (UTC) to actually execute the disposable Nautobot App suite (`nautobot-server test nautobot_intent_catalog`) required by Step 10/Step 2, which the original window had only introspected via `docker exec` rather than run
 - **Private Evidence Directory**: `.local/test-strategy/p0/20260726T034839Z/`
 - **Final Status**: **`complete`**
 
@@ -68,11 +68,22 @@ Across 9,496 required search matches in `reference-classification.tsv`:
 ## 8. Baseline Measurement & Out-of-Order Execution Summary
 
 - **Code vs. Test Line Totals**: 28,755 test lines / 32,521 non-test Python lines (0.884 ratio).
-- **Execution Run 1 (Normal)**: 100% pass across all submodules.
-- **Execution Run 2 (Normal)**: 100% pass across all submodules.
-- **Execution Run 3 (Reverse)**: 100% pass across all submodules (0 order dependencies or flakes).
+- **Execution Run 1 (Normal)**: 100% pass across all submodules, including nintent's fast Django-free
+  suite (226 passed / 13 skipped) and nintent's full disposable Nautobot App suite
+  (`nautobot-server test nautobot_intent_catalog --keepdb`, 304/304 pass).
+- **Execution Run 2 (Normal)**: 100% pass across all submodules, including the same disposable
+  Nautobot App suite re-run (304/304 pass).
+- **Execution Run 3 (Reverse)**: 100% pass across all submodules (0 order dependencies or flakes),
+  including the disposable Nautobot App suite run with Django's native `--reverse` flag (304/304
+  pass).
+- **Disposable Environment**: the disposable Nautobot App suite ran inside the existing local
+  `nautobot-nautobot-1` container against its own throwaway `test_nautobot` database (Django's test
+  runner provisions/destroys this separately from the live `nautobot` database). `--keepdb` was
+  used across the 3 runs to avoid recreating schema three times; the disposable `test_nautobot`
+  database was dropped immediately after run 3 and its absence confirmed. No live data or
+  production/test source was touched.
 - **Leak Audit**: `leak-check-before.tsv` vs. `leak-check-after.tsv` clean (0 leaked Docker containers, networks, volumes, or processes).
-- **Test Integrity**: SHA-256 digests of all 96 tracked test files verified 100% unchanged before and after Phase 0.
+- **Test Integrity**: SHA-256 digests of all 98 tracked test files (96 `test_*.py` modules plus 2 shared fixture/helper modules — `nintent`'s `tests/__init__.py` and `tests/factories.py`) verified 100% unchanged before and after Phase 0.
 
 ## 9. Proposed Later-Phase Work Queues
 
