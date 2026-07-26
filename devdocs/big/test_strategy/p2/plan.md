@@ -5,8 +5,9 @@ Parent: [roadmap.md](../roadmap.md) — Phase 2.
 Depends on: [Phase 0 final report](../p0/report.md), status **`complete`**, and [Phase 1 final
 report](../p1/report.md), status **`complete`**.
 
-Status: proposed; test-only consolidation with bounded local verification. It does not change
-supported cluster behavior.
+Status: **`complete`**; test-only consolidation with bounded local verification. It does not
+change supported cluster behavior. See [report.md](report.md) and
+[report8.md](report8.md) for the final disposition of every remaining Tier B/C queue group.
 
 ## 1. Goal
 
