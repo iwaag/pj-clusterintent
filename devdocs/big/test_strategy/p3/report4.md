@@ -2,7 +2,7 @@
 
 Parent: [plan.md](plan.md), Step 4.
 
-Status: **`partially complete`**.
+Status: **`complete`**.
 
 ## Exact-source runtime and nintent gate
 
@@ -29,6 +29,11 @@ seeds only the test database and proves a real ORM path for:
 - a real Nautobot model constraint failure rolls back only its guest savepoint, retains
   `guest_upsert_failed`, and leaves the valid sibling persisted.
 
+`nctl/tests/test_reconcile_planner.py` now also has the maintained missing-desired no-delete
+proof: an actual-only Device passes the real node evaluator and planner twice with no diff,
+action, manual-review, or unsupported record. There is no deletion, unlink, retirement, or
+replacement reconciler available for an observation outside desired state.
+
 This gate exposed a bounded production defect: `diff_device()` compared a `description` payload
 key that Nautobot 3's `Device` model does not have. Create/update correctly omitted it, but every
 identical repeat was falsely reported as an update. The correction now compares only actual model
@@ -36,10 +41,9 @@ fields; ordinary nauto tests (**110 passed**) and the real-ORM gate (**2 passed*
 
 ## Remaining Step 4 work
 
-The explicit missing-desired-state no-delete primary test named by the Phase 0 manifest was not
-present at its recorded `nctl/tests/test_reconcile_planner.py` owner in this checkout. A maintained
-replacement must be added and run before Step 4 can be marked `complete`; this report deliberately
-does not substitute the prior fast fake-ORM suite or historical one-off reports for it.
+The Phase 0 manifest's former no-delete test ID was absent from this checkout. The maintained
+replacement above is now its current primary owner; the private Phase 3 work queue records that
+resolution rather than relying on historical one-off evidence.
 
 ## Isolation
 
