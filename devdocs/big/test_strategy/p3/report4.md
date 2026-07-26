@@ -24,6 +24,10 @@ seeds only the test database and proves a real ORM path for:
 - existing observer plus valid Proxmox platform → Cluster create;
 - byte-identical Proxmox report → unchanged Cluster; and
 - unsupported Proxmox schema → bounded error with no additional Cluster.
+- valid sibling guest survives while a malformed guest is isolated as a target-local partial
+  diagnostic; and
+- a real Nautobot model constraint failure rolls back only its guest savepoint, retains
+  `guest_upsert_failed`, and leaves the valid sibling persisted.
 
 This gate exposed a bounded production defect: `diff_device()` compared a `description` payload
 key that Nautobot 3's `Device` model does not have. Create/update correctly omitted it, but every
@@ -32,11 +36,10 @@ fields; ordinary nauto tests (**110 passed**) and the real-ORM gate (**2 passed*
 
 ## Remaining Step 4 work
 
-The required real-ORM malformed-guest savepoint isolation, transaction/constraint failure with
-truthful partial-write evidence, and explicit missing-desired-state no-delete case are not yet
-maintained in this runtime gate. They remain required before Step 4 can be marked `complete`; this
-report deliberately does not substitute the prior fast fake-ORM suite or historical one-off
-reports for them.
+The explicit missing-desired-state no-delete primary test named by the Phase 0 manifest was not
+present at its recorded `nctl/tests/test_reconcile_planner.py` owner in this checkout. A maintained
+replacement must be added and run before Step 4 can be marked `complete`; this report deliberately
+does not substitute the prior fast fake-ORM suite or historical one-off reports for it.
 
 ## Isolation
 
