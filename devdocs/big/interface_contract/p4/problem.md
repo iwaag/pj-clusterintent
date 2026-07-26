@@ -180,3 +180,15 @@ here instead of choosing on the user's behalf.
 
 This must be resolved before Step 6's apply approval request; Step 6 is otherwise ready (preview
 executed, artifact captured, schema/zero-write verified) once a decision is made.
+
+---
+
+**2026-07-26 resolution**: user chose option 1 (add the live `description`/`notes` values to
+`nauto/seed/intent_sources.yaml`). Fixed in `nauto` commit `1c78af8`, superproject pointer commit
+`2fa125f`, both pushed. Candidate image rebuilt (`nic-p4-candidate:20260726c`,
+`sha256:a4c20f6ad4b3d3d8b14cd483e8fb23c78943dd4701cef259f449cb1b065ad94a`) and redeployed live under
+a fresh maintenance freeze; the re-run `apply=false` preview confirms zero `DesiredNode.description`
+updates remain (previously 5 unauthorized). See
+[report6b.md](report6b.md) for the full re-run record. This open problem is now closed; the
+remaining 13 update actions in the preview are the pre-existing cosmetic/benign set report6.md
+already classified as safe.
