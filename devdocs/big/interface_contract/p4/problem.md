@@ -192,3 +192,14 @@ updates remain (previously 5 unauthorized). See
 [report6b.md](report6b.md) for the full re-run record. This open problem is now closed; the
 remaining 13 update actions in the preview are the pre-existing cosmetic/benign set report6.md
 already classified as safe.
+
+---
+
+**2026-07-26 resolution (Phase 4 Step 1 mutation-evidence problem)**: option 2 was implemented
+in the nctl worktree and verified locally; see [sidefix1/report4.md](sidefix1/report4.md). A
+successful node-link PATCH now marks every subsequent GraphQL confirmation failure as
+`success=false, mutated=true` at the ledger boundary, preserving the original bounded error code.
+The executor propagates that marker without an error-code allowlist and accumulates round side
+effects from `success or mutated`, so a partial IPAM apply receives the same final-drift safety
+handling. Focused ledger/executor tests and the complete nctl suite pass. No live Nautobot write,
+Job, deployment, commit, or push was performed for this repair.
