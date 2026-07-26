@@ -219,19 +219,48 @@ omitted, substituted, or never triggered. Use precise states:
 - **partially complete**: useful work landed, but named criteria remain;
 - **implemented, not deployed**: code and local tests pass, live rollout is
   pending;
-- **blocked**: a named external condition prevents the required proof; and
+- **blocked**: an external condition, unresolved target, irreversible risk, or
+  required user decision actually prevents further safe progress; and
 - **superseded**: a later report replaces an earlier completion claim.
 
-When a safe live fixture cannot be created, record the limitation and stop. Do
-not reinterpret narrower unit tests as the live proof that the plan required.
+Do not use `blocked` for a recoverable local test-environment defect, stale
+fixture, cleanup failure with an exact target, or procedural deviation that can
+be recorded and corrected. Repair or recreate only the affected scratch
+resource and continue. When a safe production/cluster fixture cannot be
+created, record the limitation and stop. Do not reinterpret narrower unit
+tests as the live proof that the plan required.
 
-### 10. Live safety boundaries are intentional
+### 10. Classify the environment before applying safety rules
+
+Use three distinct environment classes:
+
+1. **Production or external target:** physical cluster nodes, Proxmox resources,
+   external services, and data not explicitly designated as disposable. Keep
+   approval, exact scope, rollback, and live-evidence requirements.
+2. **Persistent local scratch environment:** the local Nautobot, PostgreSQL,
+   Redis, and development containers documented in `.local/localenv_memo.md`.
+   They may be migrated, restarted, rebuilt, populated with test data, or
+   repaired without treating ordinary breakage as a live incident. Reuse them
+   across runs.
+3. **Test-owned disposable state:** named test databases, synthetic rows,
+   temporary trust stores, files, and processes. Isolate these by name,
+   transaction, or fixture scope. Recreate them only when their lifecycle is
+   under test, their state is incompatible, or a final clean-run requires it.
+
+Isolation does not mean rebuilding an entire environment for every command.
+Prefer the smallest boundary that prevents cross-test interference. During
+iteration run focused tests, then the affected component suite. Reserve clean
+environment and repository-wide runs for migration changes, integration
+boundaries, and milestone/final verification.
+
+### 11. Live safety boundaries are intentional
 
 Do not weaken strict SSH verification, stop a real service, fabricate actual
 state, or broaden a desired-state mutation merely to make an acceptance test
 run. Use disposable OpenSSH fixtures and reversible desired-state changes.
-Require explicit approval before live mutations, and record cleanup separately
-from the successful forward path.
+Require explicit approval before production/external mutations, and record
+cleanup separately from the successful forward path. Local scratch mutations
+do not require the same approval unless they can reach those external targets.
 
 A safe stop can be the correct result. It should be described as a safe stop,
 not converted into a completion claim.
@@ -259,7 +288,7 @@ change complete, verify and record all applicable items below.
 - [ ] Repository-standard commands are reproducible from their documented
       working directories and leave every worktree clean.
 
-### Live or environment-backed verification
+### Production/external or framework-backed verification
 
 - [ ] The initial state and reversible fixture are recorded.
 - [ ] The dry plan names the exact expected action and target set.
@@ -267,8 +296,9 @@ change complete, verify and record all applicable items below.
 - [ ] Post-actuation observation records the exact state the action changed.
 - [ ] Fresh drift proves convergence and no repeated action.
 - [ ] Negative boundaries use disposable state and do not weaken policy.
-- [ ] Cleanup restores the original desired, actual, service, trust-store, and
-      repository state as applicable.
+- [ ] Production/external cleanup restores the original desired, actual,
+      service, and trust-store state as applicable. Scratch verification cleans
+      only fixture-owned state; declared persistent test resources may remain.
 
 ### Reporting
 

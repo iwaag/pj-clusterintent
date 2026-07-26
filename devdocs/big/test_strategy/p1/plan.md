@@ -4,7 +4,9 @@ Parent: [roadmap.md](../roadmap.md) — Phase 1.
 
 Depends on: [Phase 0 final report](../p0/report.md), status **`complete`**.
 
-Status: proposed; test/documentation cleanup with offline and disposable-environment verification.
+Status: revised after Steps 0-2 findings; test/documentation cleanup with focused verification
+and one scratch-reusing Nautobot runtime gate. Historical stop reports remain unchanged as records
+of the superseded execution policy.
 
 ## 1. Goal
 
@@ -104,7 +106,8 @@ and contracts with the Phase 0 manifests and record the delta before applying th
   historical provenance where it explains a defect;
 - conditionally remove a tracked fixture, helper, dependency, generated snapshot, or current
   document only when its last active consumer is proven removed;
-- run focused, ordinary, and disposable Nautobot verification; and
+- run focused verification while editing, the affected component suites once, and one
+  scratch-reusing Nautobot runtime verification after nintent changes; and
 - record before/after counts using the Phase 0 measurement method.
 
 ### 3.2 Out of scope
@@ -117,11 +120,13 @@ and contracts with the Phase 0 manifests and record the delta before applying th
 - consolidating broad Tier B truth tables or CLI Tier C matrices assigned to Phase 2;
 - adding the OpenSSH, Ansible, Nautobot real-HTTP, or helper conformance gates assigned to Phase 3;
 - compute drift, compute planning, provider action, VM seeding, or first realization;
-- running a live Job, REST mutation, SSH enrollment, Ansible playbook, nodeutils collection,
+- running a production/external Job, REST mutation, SSH enrollment, Ansible playbook, nodeutils collection,
   ingest, reconcile apply, or Proxmox mutation;
-- rebuilding or restarting the long-running Nautobot web, worker, or scheduler services;
-- reading `.local/secrets`, printing tokens, or copying private Braindump or Alignment Review
-  prose into evidence; and
+- rebuilding or restarting the long-running Nautobot web, worker, or scheduler services unless a
+  local-source runtime gate cannot be obtained more cheaply; a bounded scratch restart/rebuild is
+  permitted and is not a production deployment;
+- printing or persisting tokens, or copying private Braindump or Alignment Review prose into
+  evidence; and
 - pushing commits. Per `.local/localenv_memo.md`, a future nintent deployment requires a user
   push and image rebuild; this test-only phase does not perform that deployment.
 
@@ -134,8 +139,8 @@ and contracts with the Phase 0 manifests and record the delta before applying th
 - edit and delete tracked tests and current documentation within the exact scope above;
 - use `git mv` for risk-owned test renames;
 - run offline component suites;
-- run the nintent App suite against a disposable Django test database using local Phase 1 test
-  sources; and
+- run the nintent App suite against a named Django test database using local Phase 1 test sources,
+  reusing the existing scratch stack and `--keepdb` during iteration; and
 - inspect the local Nautobot container/image and migration state read-only to establish
   prerequisites.
 
@@ -151,7 +156,8 @@ and contracts with the Phase 0 manifests and record the delta before applying th
   reference;
 - do not edit generated mirrors under `build/` or `__pycache__/` as though they were tracked source;
 - do not use the installed nintent package's unchanged tests as proof for locally edited tests;
-- do not run ordinary tests against the public internet; and
+- do not make ordinary tests depend on the public internet; disable known telemetry where
+  practical and record accidental non-secret traffic as an environment finding; and
 - do not expose `.local/secrets`, API tokens, raw SSH keys, or private user prose in commands,
   logs, fixtures, or reports.
 
@@ -167,14 +173,23 @@ Stop the affected workstream and record a finding if any of the following occurs
 5. the compatibility audit finds an active or historical reader not represented in the Phase 0
    consumer matrix;
 6. a compatibility change would make an existing operation log unreadable through `nctl ops show`;
-7. a test cleanup exposes a production defect or requires a production seam;
-8. the disposable Nautobot gate runs the installed old tests instead of the local Phase 1 tests;
+7. a test cleanup exposes behavior whose authoritative contract is unclear, or a fix would expand
+   this phase into new production behavior or a new mutation boundary;
+8. the Nautobot runtime gate runs the installed old tests instead of the local Phase 1 tests;
 9. a required Tier A test disappears from collection or changes its positive evidence; or
-10. a disposable test leaves a container, process, database, network, volume, or synthetic row.
+10. a command could mutate an unresolved target, production/external resource, physical cluster,
+    Proxmox guest, or data outside the declared scratch/test scope.
 
-A production defect found here remains a failing reproducer. Fix it only under a separate bounded
-plan unless it is an unambiguous correction to an already-authoritative contract and separately
-approved.
+A production defect found here remains a failing reproducer. If the authoritative behavior is
+already clear and the correction is bounded to the affected component, fix it in this phase and
+rerun the highest relevant gate. Create a separate plan only when behavior must be chosen, scope
+materially expands, or a new production/external mutation boundary is introduced.
+
+Recoverable scratch conditions are not stop conditions. A stale `test_nautobot` database, exact
+synthetic row, test process, container, or accidental non-secret telemetry is recorded, repaired
+or disabled, and the affected gate is rerun. An accidental local read of a secret-bearing file is
+handled according to `.local/localenv_memo.md`; stop only for persistent or external exposure that
+requires a user decision.
 
 ## 5. Required evidence
 
@@ -195,14 +210,14 @@ Create a private directory such as:
   full-results.tsv
   measurements-before.tsv
   measurements-after.tsv
-  leak-check-before.tsv
-  leak-check-after.tsv
+  scratch-state-before.tsv       # only for the Nautobot environment gate
+  scratch-state-after.tsv        # only for fixture-owned state
   findings.tsv
 ```
 
-Use `umask 077`. Raw logs may be stored beside these summaries when useful, but tracked reports
-must contain only sanitized counts, test IDs, revisions, timings, public schema facts, and
-digests.
+Use `umask 077`. Record raw logs only for failures or Tier A/environment evidence; successful
+focused runs need command, result, and relevant revision only. Tracked reports must contain only
+sanitized counts, relevant test IDs, revisions, timings, public schema facts, and digests.
 
 `replacement-ledger.tsv` must contain at least:
 
@@ -245,7 +260,7 @@ Use these final owners:
 | Lasting contract | Final owner | Required treatment |
 |---|---|---|
 | `DesiredNode` and `DesiredService` no longer expose reconciliation cache fields/constants | `test_model_contract.py` | one runtime matrix over both models and both removed fields; keep diagnostic subtests |
-| migration history introduced and then removed the cache without rewriting history | `test_model_contract.py` plus the real App suite | inspect the migration graph/project states and prove the full disposable migration chain applies |
+| migration history introduced and then removed the cache without rewriting history | `test_model_contract.py` plus the real App suite | inspect the migration graph/project states; prove the full migration chain once in the final clean database gate |
 | removed filter fields, table columns/helpers, dashboard route/path, navigation entries, and app setting | `test_ui_contract.py` | add only missing rows to the existing route/navigation/no-mutation manifests; retain one canonical absence matrix |
 | retained list/detail UI, compute UI, Braindump UI, and navigation still work | `test_ui_contract.py` | use the existing complete retained route and runtime render matrices; do not keep separate removal-phase smoke tests |
 | REST responses omit removed fields and retained PATCH still works | `test_api_contract.py` | fold field absence into the exact response-field contract and use the existing PATCH authority test |
@@ -447,8 +462,8 @@ If no such item exists, record `zero additional orphans` and make no artificial 
 5. Record the current test file digests and collected IDs for all target modules.
 6. Run focused baseline tests before editing.
 7. Record Docker, Nautobot, Python, uv, pytest, and Ansible versions without reading secrets.
-8. Capture a leak baseline for disposable containers, processes, test databases, networks, and
-   volumes.
+8. Record the declared persistent scratch prerequisites and current named test database. Do not
+   inventory unrelated host containers, networks, or volumes.
 
 Gate: the tuple is frozen, target tests pass, and every edit target has a Phase 0 disposition or a
 new explicit finding.
@@ -470,9 +485,11 @@ Gate: no proposed deletion is justified only by age, count, naming, or a noisy s
 1. Add the narrow model/migration owner described in Section 6.1.
 2. Add only missing removal rows to the canonical API and UI manifests.
 3. Point duplicates to existing exact-field, route, permission, render, and GraphQL tests.
-4. Run the three focused canonical modules in the disposable Nautobot environment.
+4. Run the three focused canonical modules in the scratch Nautobot runtime using the named test
+   database and local source.
 5. Delete `test_remove_unused_surfaces.py`.
-6. Re-run focused nintent fast and disposable suites.
+6. Re-run the focused nintent fast tests. Run the full App suite once after the nintent workstream
+   is complete; do not repeat it solely because the historical module was deleted.
 7. Confirm migrations `0009` and `0016` remain tracked and the migrated state omits the four
    removed model fields.
 
@@ -518,37 +535,42 @@ nothing.
 
 ### Step 6 — Run component and cross-component verification
 
-Run the focused tests after each workstream, then the ordinary suites:
+Run focused tests after each workstream. When a component workstream is complete, run only that
+component's ordinary suite. This phase changes nintent and nctl tests/docs, so its final ordinary
+gate is:
 
 ```bash
 cd nctl && uv run pytest -q --durations=20
 cd nintent && python3 -m unittest discover -s nautobot_intent_catalog/tests
-cd nauto && python3 -m unittest discover -s tests
-cd nodeutils && uv run pytest -q --durations=20
-cd ansible_agdev && python3 -m unittest discover -s roles/nodeutils_pvesh_helper/tests
 ```
 
-The nintent fast suite is not sufficient for the model/API/UI/migration consolidation. Run the
-full App suite in a disposable Nautobot test database with the local Phase 1 nintent checkout
-mounted read-only ahead of the installed package. Record the exact validated command in
-`commands.jsonl`.
+Run nauto, nodeutils, or ansible_agdev only if Phase 1 unexpectedly changes a shared contract,
+root test configuration, or their submodule revisions.
 
-The disposable harness must prove before test execution that:
+The nintent fast suite is not sufficient for the model/API/UI/migration consolidation. Run the
+full App suite once against the local scratch Nautobot runtime and a named test database, with the
+local Phase 1 nintent checkout ahead of the installed package. Reuse `test_nautobot` with
+`--keepdb` while diagnosing failures. The required successful full App gate is then run once from
+a clean `test_nautobot` database; it simultaneously proves the migration chain, so a second clean
+run is not required. Record the final validated command in `commands.jsonl`.
+
+The runtime gate must prove:
 
 - `nautobot_intent_catalog.__file__` resolves to the local Phase 1 checkout;
 - the three changed canonical test modules resolve to the local Phase 1 checkout;
-- the Django runner creates or uses only its disposable test database;
-- the live `nautobot` database is not selected;
-- no public network access is used; and
-- teardown removes the test database and disposable container.
+- the Django runner selects the named test database rather than the scratch application database;
+- test identities cannot address production/external targets; and
+- known installation telemetry is disabled or bypassed for the test command.
 
-The intended command family is a one-shot `docker compose run --rm` using
-`devenv/nautobot/docker-compose.yml`, a read-only bind mount of the local `nintent` checkout, and
-`PYTHONPATH` pointing to that mount. Validate the image entrypoint before fixing the exact command.
-Do not rebuild or restart the long-running Nautobot services for this test-only change.
+Prefer a reusable local test runner or existing scratch container with a local-source bind mount.
+If `docker compose run` is used, override the normal service entrypoint so migration/job-refresh
+startup and telemetry do not run before the test command. A one-shot container is permitted but
+not required, and its creation/removal is not itself an acceptance criterion. Do not create a new
+Postgres/Redis/network/volume stack for each invocation.
 
-If the local checkout cannot be loaded reproducibly in the disposable runner, stop. Do not
-substitute the installed old tests or request a push/deployment merely to obtain a green result.
+If the local checkout cannot be loaded, try the bounded scratch alternatives above. If none can
+run the changed source, report `implemented, not environment-verified` and continue with
+independent nctl/documentation work; do not substitute installed old tests as proof.
 
 After all suites pass:
 
@@ -556,7 +578,8 @@ After all suites pass:
 2. compare retained Tier A IDs and transition owners with Phase 0;
 3. remeasure files, static definitions, collected cases, tracked test lines, runtime, slowest
    tests, skips, and xfails with the Phase 0 method;
-4. compare leak baselines; and
+4. verify fixture-owned rows/files/processes are cleaned or intentionally retained under the
+   named test database; do not classify persistent scratch prerequisites as leaks; and
 5. verify every worktree contains only intended Phase 1 changes.
 
 ### Step 7 — Commit boundaries and final report
@@ -575,11 +598,11 @@ The final report must record:
 - every moved, merged, covered, retained, and deleted test;
 - every removed consumer or superseding decision;
 - before/after files, definitions, collected cases, and test lines;
-- focused and full results, including the local-source disposable Nautobot proof;
+- focused and full results, including the local-source scratch Nautobot proof;
 - retained Tier A and compute-inert proof IDs;
 - compatibility consumers and historical-reader evidence;
 - final search classifications;
-- leak/cleanup result;
+- scratch ownership/cleanup result;
 - deviations, discovered defects, or deferred items; and
 - one precise status: `complete`, `partially complete`, `implemented, not environment-verified`,
   or `blocked`.
@@ -590,7 +613,7 @@ The final report must record:
 |---|---|
 | Deletion authority | every removed test/support item has a ledger row naming a removed consumer or visible replacement |
 | nintent model | one runtime matrix proves both models omit both cache fields and removed constants |
-| migration history | `0009` and `0016` remain; current project state omits the fields; disposable migration chain applies |
+| migration history | `0009` and `0016` remain; current project state omits the fields; one final clean-database migration chain applies |
 | nintent API | exact REST fields omit the cache; old GraphQL fields fail; retained roots and PATCH behavior pass |
 | nintent UI | complete retained/removed route manifest, no-mutation permissions, navigation, and representative rendering pass |
 | Historical removal module | no tracked active `test_remove_unused_surfaces.py`; all 29 prior tests are accounted for |
@@ -601,7 +624,7 @@ The final report must record:
 | Compute safety | valid compute rows still produce zero compute drift, plan record, and action |
 | Tier A | no retained Tier A proof or positive-evidence assertion is lost |
 | Searches | all exact active matches are classified; noisy substrings do not authorize deletion |
-| Isolation | no public network, secret read, live mutation, or leaked disposable state |
+| Isolation | named test DB/identities do not affect the scratch application DB or external targets; no secret persistence/exfiltration |
 | Measurements | before/after method matches Phase 0 and is reported as diagnosis, not success criteria |
 
 ## 9. Rollback
@@ -623,12 +646,13 @@ If compatibility verification cannot read historical evidence:
 1. restore the prior reader and tests;
 2. preserve the exact synthetic historical fixture that exposed the failure;
 3. determine whether a minimal reader or explicit offline migration is required;
-4. create a separate bounded plan if production behavior must change; and
+4. fix a clear bounded reader defect in this phase; create a separate plan only if production
+   behavior must be chosen or scope materially expands; and
 5. do not restore obsolete writers merely as rollback.
 
-If disposable Nautobot cleanup fails, preserve sanitized logs, remove only the exact disposable
-scope, verify the live database and long-running services were untouched, and report the phase as
-incomplete.
+If Nautobot cleanup fails, preserve sanitized logs and repair only the exact named test scope.
+Rerun the affected gate. Report the phase as blocked only if the target cannot be distinguished
+from production/external or protected data; otherwise record the repaired deviation and continue.
 
 ## 10. Exit criteria
 
@@ -648,11 +672,13 @@ Phase 1 is `complete` only when:
 - the five nctl historical filenames are replaced by risk/domain names without losing collected
   contracts;
 - compute inertness and all other retained Tier A proofs still pass;
-- all focused, ordinary, and disposable Nautobot gates pass against the sources actually changed;
+- all focused and affected ordinary gates pass, and one final clean-`test_nautobot` App gate
+  simultaneously proves runtime behavior and the migration chain against the sources actually
+  changed;
 - required searches find no unexplained active orphan, stale compatibility claim, or old target
   filename;
-- no secret, private prose, public network dependency, live mutation, or leaked disposable state
-  occurred; and
+- no secret/private prose was persisted or exfiltrated, no production/external mutation occurred,
+  and test-owned state remained within its declared scope; and
 - before/after measurements and all deviations are recorded in the final report.
 
 If an environment-backed check is omitted, substituted, or runs the installed old tests, the

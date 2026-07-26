@@ -26,7 +26,8 @@ to
   + a small Tier A suite for mutation and safety boundaries
   + table-driven Tier B tests for deterministic domain rules
   + smoke-level Tier C tests for retained presentation
-  + reproducible local and disposable-environment commands
+  + reproducible commands that reuse the local scratch environment by default
+  + clean disposable gates only where lifecycle or isolation behavior requires them
   + an explicit admission reason for every new test
   + no test that exists only for a deleted feature or superseded compatibility contract
 ```
@@ -37,7 +38,7 @@ and non-repetition without requiring them to reconstruct old phase history.
 
 This initiative changes test ownership and coverage, not supported cluster behavior. It does not
 modularize nctl production code, implement compute reconciliation, create a Proxmox guest, revive
-a dashboard or server, or weaken a live acceptance requirement.
+a dashboard or server, or weaken a production/external acceptance requirement.
 
 ## Governing decisions
 
@@ -77,22 +78,25 @@ Production bug reproducers, security boundaries, and data-loss regressions are n
 because a broader test now passes. Their unique defect must first be named and either retained
 directly or incorporated visibly into the higher-layer transition fixture.
 
-### 3. Highest-practical-layer does not mean live-by-default
+### 3. Highest-practical-layer does not mean fresh-environment-by-default
 
 Use the lowest environment that still contains the behavior's normative owner:
 
 | Behavior owner | Highest practical layer |
 |---|---|
 | pure nctl/nintent/nodeutils rule | in-process test with real models and no transport mock |
-| HTTP status, GraphQL schema, Django transaction, Nautobot permissions, Job discovery | disposable Nautobot database/process with real HTTP where the protocol matters |
+| Django model, migration, transaction, permissions, or Job discovery | real Nautobot runtime using the persistent local scratch stack and a named test database; real HTTP only where HTTP owns the behavior |
 | OpenSSH lookup/config semantics | disposable OpenSSH fixture using the real installed tools |
-| Ansible inventory parsing, option precedence, host limiting, playbook check mode | real `ansible-inventory` or disposable `ansible-playbook`, not a fabricated return code |
+| Ansible inventory parsing, option precedence, host limiting, playbook check mode | real local `ansible-inventory` or fixture-scoped `ansible-playbook`, not a fabricated return code |
 | nodeutils privileged Proxmox helper boundary | the existing real helper integration fixture |
-| live cluster convergence | separately approved reversible fixture after local/disposable gates |
+| production/external cluster convergence | separately approved reversible fixture after local gates |
 
-The ordinary suite remains offline and non-mutating. Environment-backed gates may be slower and
-run less often, but their commands, prerequisites, cleanup, and expected evidence must be
-reproducible. Historical prose saying a one-off fixture once passed is not a permanent test.
+The ordinary suite remains offline with respect to public/external services. It may mutate a
+named local test database or fixture-owned scratch state. Reuse the existing local containers and
+`--keepdb` during iteration. Recreate the database/process only for migration or lifecycle
+coverage, incompatible residue, or a milestone clean run. Environment-backed gates may be slower
+and run less often, but their commands and prerequisites must be reproducible. Historical prose
+saying a one-off fixture once passed is not a permanent test.
 
 ### 4. State-transition tests must prove action, observation, and non-repetition
 
@@ -170,8 +174,13 @@ removed. Completion still requires the suite to be smaller or simpler for explai
   prerequisite instead of silently changing semantics.
 - Skip only when the test belongs to a documented optional environment tier. A Tier A gate may
   not silently skip in the environment where it is required.
-- Teardown must remove disposable containers, databases, networks, volumes, processes, files, and
-  synthetic rows it created.
+- Isolation uses the smallest effective boundary: transaction rollback, stable synthetic IDs,
+  named test database, temporary directory, or fixture-owned process.
+- Persistent scratch containers, databases, networks, and volumes may remain and be reused when
+  they are declared prerequisites. Teardown removes only state the individual test promises to
+  own; milestone clean-run checks verify recreation and cleanup separately.
+- A recoverable scratch leak or stale test database fails the affected gate and is repaired; it
+  does not by itself block the entire roadmap.
 - Empty actions, preflight lists, HTTP request logs, or observation sets mean the intended path
   was not exercised.
 
@@ -283,7 +292,8 @@ boundary. Its runtime is justified.
 ### Known gaps and ambiguities to resolve
 
 1. Interface-contract Phase 4 records one remaining gap: representative fail-closed node-link
-   reset fixtures are covered with mocks but not through disposable real HTTP.
+   reset fixtures are covered with mocks but not through real HTTP against the named scratch test
+   database.
 2. Environment-backed nintent/nauto proofs are reproducible from phase evidence, but the
    repository does not yet document one stable cross-component command/harness as an ordinary
    risk-tier gate.
@@ -329,8 +339,8 @@ owner" names the final proof, not necessarily the current filename.
 | non-DHCP endpoint missing link -> IPAM -> refetch -> converge -> no repeat | A | existing real multi-round engine/planner/executor test plus real Job/HTTP conformance | keep |
 | DesiredNode actual-link action | A | GraphQL pre-read -> PATCH -> GraphQL refetch -> fresh drift -> no repeat; include fail-closed reset | strengthen; closes known real-HTTP gap |
 | forced observation refresh | A | exact host, one observation, fresh ingest, repeat convergence | keep |
-| Import desired YAML preview -> apply -> confirm -> repeat no-op | A | disposable real Nautobot Job and row fingerprint | keep one primary proof |
-| Analyze source preview -> apply -> preserve operator fields -> repeat no-op | A | disposable real Nautobot Job with local deterministic fetch fixture | keep one primary proof; no public network |
+| Import desired YAML preview -> apply -> confirm -> repeat no-op | A | real Nautobot Job in the named scratch test database and row fingerprint | keep one primary proof |
+| Analyze source preview -> apply -> preserve operator fields -> repeat no-op | A | real Nautobot Job in the named scratch test database with local deterministic fetch fixture | keep one primary proof; no public-network dependency |
 | nauto nodeutils/Proxmox ingest | A | valid report applies, invalid/stale report writes zero, partial guest failure is isolated, repeat no-op | keep fast logic plus small real ORM conformance |
 | missing desired row | A | never delete, unlink, stop, replace, or retire an observed resource | keep explicit negative boundary |
 | compute desired rows before first-realization roadmap | A | no compute drift, plan, writer, or provider action | keep until a later roadmap explicitly replaces it |
@@ -358,8 +368,8 @@ The final manifest must distinguish:
 | user wishes and non-executable prose | nintent model/API contract plus nctl Braindump authority test |
 | canonical desired and actual transport | nctl source contract tests against pinned GraphQL selections |
 | desired YAML validation and field ownership | nintent Tier B loader/import tables |
-| Import/Analyze database transactions | nintent disposable Nautobot Tier A gate |
-| actual-ledger ingest policy | nauto fast domain tests plus disposable Nautobot conformance |
+| Import/Analyze database transactions | nintent real-runtime gate in the named scratch test database |
+| actual-ledger ingest policy | nauto fast domain tests plus scratch Nautobot conformance |
 | drift comparison and target status | nctl Tier B drift tables |
 | planning and exact action scope | nctl planner Tier B/Tier A boundary tests |
 | orchestration, evidence, partial progress, non-repetition | nctl reconcile Tier A transition suite |
@@ -424,7 +434,8 @@ Historical migrations and historical reports are not test artifacts to delete.
   the selected transport contract;
 - large fake-ORM-only confidence with a combination of fast pure policy tests and a small real
   Nautobot transaction/constraint gate;
-- scattered environment recipes with one documented, reproducible disposable harness;
+- scattered environment recipes with one documented, reusable local scratch harness plus a clean
+  reconstruction mode;
 - historical filenames with risk/domain filenames when the move improves ownership; and
 - exhaustive UI rendering at every route with a complete route/permission/no-mutation manifest
   plus representative template rendering, unless a model has unique content semantics.
@@ -453,7 +464,7 @@ Historical migrations and historical reports are not test artifacts to delete.
 - preserve and strengthen safety/mutation coverage;
 - close the known node-link real-HTTP fail-closed gap;
 - add small real-framework/external-tool gates where mocks currently own normative behavior;
-- standardize local and disposable command documentation;
+- standardize local scratch and clean-gate command documentation;
 - record runtime, slowest tests, skips, flakiness, and before/after measurements; and
 - update current documentation to explain test admission and risk tiers.
 
@@ -462,7 +473,7 @@ Historical migrations and historical reports are not test artifacts to delete.
 - changing desired, actual, drift, planner, actuation, or evidence semantics merely to simplify a
   test;
 - deleting a test solely because it is long, slow, old, or named after a historical phase;
-- replacing required environment-backed or live acceptance with unit coverage;
+- replacing required framework-backed or production/external acceptance with unit coverage;
 - deploying a schema or desired-state change;
 - running a live apply, Job apply, SSH enrollment, Ansible playbook, nodeutils collection, ingest,
   or Proxmox mutation without a separate phase plan and user approval;
@@ -532,7 +543,8 @@ Work:
    contract and proving collected IDs remain represented. The compute-inert safety case stays.
 5. Remove orphan fixtures, test-only dependencies, generated snapshots, and documentation in the
    same commit as their last test consumer.
-6. Run deletion searches and all ordinary component suites after each component's cleanup.
+6. Run deletion searches and the affected component's focused suite after each cleanup. Run its
+   ordinary suite once when that component workstream is complete.
 7. Compare the removed-test manifest with the final interface matrix; any test for a retained
    mutation or evidence contract blocks deletion.
 
@@ -566,8 +578,9 @@ Work:
    a changed digest can be reviewed rather than blindly updated.
 7. Split or merge test files by contract ownership only. Do not reorganize nctl production
    modules in this phase.
-8. Run focused tests during each conversion, then all ordinary suites and the current disposable
-   Nautobot gate.
+8. Run focused tests during each conversion, the affected component suite when its workstream is
+   complete, and the Nautobot runtime gate once after the nintent/nauto changes that require it.
+   Reuse the scratch test database during iteration.
 
 **Exit criteria:** Tier B rules are readable tables instead of repeated branch tests; Tier C has
 smoke-level depth except where authority is involved; failures remain diagnosable; golden files
@@ -589,7 +602,8 @@ Work:
    - post-write failure records `success=false, mutated=true`;
    - fresh final drift is obtained or truthfully marked unknown;
    - repeat planning does not relink a confirmed node; and
-   - the representative fail-closed reset variants run through disposable real HTTP.
+   - the representative fail-closed reset variants run through real HTTP against the named
+     scratch test database.
 3. Add or retain one disposable OpenSSH proof for bare stable alias, non-default route port,
    malformed managed store, offered-key mismatch, and effective-option precedence. Assert the
    real command path and exact public fingerprint without persisting raw key material in tracked
@@ -618,9 +632,10 @@ Work:
 11. If a test exposes a production defect:
     - preserve the failing reproducer;
     - record the defect and its authority impact;
-    - implement only a bounded correction to an already-authoritative contract;
-    - otherwise stop and create a separate plan rather than redefining behavior inside test
-      cleanup; and
+    - implement a bounded correction in the affected phase when the authoritative contract is
+      already clear;
+    - create a separate plan only when behavior must be chosen, scope materially expands, or a
+      new production/external mutation boundary is introduced; and
     - rerun the highest practical transition, not only the new unit test.
 
 **Exit criteria:** every supported automatic transition has one real multi-round proof; every
@@ -637,17 +652,19 @@ Work:
 1. Document one command matrix in root README_DEV and link from component developer docs:
    - fast per-component commands;
    - full ordinary offline commands;
-   - disposable Nautobot integration command;
+   - scratch-reusing Nautobot integration command;
+   - clean Nautobot database reconstruction command for migration/final verification;
    - OpenSSH/Ansible/helper conformance commands;
-   - any separately approved live acceptance command; and
+   - any separately approved production/external acceptance command; and
    - prerequisites, expected skips, evidence location, and cleanup for each.
 2. Ensure commands run from their documented working directories and do not rely on the
    superproject pytest accidentally discovering several submodules.
-3. Run the fast/ordinary suites twice, the disposable gates from a clean environment, and the
-   external-tool gates with the actual installed versions.
-4. Verify teardown: no disposable container, database, volume, network, process, synthetic row,
-   temporary trust store, generated inventory, or operation log remains outside its declared
-   evidence directory.
+3. Run the affected fast/ordinary suites once, the complete ordinary suite once at final
+   integration, one clean Nautobot gate, and the external-tool gates with the actual installed
+   versions. Run repeated or alternate-order suites only for a named flake/order-dependence risk.
+4. Verify ownership: persistent scratch prerequisites are documented; fixture-owned processes,
+   rows, files, trust stores, generated inventories, and operation logs do not escape their
+   declared scope. Do not classify the expected persistent scratch stack as a leak.
 5. Run collected-case and tracked-line measurements with the same Phase 0 scripts; record runtime
    and slowest tests by component.
 6. Review every skip and xfail. Each must name an optional environment or an open defect; no
@@ -684,7 +701,7 @@ is smaller or simpler for explicitly documented reasons.
 | Braindump | user/AI prose distinction and zero prose-to-actuation path |
 | compute | inert until explicitly superseded; no hidden provider action |
 | evidence | private atomic writes, readable historical artifacts, partial logs/results preserved |
-| isolation | repeatable runs, alternate order, no leaked state or public network |
+| isolation | repeatable named-fixture runs, no cross-test contamination or unintended external write; alternate order only for a named risk |
 | documentation | one command matrix, admission rule, tier definitions, and current prerequisites |
 | measurements | same before/after method, runtime/slowest/skip/flaky results, explained changes |
 
@@ -760,23 +777,27 @@ depends on that literal.
 
 ### Safety
 
-- Ordinary tests do not read `.local/secrets`, emit tokens, or call the public internet.
-- Disposable environments use synthetic identities and isolated databases/networks.
-- Live state is read-only unless a separate phase plan names an approved reversible fixture.
+- Ordinary tests do not emit secrets or private payloads and do not depend on the public internet.
+- Local scratch tests use synthetic identities and named databases/fixtures; they may reuse
+  persistent containers, databases, and networks.
+- Production/external state is read-only unless a separate phase plan names an approved reversible
+  fixture. The local stack documented in `.local/localenv_memo.md` is not production state.
 - Strict SSH verification, exact target scope, and Ansible override rejection remain enabled.
 - Raw SSH keys, tokens, private Braindump bodies, Alignment Review summaries, and ObjectChange
   payloads do not enter tracked fixtures or reports.
 - Missing desired state never becomes a deletion fixture.
 - Successful side effects remain recorded when a later test step fails.
-- A cleanup failure fails the environment gate and is reported; it is not hidden behind passing
-  assertions.
+- A cleanup failure fails the affected environment gate and is reported. If the exact scratch
+  target is known, repair it and continue; stop only when cleanup could affect an unresolved,
+  production, external, or irreversible target.
 
 ### Evidence
 
-Per-phase raw collection lists, timings, disposable logs, and environment manifests belong under
-a private `.local/test-strategy/` directory with restrictive permissions. Tracked reports contain
-only sanitized summaries, public schema facts, test IDs, counts, timings, revisions, and artifact
-digests.
+Store raw logs only when needed to diagnose a failure or substantiate a Tier A/environment
+boundary. Normal focused runs need only command, result, and relevant revision. Private evidence
+belongs under `.local/test-strategy/` with restrictive permissions. Tracked reports contain only
+sanitized summaries, public schema facts, relevant test IDs/counts/timings, revisions, and
+artifact digests.
 
 Do not copy live prose or credentials into a golden file. Do not use raw command output as a
 substitute for a concise phase report.
@@ -795,8 +816,10 @@ If a behavior-preserving production seam is added for testability and a gate fai
 4. record whether any disposable or live side effect occurred; and
 5. do not describe a unit-only pass as closure of an environment failure.
 
-If an approved disposable or live fixture mutates unexpected state, stop, preserve operation
-evidence, clean up only the exact synthetic scope, and follow the owning phase's rollback plan.
+If a scratch fixture mutates unexpected but exactly identifiable scratch state, preserve the
+useful evidence, repair that scope, and continue after the affected gate passes. Stop and follow
+the owning rollback plan when the target is unresolved, production/external, difficult to reverse,
+or outside the authorized scope.
 
 ## Definition of done
 
@@ -820,10 +843,11 @@ This initiative is `complete` only when:
   runtime writers;
 - no required Tier A gate silently skips, calls the public internet, weakens policy, or leaks
   state/secrets/private prose;
-- the documented command matrix runs from a clean checkout and tears down disposable state;
+- the documented command matrix runs from the documented checkout, reuses declared scratch state
+  during iteration, and includes one clean reconstruction/final gate where required;
 - before/after files, cases, lines, runtime, slowest tests, skips, and transition coverage are
   recorded with the same measurement method;
-- every omitted or substituted environment/live proof is visible and prevents an unqualified
+- every omitted or substituted framework/production/external proof is visible and prevents an unqualified
   `complete` status; and
 - the final suite is smaller or simpler for explained reasons, not because an acceptance
   criterion was deleted.

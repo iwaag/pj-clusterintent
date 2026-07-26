@@ -146,6 +146,29 @@ An operation should be promoted into deterministic tooling when one or more of t
 Do not promote a one-time shell command into a permanent framework solely because an agent used it
 once.
 
+## Environment classes and proportional verification
+
+Roadmaps must distinguish:
+
+- **production/external targets**, including physical nodes, Proxmox resources, and external
+  services, where approval, exact scope, rollback, and fresh observation remain strict;
+- the **persistent local scratch environment** documented in `.local/localenv_memo.md`, which may
+  be migrated, restarted, rebuilt, populated, and repaired during development; and
+- **test-owned disposable state**, such as a named test database, synthetic rows, temporary files,
+  trust stores, or processes.
+
+Do not call the local scratch stack `live` when the intended meaning is “production or protected
+external state.” Do not require a new container, database server, network, or volume for every
+test when a named test database, transaction, fixture namespace, or temporary directory provides
+the needed isolation. Reuse scratch resources during iteration and reserve clean reconstruction
+for lifecycle/migration tests, suspected residue, and milestone verification.
+
+Verification must be proportional to the change. Run focused tests while editing, the affected
+component suite when that workstream is complete, and cross-repository or clean-environment gates
+only when a changed contract crosses those boundaries or at the final integration milestone.
+Repeated full-suite execution is not evidence unless it investigates flakiness, order dependence,
+or a named integration risk.
+
 ## Non-negotiable safety boundaries
 
 Every roadmap must preserve the applicable rules below.
@@ -231,9 +254,9 @@ The reconciliation status fields are disposable derived caches, not user intent.
 does not require translating their values into a replacement store. Applied migration history
 must remain, and a new migration should remove the live columns.
 
-The roadmap must check the live Phase 3 deployment state. If the compute-schema cutover is still
+The roadmap must check the currently deployed local scratch Phase 3 state. If the compute-schema cutover is still
 pending, evaluate whether status-field removal can share the same matched-version maintenance
-window. Do not rewrite a migration already applied to the live database merely to reduce the
+window. Do not rewrite a migration already applied to the scratch database merely to reduce the
 number of files.
 
 #### Minimum exit criteria
@@ -381,8 +404,8 @@ Delete or combine a test when:
 - variants differ only in data and belong in a table; or
 - it protects a compatibility contract explicitly superseded during this breaking-change phase.
 
-Do not delete tests merely to meet a count. Do not substitute unit tests for required live or
-environment-backed proof.
+Do not delete tests merely to meet a count. Do not substitute unit tests for required
+production/external or framework-backed proof.
 
 #### Required baseline and outcome measurements
 
@@ -466,11 +489,11 @@ At the time this vision was written:
 
 - VM Phase 1 and Phase 2 were reported complete;
 - VM Phase 3 reports Steps 0 through 5 complete locally;
-- the live coordinated Phase 3 cutover, seed, desired-MAC environment proof, and final report were
+- the coordinated local Phase 3 cutover, seed, desired-MAC environment proof, and final report were
   still later steps; and
 - Phase 4 and later compute drift/creation work had not begun.
 
-The new roadmap must inspect the actual revisions, live migration state, reports, and worktrees.
+The new roadmap must inspect the actual revisions, deployed scratch migration state, reports, and worktrees.
 It must not assume this snapshot is still current.
 
 #### Phase 3 scope correction
@@ -617,7 +640,7 @@ Each roadmap created from this vision must include:
 ### Current-state inventory
 
 - exact revisions and dirty state;
-- live deployment and migration state where applicable;
+- production/external deployment state and local scratch migration state where applicable;
 - current commands, models, API/UI/YAML surfaces, dependencies, tests, docs, and generated
   artifacts in scope;
 - named actual consumers; and
@@ -650,7 +673,9 @@ For every material surface, state exactly one:
 - secret handling;
 - preservation of operation evidence;
 - handling of partial progress;
-- live fixture and cleanup where mutation is required; and
+- environment classification;
+- production/external fixture and cleanup where such mutation is required;
+- smallest-scope isolation and cleanup for scratch/test-owned state; and
 - proof that removed derived data was not authoritative user intent.
 
 ### Verification
