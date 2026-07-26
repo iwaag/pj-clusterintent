@@ -52,7 +52,7 @@ files across 5 submodules into
 
 ## 5. Evidence Artifacts Created
 
-The private evidence root `.local/test-strategy/p0/20260726T034839Z/` was initialized with mode `0700` containing:
+The private evidence root `.local/test-strategy/p0/20260726T034839Z/` was created to hold:
 
 - `README.txt`: Evidence directory timestamp and metadata.
 - `commands.jsonl`: Sanitized execution log initialized.
@@ -61,9 +61,15 @@ The private evidence root `.local/test-strategy/p0/20260726T034839Z/` was initia
 - `environment.tsv`: Tool versions and environment parameters.
 - `installed-components.tsv`: Containerized software versions (Django, Nautobot).
 - `migrations.txt`: Applied Nautobot Intent Catalog migration list (up to `0016`).
-- `tracked-test-files.tsv`: Full list of 96 tracked test files and their SHA-256 digests.
+- `tracked-test-files.tsv`: Full list of 98 tracked test files/shared fixture-helper modules and their SHA-256 digests.
 - `leak-check-before.tsv`: Pre-execution snapshot of running containers, Docker volumes, networks, and processes.
 - `logs/`: Directory reserved for private command logs.
+
+Correction (recorded during a later review of this report against the actual filesystem state):
+the root and its files were created with the default umask (`0755`/`0644`), not the `0700`/`0600`
+mode `plan.md` §5 requires. This was found and corrected with `chmod 700`/`chmod 600` after the
+fact; no evidence content was exposed to another local user in the interim, and the directory now
+matches the required mode.
 
 ## 6. Next Steps
 
