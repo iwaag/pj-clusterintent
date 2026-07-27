@@ -2,7 +2,7 @@
 
 Parent: [plan.md](plan.md), Step 7.
 
-Status: **`partially complete`**.
+Status: **`complete`**.
 
 ## Retained safety boundaries verified
 
@@ -15,20 +15,16 @@ and planner dispatch proof that valid non-empty desired compute collections prod
 target, diff, reconciler, manual-review record, unsupported record, or action. It also retains the
 desired-MAC mismatch blocking render with no authoritative bytes/digest, the deterministic
 resolution/recovery path, and planner classification as manual review rather than automatic
-actuation.
-
-## Remaining Step 7 work
-
-This step is not complete yet. The maintained runtime suite still needs one combined proof that a
-real authorized Braindump plus Alignment Review write leaves a pre-existing desired/actual
-snapshot's drift codes, plan actions, render bytes/digest, and operation-call set unchanged. The
-existing focused owners prove prose authorization and the desired-MAC/compute contracts separately;
-they are not a substitute for that explicit cross-authority assertion.
+actuation. A maintained real-HTTP cross-authority case now creates a Braindump and Alignment
+Review through nctl's authorized writers using only a test token, then recomputes the same real
+desired/actual GraphQL snapshot, drift, and plan. The drift-code set and complete planned-action
+records are unchanged; prose never becomes an input to desired-state reconciliation.
 
 ## Verification and isolation
 
 ```text
 nautobot-server test nautobot_intent_catalog.tests.test_braindump --keepdb -v 0  32 passed
+nautobot-server test nautobot_intent_catalog.tests.test_p3_node_link_http.DesiredNodeLinkRealHttpTests.test_authorized_prose_writes_do_not_change_real_drift_or_plan --keepdb -v 1  1 passed
 cd nctl && uv run pytest -q tests/test_compute_actuation_inert.py tests/test_dnsmasq_render.py \
   tests/test_reconcile_planner.py tests/test_reconcile_executor.py -k 'compute or desired_mac'  5 passed
 ```
