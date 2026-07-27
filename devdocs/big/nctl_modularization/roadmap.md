@@ -206,7 +206,8 @@ lifecycle predicate exists in both under different names (`is_actionable_lifecyc
 
 They have already diverged. nctl additionally owns `validate_compute_lifecycle`,
 `validate_instance_kind`, `validate_power_state`, `_validate_source`, and
-`_validate_link_source_xnor`; nintent additionally owns the `PROVENANCE_*` constants. The
+`_validate_link_source_xnor`; the four `PROVENANCE_*` constants are also duplicated on both sides
+(not nintent-only). The
 implementations that do exist in both are textually near-identical apart from formatting and
 docstrings. Each side has its own tests. This is the clearest ownership defect in the repository
 and is the reason Phase 1 comes before any file splitting.
