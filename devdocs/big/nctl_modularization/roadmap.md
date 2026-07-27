@@ -174,7 +174,7 @@ This is the exact tuple recorded as `complete` by
 | `src/nctl_core/sources/` | 6 | 2,095 |
 | `src/nctl_core/cli/` | 2 | 679 |
 | **Total source** | **68** | **17,783** |
-| Tracked tests | 73 | 19,685 |
+| Tracked tests | 72 | 19,685 |
 
 The nctl suite collects 967 cases. The three modules the vision flagged as over 1,200 lines are all
 still over 1,200:
