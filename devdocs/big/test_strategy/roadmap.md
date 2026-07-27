@@ -855,3 +855,10 @@ This initiative is `complete` only when:
 A lower test count is not the outcome. The outcome is a suite in which each important failure has
 one clear owner and each supported mutation is proven to run, be observed, preserve truthful
 evidence, and not repeat.
+
+## Phase 4 closure
+
+Phase 4 is complete. The final command matrix, maintained runtime gate, supported-behavior
+manifest, measurements, isolation audit, and definition-of-done verdict are recorded in
+[p4/report.md](p4/report.md). `nctl_modularization` may proceed; production/external acceptance,
+deployment, and pushes remain separately approved user-owned work.
