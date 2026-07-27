@@ -214,7 +214,8 @@ and is the reason Phase 1 comes before any file splitting.
 
 ### Error taxonomy
 
-`src/` declares 57 error classes. `braindump.py` alone declares 19 `BraindumpError` subclasses
+`src/` declares 57 error classes. `braindump.py` alone declares 18 `BraindumpError`-named classes
+(the base plus 17 subclasses)
 alongside 8 data models, 7 `build_*` operations, and 7 `render_*` functions. No current document
 states which caller distinguishes which type. Some are genuinely load-bearing — a missing managed
 SSH store must not be reported as a corrupt one — and some may exist only to carry a message
