@@ -78,13 +78,14 @@ docker exec -e "PYTHONPATH=$stage/nintent:$stage/nauto:$stage/nctl/src:$stage/no
 docker exec -e "PYTHONPATH=$stage/nintent:$stage/nauto:$stage/nctl/src:$stage/nodeutils:$deps_stage" \
   -e NAUTOBOT_TOKEN= -e GITHUB_TOKEN= "$container" \
   nautobot-server makemigrations --check --dry-run
-docker exec -d -e "PYTHONPATH=$stage/nintent:$stage/nauto:$stage/nctl/src:$stage/nodeutils:$deps_stage" \
+docker exec -e "PYTHONPATH=$stage/nintent:$stage/nauto:$stage/nctl/src:$stage/nodeutils:$deps_stage" \
   -e NAUTOBOT_TOKEN= -e GITHUB_TOKEN= -e RUNTIME_STAGE="$stage" "$container" \
-  sh -c 'nautobot-server test "$@" --keepdb -v 1; result=$?; printf "%s\n" "$result" > "$RUNTIME_STAGE/test-exit-status"' \
-  test-runner "$label" >/dev/null
-
-while ! docker exec "$container" test -f "$stage/test-exit-status"; do
-  sleep 1
-done
+  sh -c 'nautobot-server test "$@" --keepdb -v 1 > "$RUNTIME_STAGE/test-output.log" 2>&1; result=$?; printf "%s\n" "$result" > "$RUNTIME_STAGE/test-exit-status"; exit 0' \
+  test-runner "$label"
 result=$(docker exec "$container" cat "$stage/test-exit-status")
-[[ $result == 0 ]] || { printf 'Nautobot runtime test failed with exit status %s\n' "$result" >&2; exit "$result"; }
+if [[ $result != 0 ]]; then
+  docker exec "$container" cat "$stage/test-output.log" >&2 || true
+  printf 'Nautobot runtime test failed with exit status %s\n' "$result" >&2
+  exit "$result"
+fi
+docker exec "$container" cat "$stage/test-output.log"
