@@ -5,6 +5,41 @@ This document records development rules learned from the `fix_sshkey` through
 rules apply to any change that crosses nintent, nctl, generated inventories,
 Ansible/OpenSSH, nodeutils, nauto, and Nautobot.
 
+## Test strategy command matrix
+
+### Tiers and admission
+
+- **Tier A — transition, mutation, trust, authority, or safety boundary:** assert positive evidence that the action, preflight, write, observation, denial, or durable evidence path ran.
+- **Tier B — deterministic rule:** use readable parameter tables or focused cases for a distinct validation, normalization, parser, or rendering failure mode.
+- **Tier C — presentation:** retain smoke-level coverage unless a UI/API surface owns mutation authority.
+
+Before adding a test, record its distinct failure mode, tier, why a different layer is not the clearer owner, the fixture replacing an external boundary, and the positive evidence proving the path ran. During review, consolidate input-only variants, reject unverified external-tool mocks, require exact scope and no-repeat assertions for mutations, and update this matrix for every new environment prerequisite.
+
+### Environment classes
+
+Use the persistent local Nautobot/PostgreSQL/Redis stack described in `.local/localenv_memo.md` as a reusable scratch prerequisite. Named databases, temporary files, loopback processes, keys, inventories, and synthetic rows are test-owned disposable state and must be cleaned by their gate. Physical nodes, Proxmox, external services, and production data are production/external targets: ordinary tests never contact or mutate them.
+
+### Commands
+
+Run each command from its stated working directory. Evidence is summarized in the relevant phase report and may be retained privately under `.local/test-strategy/`; never put credentials, raw keys, or private payloads there. Cross-component completion requires the affected ordinary suites and all applicable required Tier A/conformance gates below.
+
+| gate | working directory | command | tier owned | prerequisites / expected skips | evidence and cleanup | required |
+|---|---|---|---|---|---|---|
+| nctl ordinary | `nctl` | `uv run pytest -q --durations=20` | A–C nctl | local uv; no expected skips | pytest output; `tmp_path` owns artifacts | yes for nctl changes |
+| nintent Django-free fast | `nintent` | `python3 -m unittest discover -s nautobot_intent_catalog/tests` | B plus static smoke | Python; **14** expected Nautobot/file-location skips | unittest output; no persistent state | yes for nintent pure-domain changes |
+| nauto ordinary | `nauto` | `python3 -m unittest discover -s tests` | A–C ingest domain | Python; no expected skips | unittest output; fakes own state | yes for nauto changes |
+| nodeutils ordinary | `nodeutils` | `uv run pytest -q --durations=20` | A–C collector | local uv; no expected skips | pytest output; temporary files | yes for nodeutils changes |
+| Ansible helper ordinary | `ansible_agdev` | `python3 -m unittest discover -s roles/nodeutils_pvesh_helper/tests` | helper contract | Python; no expected skips | unittest output; no external helper | yes for helper changes |
+| Nautobot runtime reuse | superproject root | `./devtests/test_strategy/run_nautobot_runtime_gate.sh --keepdb` | required runtime A + App B/C | healthy local Nautobot and PostgreSQL containers; no required skips | exact-local source paths/revisions; exact stage cleanup | required for cross-component/App changes |
+| Nautobot runtime clean | superproject root | `./devtests/test_strategy/run_nautobot_runtime_gate.sh --clean` | migration/final runtime A + App B/C | same; recreates only `test_nautobot`; no required skips | migration check, fresh named DB, stage cleanup | required for milestone/final verification |
+| OpenSSH conformance | superproject root | `uv run --project nctl pytest -q devtests/test_strategy/test_openssh_conformance.py` | A SSH trust | `ssh`, `sshd`, `ssh-keygen`, `ssh-keyscan`; no skips | pytest temp keys/store/process; fixture stops exact sshd | required when SSH boundary changes |
+| Ansible conformance | superproject root | `uv run --project nctl pytest -q devtests/test_strategy/test_ansible_conformance.py` | A inventory/apply scope | `ansible-inventory`, `ansible-playbook`; no skips | temp inventory/playbook/markers | required when Ansible boundary changes |
+| privileged-helper integration | `nodeutils` | `uv run pytest -q tests/test_pvesh_helper_integration.py` | A helper traversal | sibling `ansible_agdev`; no skips in this superproject | temporary fake helper/sudo/pvesh/report | required when helper/Proxmox traversal changes |
+| measurement | superproject root | `./devtests/test_strategy/measure_test_strategy.py --runtime` | reproducibility audit | above local tools and runtime gate | JSON output retained privately; runtime stage cleans | required for roadmap milestones |
+| production/external acceptance | explicitly approved target directory | separately approved command only | external acceptance | explicit user approval, exact target, rollback | approved evidence and cleanup plan | never ordinary; out of scope by default |
+
+Component documents link here rather than duplicating this matrix.
+
 ## The system is a control loop, not a collection of isolated commands
 
 A typical reconciliation path is:
