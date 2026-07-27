@@ -212,6 +212,14 @@ implementations that do exist in both are textually near-identical apart from fo
 docstrings. Each side has its own tests. This is the clearest ownership defect in the repository
 and is the reason Phase 1 comes before any file splitting.
 
+Phase 1's frozen-tuple re-check corrected two omissions in this inventory. The compute primary
+endpoint rule is also duplicated: nintent's model boundary has the usable-IP/address predicates
+and the same primary-endpoint candidate filter and outcome codes as nctl. The realized-link/source
+pairing rule is implemented in nctl and inline in both nintent compute model `clean()` methods;
+its `derived`/`override` vocabulary is therefore also shared contract vocabulary. Desired-MAC
+uniqueness remains deliberately two-layer enforcement rather than duplicate implementation:
+nintent owns its database constraint while nctl detects unsafe duplicate rows in a snapshot.
+
 ### Error taxonomy
 
 `src/` declares 57 error classes. `braindump.py` alone declares 18 `BraindumpError`-named classes
