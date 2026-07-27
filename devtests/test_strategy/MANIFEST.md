@@ -1,0 +1,34 @@
+# Supported Behavior Manifest
+
+This is the sanitized, tracked index of supported behavior and its current proof. Test IDs run
+through the gate named in the next column; environment names describe only local, disposable, or
+offline fixtures. This manifest contains no credentials, raw keys, private prose, or live targets.
+
+| id | kind | tier | owning test ID(s) | environment / gate | positive evidence asserted | notes |
+|---|---|---|---|---|---|---|
+| ssh-trust-identity | explicit mutation | A | `devtests/test_strategy/test_openssh_conformance.py::test_real_openssh_alias_port_store_and_effective_options` | OpenSSH conformance | real scan, enrolled alias, offered-key fingerprint, effective options | repeat enrollment is idempotent |
+| credential-security | explicit mutation | A | `nctl/tests/test_cli_session.py` | nctl ordinary | authentication denial and redacted result | no credential content is asserted |
+| reconcile-host-scope | automatic transition | A | `nctl/tests/test_dnsmasq_apply.py::test_host_scoped_reconcile_targets_scans_and_deploys_only_the_requested_host` | nctl ordinary | exact scan, exact limit, deployment target | sibling is excluded |
+| reconcile-dry-plan | automatic transition | A | `nctl/tests/test_reconcile_executor.py::test_dry_plan_reports_ssh_preflight_without_blocking` | nctl ordinary | plan/preflight evidence with no mutation | dry plan remains non-actuating |
+| post-mutation-evidence | automatic transition | A | `nintent/nautobot_intent_catalog/tests/test_desired_node_link_http.py::DesiredNodeLinkRealHttpTests.test_run_reconcile_retains_real_http_mutation_and_refreshes_final_drift` | Nautobot runtime | real PATCH, failed confirmation, `mutated=true`, final drift | evidence survives failure |
+| partial-ipam-progress | automatic transition | A | `nctl/tests/test_reconcile_executor.py::test_reconcile_ipam_partial_conflict_is_not_reported_as_success` | nctl ordinary | applied/unresolved separation and failure evidence | target-local partial state |
+| observation-freshness | automatic transition | A | `nauto/tests/test_proxmox_cluster_vm_upsert.py::ProxmoxClusterVmUpsertTests.test_older_observed_at_is_stale_and_not_applied` | nauto ordinary | stale observation rejection | no stale overwrite |
+| dnsmasq-convergence | automatic transition | A | `nctl/tests/test_reconcile_executor.py::test_real_multi_round_dnsmasq_content_convergence` | nctl ordinary | mismatch, action, preflight, observed digest, fresh no-repeat plan | real planner/executor loop |
+| non-dhcp-ipam-convergence | automatic transition | A | `nctl/tests/test_reconcile_executor.py::test_real_multi_round_ipam_convergence_for_non_dhcp_endpoint` | nctl ordinary | pinned write, fresh refetch, no repeated action | real planner/executor loop |
+| desired-node-link | automatic transition | A | `nintent/nautobot_intent_catalog/tests/test_desired_node_link_http.py::DesiredNodeLinkRealHttpTests.test_real_graphql_patch_graphql_link_and_fresh_no_repeat` | Nautobot runtime | GraphQL/PATCH/GraphQL and no-repeat plan | local loopback HTTP |
+| forced-observation-refresh | automatic transition | A | `nctl/tests/test_reconcile_executor.py` | nctl ordinary | forced collection/ingest and operation evidence | scoped host behavior |
+| import-job-transaction | explicit mutation | A | `nintent/nautobot_intent_catalog/tests/test_jobs_import.py` | Nautobot runtime | preview zero-write, apply, confirmation, repeat | App transaction owner |
+| analyze-job-transaction | explicit mutation | A | `nintent/nautobot_intent_catalog/tests/test_analysis.py` | Nautobot runtime | preview/apply and preserved owned fields | App transaction owner |
+| nauto-ingest-policy | automatic transition | A | `nauto/tests/test_proxmox_ingest.py` | nauto ordinary | valid/stale/invalid/partial ingest outcome | ORM runtime supplements this gate |
+| unmanaged-no-delete | automatic transition | A | `nctl/tests/test_reconcile_planner.py` | nctl ordinary | zero diff/action for actual-only node | intentionally no deletion reconciler |
+| compute-inert | unsupported/inert | A | `nctl/tests/test_compute_actuation_inert.py::test_valid_compute_collections_produce_no_drift_and_no_plan_actions` | nctl ordinary | zero drift, planner action, and actuation | holds until a bounded first-realization roadmap supersedes it |
+| desired-mac-safe-stop | manual safe stop | A | `nctl/tests/test_dnsmasq_render.py::test_desired_mac_mismatch_then_resolved_round_trip` | nctl ordinary | blocked bytes/digest and deterministic recovery | no SSH/Ansible on conflict |
+| prose-authority | read-only deterministic operation | A | `nintent/nautobot_intent_catalog/tests/test_desired_node_link_http.py::DesiredNodeLinkRealHttpTests.test_authorized_prose_writes_do_not_change_real_drift_or_plan` | Nautobot runtime | authorized prose write; unchanged drift/plan | prose is not reconciliation input |
+| deterministic-rendering | read-only deterministic operation | B | `nctl/tests/test_production_contract.py::test_canonical_json_bytes_and_digest_are_exact` | nctl ordinary | stable bytes and digest | no side effect |
+| graphql-rest-decoding | read-only deterministic operation | B | `nctl/tests/test_nautobot.py::test_graphql_returns_data` | nctl ordinary | decoded structured data | mocked transport only |
+| cli-presentation-approval | read-only deterministic operation | C | `nctl/tests/test_cli_surface.py` | nctl ordinary | command output and approval boundary | no write |
+| ui-read-only | read-only deterministic operation | C | `nintent/nautobot_intent_catalog/tests/test_ui_contract.py` | Nautobot runtime | route rendering and mutation denial | runtime-owned skips absent |
+| operation-evidence-reader | read-only deterministic operation | B | `nctl/tests/test_operations_index.py::test_list_operations_over_real_phase4_layout` | nctl ordinary | durable event/result reader | historical artifacts remain readable |
+| nodeutils-nauto-nctl-schema | automatic transition | A | `nintent/nautobot_intent_catalog/tests/test_desired_node_link_http.py::DesiredNodeLinkRealHttpTests.test_nodeutils_report_builder_ingest_and_actual_graphql_share_one_schema` | Nautobot runtime | producer report, ingest, actual GraphQL traversal | no second hand-maintained report |
+| ansible-scope-and-policy | explicit mutation | A | `devtests/test_strategy/test_ansible_conformance.py::test_real_ansible_inventory_limit_check_apply_and_trust_denial` | Ansible conformance | parsed inventory, exact limit, check/apply and forbidden override denial | loopback/local fixture only |
+| privileged-helper-traversal | automatic transition | A | `nodeutils/tests/test_pvesh_helper_integration.py::PveshHelperBoundaryIntegrationTest.test_non_root_collection_through_real_helper_produces_readable_v2_report` | privileged-helper integration | real helper allowlist, fake process boundary, readable report | no privileged host helper |
