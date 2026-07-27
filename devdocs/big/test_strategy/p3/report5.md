@@ -1,8 +1,8 @@
-# Test Strategy Phase 3 — Step 5 Report: DesiredNode Real-HTTP Transition (in progress)
+# Test Strategy Phase 3 — Step 5 Report: DesiredNode Real-HTTP Transition
 
 Parent: [plan.md](plan.md), Step 5.
 
-Status: **`partially complete`**.
+Status: **`complete`**.
 
 ## Implemented maintained runtime proof
 
@@ -38,27 +38,27 @@ boundary. It verifies the returned action result is `success=false`, `mutated=tr
 `node_link_not_confirmed`, and that the durable JSONL `action_completed` record retains the same
 success/mutation facts.
 
+The final case runs the public `run_reconcile` loop against the same live server and test-only
+token.  The real PATCH succeeds, the callback resets only its synthetic row, and the next fresh
+GraphQL/drift/plan cycle reaches the truthful `no_progress` terminal result.  It retains the failed
+`link_actual_node` action in the round (`success=false`, `mutated=true`), sets
+`progress_made=true`, preserves the action-completed JSONL record, and writes a fresh final-drift
+artifact.  The test has no deployment profiles, so its post-ledger production-render action is an
+explicit no-profile no-op; no inventory or external action is involved.
+
 ## Verification
 
 The exact-local-source runtime command passed:
 
 ```text
-nautobot-server test nautobot_intent_catalog.tests.test_p3_node_link_http --keepdb -v 0  8 passed
+nautobot-server test nautobot_intent_catalog.tests.test_p3_node_link_http --keepdb -v 0  9 passed
 ```
 
-The container runtime resolved `nautobot_intent_catalog` from `/tmp/p3-nintent` and `nctl_core`
-from `/tmp/p3-nctl/src`. `httpx` and its pure-Python transitive runtime dependencies were copied
-only to `/tmp/p3-nctl-deps`, because the Nautobot image does not ship nctl's HTTP client
-dependency. No public network, secret file, root `nctl.toml`, persistent database, real inventory,
-or external host was used.
-
-## Remaining Step 5 work
-
-This report is deliberately not complete. The maintained test still needs the complete
-`run_reconcile` round assertion for a successful PATCH followed by terminal failure, including
-retained round evidence, `had_side_effects=true`, and a final drift or typed unknown state. The
-existing focused executor tests remain the primary owner for that full-round behavior until the
-real-HTTP bridge is added.
+The container runtime resolved `nautobot_intent_catalog` from `/tmp/p3-nintent`, `jobs` from
+`/tmp/p3-nauto`, and `nctl_core` from `/tmp/p3-nctl/src`. `httpx` and its pure-Python transitive
+runtime dependencies were copied only to `/tmp/p3-nctl-deps`, because the Nautobot image does not
+ship nctl's HTTP client dependency. No public network, secret file, root `nctl.toml`, persistent
+database, real inventory, or external host was used.
 
 All test-owned runtime rows are rolled back by the Nautobot test runner. The temporary source and
 dependency copies under `/tmp/p3-*` were removed after the passing checkpoint; the phase cleanup
