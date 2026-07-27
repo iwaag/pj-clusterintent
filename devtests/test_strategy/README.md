@@ -50,3 +50,16 @@ uv run --project nctl pytest -q devtests/test_strategy/test_ansible_conformance.
 It requires `ansible-inventory` and `ansible-playbook`. Its inventory has nctl's closed SSH policy;
 the fixture playbook declares `connection: local` only so its exact-host check/apply proof writes
 temporary markers rather than contacting an SSH target.
+
+## Compute-contract freshness gate
+
+Run this from the superproject root whenever either nintent's compute contract or nctl's bound
+consumer changes:
+
+```bash
+uv run --project nctl pytest -q devtests/test_strategy/test_compute_conformance.py
+```
+
+It imports only the sibling nintent checkout, regenerates the deterministic owner fixture in
+memory, and compares it with nctl's committed fixture. It has no network, Nautobot, or secret
+prerequisite.
