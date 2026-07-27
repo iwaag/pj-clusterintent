@@ -28,12 +28,17 @@ a different candidate, and a deleted DesiredNode. Pre-existing links/source-only
 or unauthenticated pre-write requests fail with `mutated=false` and leave the synthetic row
 unchanged. The callbacks are test fixtures, not application endpoints or production seams.
 
+The runtime gate also starts a second test-owned loopback HTTP server for a malformed GraphQL
+pre-read reply. `NautobotClient` crosses that actual socket, receives malformed GraphQL data, and
+fails as `node_fetch_failed` with `mutated=false`; its traffic record proves there was one GraphQL
+POST and no PATCH.
+
 ## Verification
 
 The exact-local-source runtime command passed:
 
 ```text
-nautobot-server test nautobot_intent_catalog.tests.test_p3_node_link_http --keepdb -v 1  6 passed
+nautobot-server test nautobot_intent_catalog.tests.test_p3_node_link_http --keepdb -v 0  7 passed
 ```
 
 The container runtime resolved `nautobot_intent_catalog` from `/tmp/p3-nintent` and `nctl_core`
