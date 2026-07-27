@@ -51,5 +51,6 @@ It also needs the remaining representative malformed GraphQL pre-read/confirmati
 through the loopback boundary. The existing focused executor and ledger tests remain the current
 owner for those domain assertions until that real-HTTP bridge is added.
 
-All test-owned runtime rows are rolled back by the Nautobot test runner; the temporary source and
-dependency copies are under `/tmp/p3-*` and will be removed by the phase cleanup audit.
+All test-owned runtime rows are rolled back by the Nautobot test runner. The temporary source and
+dependency copies under `/tmp/p3-*` were removed after the passing checkpoint; the phase cleanup
+audit will recheck that boundary.
