@@ -250,7 +250,7 @@ Consumers of the nintent contract, for Step 6's blast-radius analysis:
 `nintent/nautobot_intent_catalog/models.py`, `loaders.py`, `tables.py`, `views.py`, plus
 `tests/test_compute_contract.py` and `tests/test_loaders.py`.
 
-`MANIFEST.md` currently holds 26 behavior rows. Five of them name
+`MANIFEST.md` currently holds 27 behavior rows. Five of them name
 `nctl/tests/test_reconcile_executor.py` — the module Phase 3 work item 6 splits:
 
 | Manifest id | Owning test ID |
@@ -445,7 +445,7 @@ Private validation scripts must fail unless:
 - every duplication row names both implementations, their tests, and a proposed owner and mechanism;
 - every proposed move appears in `move-impact.tsv`, and every renamed manifested ID appears in
   `manifest-impact.tsv`;
-- every one of the 26 manifest rows appears in `manifest-impact.tsv`;
+- every one of the 27 manifest rows appears in `manifest-impact.tsv`;
 - every required-search term is classified with no unclassified active match;
 - every measurement names the exact file list and command digest that produced it; and
 - the tracked-file digest set is identical at start and end.
@@ -777,7 +777,7 @@ disposition.
    owning phase.
 2. For each, name the test modules that exercise the moved code, the test IDs the move would rename,
    the affected `MANIFEST.md` ids, and the gate that must rerun in the same commit.
-3. Build `manifest-impact.tsv` covering all 26 manifest rows.
+3. Build `manifest-impact.tsv` covering all 27 manifest rows.
 4. Flag every manifest row whose owning entry is a module path without a test ID, starting with
    `forced-observation-refresh`, and recommend the precise ID for the owning phase to write.
 5. For Phase 3 specifically, record which parts of `tests/test_reconcile_executor.py` (2,355 lines)
@@ -874,7 +874,7 @@ hidden.
 | fail-closed distinctions | missing/corrupt/unenrolled/unreachable/mismatched remain five distinct types |
 | searches | no active match unclassified; every structure-asserting test named |
 | test identity | every proposed move mapped to test modules, renamed IDs, manifest rows, and gates |
-| manifest coverage | all 26 rows present in the impact map; ID-less rows flagged |
+| manifest coverage | all 27 rows present in the impact map; ID-less rows flagged |
 | baseline behavior | every root-matrix gate recorded with counts, runtime, and expected skips |
 | deterministic artifacts | retained bytes and digests for dnsmasq, hosts-intent, production, canonical JSON, and every golden |
 | isolation | no live mutation, no compute seed, no tracked artifact write, no push |
@@ -948,7 +948,7 @@ Phase 0 is `complete` only when:
 - every required-search match is classified and every structure-asserting test is named with a
   later-phase disposition;
 - every proposed move is mapped to its test modules, renamed test IDs, manifest rows, and gates, and
-  all 26 manifest rows appear in the impact map;
+  all 27 manifest rows appear in the impact map;
 - structure measurements are reproducible from retained commands and exact file lists;
 - the complete root command matrix is recorded as the behavior-preservation reference, with expected
   skips explicit;
