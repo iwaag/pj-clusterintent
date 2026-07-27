@@ -67,6 +67,12 @@ Only these tracked files may change during Phase 0:
 - `devdocs/big/nctl_modularization/p0/report<N>.md`; and
 - `devdocs/big/nctl_modularization/p0/report.md`.
 
+Post-start authorization (2026-07-27): the user authorized a narrowly scoped repair to
+`devtests/test_strategy/run_nautobot_runtime_gate.sh` after its detached runner failed to return
+its test exit status. The repair may only make result/output collection synchronous and observable;
+it may not change selected tests, test data, assertions, environment isolation, or pass/fail
+criteria. Record the commit and re-run both runtime modes before final reporting.
+
 One exception is authorized and required if it triggers: if the audit contradicts the parent
 roadmap, amend `devdocs/big/nctl_modularization/roadmap.md` explicitly in the same step that found
 the contradiction, and record the amendment in that step's report. Do not silently carry a corrected
