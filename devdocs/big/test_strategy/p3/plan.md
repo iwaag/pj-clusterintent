@@ -1,4 +1,4 @@
-# Test Strategy Phase 3 Implementation Plan: Close Tier A Transition and External-Boundary Gaps
+g# Test Strategy Phase 3 Implementation Plan: Close Tier A Transition and External-Boundary Gaps
 
 Parent: [roadmap.md](../roadmap.md) — Phase 3.
 

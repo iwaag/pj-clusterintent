@@ -2,3 +2,4 @@
 .local
 .DS_Store
 /nctl.toml
+__pycache__/
