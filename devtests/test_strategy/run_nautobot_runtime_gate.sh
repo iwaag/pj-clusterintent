@@ -35,15 +35,39 @@ docker inspect --format '{{.State.Running}}' "$postgres_container" | grep -qx tr
   exit 2
 }
 
-cleanup() {
-  docker exec --user root "$container" rm -rf -- "$stage" >/dev/null 2>&1 || true
-}
-trap cleanup EXIT
-
-if [[ $mode == clean ]]; then
+drop_test_database() {
   # test_nautobot is test-owned; no persistent Nautobot database is changed.
   docker exec "$postgres_container" psql -U nautobot -d nautobot -v ON_ERROR_STOP=1 \
     -c 'DROP DATABASE IF EXISTS test_nautobot WITH (FORCE);'
+}
+
+# All gate invocations share the one test-owned database. Two concurrent runs would migrate it at
+# the same time and fail with an already-existing column, so refuse to start beside another run.
+running_runtime_tests=$(docker exec "$container" sh -c \
+  'for entry in /proc/[0-9]*/cmdline; do tr "\0" " " < "$entry" 2>/dev/null; echo; done' \
+  | grep -c 'nautobot-server test ' || true)
+if ((running_runtime_tests > 0)); then
+  printf 'another Nautobot runtime test is already running in %s; refusing to share test_nautobot\n' \
+    "$container" >&2
+  exit 2
+fi
+
+# Set once the run has reached its test body, which proves the database was built completely. Until
+# then any exit — setup failure, timeout, or interrupt — must remove the test database, because a
+# half-migrated test_nautobot silently poisons every later --keepdb run with an already-existing
+# column, and the column it stops on moves with however far the abandoned run got.
+database_built=0
+cleanup() {
+  docker exec --user root "$container" rm -rf -- "$stage" >/dev/null 2>&1 || true
+  if ((database_built == 0)); then
+    printf 'runtime gate did not reach its test body; dropping the test-owned database\n' >&2
+    drop_test_database >/dev/null 2>&1 || true
+  fi
+}
+trap cleanup EXIT INT TERM
+
+if [[ $mode == clean ]]; then
+  drop_test_database
 fi
 
 docker exec "$container" mkdir -p "$deps_stage"
@@ -83,9 +107,26 @@ docker exec -e "PYTHONPATH=$stage/nintent:$stage/nauto:$stage/nctl/src:$stage/no
   sh -c 'nautobot-server test "$@" --keepdb -v 1 > "$RUNTIME_STAGE/test-output.log" 2>&1; result=$?; printf "%s\n" "$result" > "$RUNTIME_STAGE/test-exit-status"; exit 0' \
   test-runner "$label"
 result=$(docker exec "$container" cat "$stage/test-exit-status")
+output=$(docker exec "$container" cat "$stage/test-output.log")
+printf '%s\n' "$output"
+
+# A stated case count means the runner finished database setup, so the test database is coherent
+# even when the cases themselves failed. A run that never touched a test database cannot have
+# damaged one either. Only setup that started and did not finish poisons reuse.
+cases=$(printf '%s\n' "$output" | sed -n 's/^Ran \([0-9][0-9]*\) tests\{0,1\} in .*/\1/p' | tail -1)
+if [[ -n $cases ]] || ! printf '%s\n' "$output" | grep -q 'test database for alias'; then
+  database_built=1
+fi
+
 if [[ $result != 0 ]]; then
-  docker exec "$container" cat "$stage/test-output.log" >&2 || true
   printf 'Nautobot runtime test failed with exit status %s\n' "$result" >&2
   exit "$result"
 fi
-docker exec "$container" cat "$stage/test-output.log"
+
+# Django exits 0 when a label resolves to nothing, so a green status alone is not a proof. Require
+# a stated case count; a gate that ran zero cases has verified nothing.
+if [[ -z $cases ]] || ((cases < 1)); then
+  printf 'Nautobot runtime gate collected no test case for label %s\n' "$label" >&2
+  exit 3
+fi
+printf 'runtime gate result mode=%s label=%s cases=%s\n' "$mode" "$label" "$cases"

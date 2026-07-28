@@ -31,8 +31,8 @@ Run each command from its stated working directory. Evidence is summarized in th
 | nauto ordinary | `nauto` | `python3 -m unittest discover -s tests` | A–C ingest domain | Python; no expected skips | unittest output; fakes own state | yes for nauto changes |
 | nodeutils ordinary | `nodeutils` | `uv run pytest -q --durations=20` | A–C collector | local uv; no expected skips | pytest output; temporary files | yes for nodeutils changes |
 | Ansible helper ordinary | `ansible_agdev` | `python3 -m unittest discover -s roles/nodeutils_pvesh_helper/tests` | helper contract | Python; no expected skips | unittest output; no external helper | yes for helper changes |
-| Nautobot runtime reuse | superproject root | `./devtests/test_strategy/run_nautobot_runtime_gate.sh --keepdb` | required runtime A + App B/C | healthy local Nautobot and PostgreSQL containers; no required skips | exact-local source paths/revisions; exact stage cleanup | required for cross-component/App changes |
-| Nautobot runtime clean | superproject root | `./devtests/test_strategy/run_nautobot_runtime_gate.sh --clean` | migration/final runtime A + App B/C | same; recreates only `test_nautobot`; no required skips | migration check, fresh named DB, stage cleanup | required for milestone/final verification |
+| Nautobot runtime reuse | superproject root | `./devtests/test_strategy/run_nautobot_runtime_gate.sh --keepdb` | required runtime A + App B/C | healthy local Nautobot and PostgreSQL containers; one gate run at a time; no required skips | exact-local source paths/revisions; stated `cases=` count; exact stage cleanup | required for cross-component/App changes |
+| Nautobot runtime clean | superproject root | `./devtests/test_strategy/run_nautobot_runtime_gate.sh --clean` | migration/final runtime A + App B/C | same; recreates only `test_nautobot`; no required skips | migration check, fresh named DB, stated `cases=` count, stage cleanup | required for milestone/final verification |
 | OpenSSH conformance | superproject root | `uv run --project nctl pytest -q devtests/test_strategy/test_openssh_conformance.py` | A SSH trust | `ssh`, `sshd`, `ssh-keygen`, `ssh-keyscan`; no skips | pytest temp keys/store/process; fixture stops exact sshd | required when SSH boundary changes |
 | Ansible conformance | superproject root | `uv run --project nctl pytest -q devtests/test_strategy/test_ansible_conformance.py` | A inventory/apply scope | `ansible-inventory`, `ansible-playbook`; no skips | temp inventory/playbook/markers | required when Ansible boundary changes |
 | privileged-helper integration | `nodeutils` | `uv run pytest -q tests/test_pvesh_helper_integration.py` | A helper traversal | sibling `ansible_agdev`; no skips in this superproject | temporary fake helper/sudo/pvesh/report | required when helper/Proxmox traversal changes |
@@ -149,6 +149,17 @@ For an SSH-gated service change, this includes at least:
 If an action was not planned, the test did not exercise that action. A green
 command exit, an unchanged host, or the absence of an SSH error does not change
 that fact.
+
+The same rule applies to a gate itself. A test label that resolves to nothing
+makes Django exit `0` after running zero cases, so a gate wrapper must state and
+check its collected case count rather than forward that exit status. A gate that
+cannot name how many cases it ran has proved nothing.
+
+A shared test database is also part of the gate's contract. When a run is
+interrupted or fails during database setup, the wrapper must drop the test-owned
+database instead of preserving it, because a half-built schema makes every later
+reuse run stop on an already-existing column — at a different column each time,
+which reads like a migration defect rather than abandoned setup state.
 
 ### 2. Tests can preserve a wrong shared assumption
 
