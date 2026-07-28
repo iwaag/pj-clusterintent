@@ -1,6 +1,6 @@
 # P2 Step 5 — Split Braindump transport, operations, and presentation
 
-Status: partially complete.
+Status: complete.
 
 `braindump_client.py` now owns the REST write endpoints and their existing
 HTTP-status-to-code translations. `braindump_errors.py` owns the unchanged
@@ -16,7 +16,7 @@ the nctl ordinary suite (`970 passed in 5.75s`) and a clean whitespace check.
 The confirmation, authorship, destructive-confirmation, and exit-code cases
 are included in those focused and CLI suites.
 
-This step is deliberately not marked complete: the old builder/renderer
-definitions remain in `braindump.py` as currently unused duplicate code. They
-must be removed, and the Braindump tests split by ownership, before the Step 5
-gate can be claimed. No external state changed.
+The old builder/renderer definitions were subsequently removed from
+`braindump.py`; the CLI has one presentation boundary and no compatibility
+alias remains. The focused suite was re-run (`86 passed`) and the ordinary
+suite passed again (`970 passed in 5.62s`). No external state changed.
