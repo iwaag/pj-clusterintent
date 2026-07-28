@@ -13,3 +13,6 @@ The runtime wrapper's unlabelled `--keepdb` and `--clean` invocations completed 
 
 No source, deployment, or external target was changed while diagnosing this gate. Step 6 must not start until the runtime test-DB setup has a user-approved recovery path.
 
+## Approved local-environment recovery attempt
+
+With explicit user approval, the test-owned `test_nautobot` database was dropped with `WITH (FORCE)`, and the local `nautobot`, `nautobot-worker`, and `nautobot-scheduler` services were rebuilt without cache from the pinned `networktocode/nautobot:3.1.3-py3.12` Dockerfile and recreated. The pinned nintent commit check passed during each image build. A clean named-gate retry still stopped before the test body, so a stale test database is not the cause. Further recovery requires a human choice to change the pinned Nautobot runtime/version or to alter the runtime-gate migration setup; both are outside this P5 plan's no-image-rebuild/no-cross-component scope and should be handled as a separate environment repair.
