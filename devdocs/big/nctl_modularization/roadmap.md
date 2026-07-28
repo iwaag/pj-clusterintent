@@ -115,7 +115,7 @@ Every phase is behavior-preserving. The proof is that the retained suite and eve
 root command matrix pass unchanged in meaning.
 
 Renaming or moving a test module renames its test IDs. `devtests/test_strategy/MANIFEST.md` names
-exact test IDs for 26 supported behaviors. Any move that changes a manifested ID must update the
+exact test IDs for 27 supported behaviors. Any move that changes a manifested ID must update the
 manifest in the same commit and rerun that row's gate. A manifest row must never point at a
 missing or renamed test between commits.
 
@@ -389,6 +389,23 @@ unreachable, or unobservable.
 ## Phases
 
 Concrete plans and one final report per phase live under `devdocs/big/nctl_modularization/pN/`.
+
+**This roadmap is `complete`.** The initiative-wide verdict, the disposition of every residual, and
+the `vm_first_realization` handoff are in [`p5/report.md`](p5/report.md).
+
+| Phase | Status | Final report |
+|---|---|---|
+| 0 — remeasure and freeze seam decisions | `complete` | [`p0/report.md`](p0/report.md) |
+| 1 — resolve the duplicated compute contract | `complete`, deployed to the scratch stack | [`p1/report.md`](p1/report.md) |
+| 2 — separate transport from domain | `complete` | [`p2/report.md`](p2/report.md) |
+| 3 — action-execution seam | `complete`; its two runtime proofs were unreachable at the time and were finally run in Phase 5 | steps only; final status in [`p5/report.md`](p5/report.md) §3 |
+| 4 — drift and production boundaries | `complete`; residuals R1–R4 closed in Phase 5 | [`p4/report.md`](p4/report.md) plus [`p4/reportex.md`](p4/reportex.md), final status in [`p5/report.md`](p5/report.md) §3 |
+| 5 — document, remeasure, report | `complete` | [`p5/report.md`](p5/report.md) |
+
+Phases 3 and 4 were reported before the Nautobot runtime gate could state a case count. That gate
+was repaired in superproject `044b928`; see [`p5/problem.md`](p5/problem.md) for why an apparent
+migration defect was in fact the wrapper preserving a half-built test database and exiting `0` on a
+zero-case run.
 
 ### Phase 0 — Remeasure, map responsibilities, and freeze the seam decisions
 
