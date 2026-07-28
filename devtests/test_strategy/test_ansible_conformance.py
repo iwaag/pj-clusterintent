@@ -116,3 +116,40 @@ def test_real_ansible_inventory_limit_check_apply_and_trust_denial(tmp_path: Pat
         assert not playbook_started
         assert not (marker_dir / f"{HOST_B}.marker").exists()
 
+
+def test_real_create_lxc_playbook_uses_pinned_pct_argv_and_writes_result_locally(tmp_path: Path):
+    """Tier A: run the real create playbook against a disposable pct boundary."""
+    playbook_binary = _binary("ansible-playbook")
+    source_playbook = Path(__file__).parents[2] / "ansible_agdev/playbooks/proxmox/create_lxc.yml"
+    assert source_playbook.exists()
+    inventory = tmp_path / "inventory.yml"
+    inventory.write_text("all:\n  hosts:\n    aghub:\n      ansible_connection: local\n      ansible_become: false\n")
+    calls = tmp_path / "pct.calls"
+    pct = tmp_path / "pct"
+    pct.write_text(
+        "#!/bin/sh\n"
+        f"printf '%s\\n' \"$*\" >> {calls}\n"
+        "if [ \"$1\" = status ]; then exit 2; fi\n"
+    )
+    pct.chmod(0o700)
+    result = tmp_path / "result.json"
+    parameters = {
+        "pct_binary": str(pct), "nctl_compute_become": False, "vmid": 109,
+        "template": "local:vztmpl/ubuntu-24.04-standard_24.04-2_amd64.tar.zst",
+        "storage": "local-lvm", "bridge": "vmbr0", "unprivileged": True,
+        "vcpus": 1, "memory_mb": 512, "root_disk_gb": 8,
+        "hostname": "agfixture", "mac_address": "bc:24:11:00:01:09",
+        "result_path": str(result),
+    }
+
+    syntax = _run([playbook_binary, "-i", str(inventory), str(source_playbook), "--syntax-check"])
+    assert "syntax" not in syntax.stderr.lower()
+    applied = _run([playbook_binary, "-i", str(inventory), str(source_playbook), "--extra-vars", json.dumps(parameters)])
+
+    assert "aghub" in applied.stdout
+    assert calls.read_text().splitlines() == [
+        "status 109",
+        "create 109 local:vztmpl/ubuntu-24.04-standard_24.04-2_amd64.tar.zst --hostname agfixture --cores 1 --memory 512 --rootfs local-lvm:8 --net0 name=eth0,bridge=vmbr0,hwaddr=bc:24:11:00:01:09 --unprivileged 1 --onboot 1",
+        "start 109",
+    ]
+    assert json.loads(result.read_text()) == {"created": True, "started": True}
