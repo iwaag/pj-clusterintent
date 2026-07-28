@@ -263,7 +263,7 @@ keep / split / merge / defer decision and the reason-to-change analysis behind i
 
 | Area | Concrete starting point |
 |---|---|
-| reconcile orchestration versus action-specific execution | `reconcile/executor.py` `_execute_action` branches on `action.action_kind`; executor imports 20 concrete modules including `dnsmasq_apply`, `production_render`, `observation`, `ssh_enroll`, `ansible` |
+| reconcile orchestration versus action-specific execution | `reconcile/executor.py` `_execute_action` branches on `reconciler_id`, while `_run_playbook_action` contains the one `action.action_kind` split; executor imports concrete action modules including `dnsmasq_apply`, `production_render`, `observation`, `ssh_enroll`, `ansible` |
 | desired transport versus compute domain validation and source-issue handling | `sources/desired.py` row builders versus its validators, `_build_compute_collections`, and `DesiredSourceIssue` policy |
 | drift orchestration versus per-resource evaluators | `drift/evaluation.py` node/endpoint/service evaluators plus IP-range and MAC candidate machinery; `drift/engine.py`, `drift/comparators.py`, `drift/evaluation_snapshot.py` |
 | production composition, route resolution, rendering | `production/composer.py`, `production/contract.py`, `production/derivation.py`, `production/adapter.py`, `production_render.py` |

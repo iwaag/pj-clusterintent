@@ -115,8 +115,8 @@ Tracked files Phase 3 may change:
 - `nctl/README.md`, only where a named path becomes wrong;
 - `devtests/test_strategy/MANIFEST.md`, for the rows whose owning test module changes and for the
   `forced-observation-refresh` precise-ID correction Phase 0 already recorded as owed;
-- `nintent/nautobot_intent_catalog/tests/test_desired_node_link_http.py`, **only** the two
-  `_execute_action` call sites and their import line, and **only after** the Section 3.4 approval; and
+- `nintent/nautobot_intent_catalog/tests/test_desired_node_link_http.py`, **only** the one direct
+  `_execute_action` invocation and its import line, and **only after** the Section 3.4 approval; and
 - `README_DEV.md`, only if a gate's command or prerequisite changes.
 
 Nothing else. In particular: no nintent application, model, migration, or Job change; no nauto,
@@ -203,8 +203,8 @@ specific test for each boundary.
 
 Phase 3 has **one approval gate**, and it must be requested before Step 3 lands.
 
-`nintent/nautobot_intent_catalog/tests/test_desired_node_link_http.py` imports and calls nctl's
-private `_execute_action` at two sites (lines 32, 330, and 309's owning test). Both are inside the
+`nintent/nautobot_intent_catalog/tests/test_desired_node_link_http.py` has one import and one direct
+invocation of nctl's private `_execute_action` (lines 32 and 330; the owning test starts at 309). Both are inside the
 Nautobot runtime gate, and one of them
 (`test_run_reconcile_retains_real_http_mutation_and_refreshes_final_drift`) is the manifested owner
 of `post-mutation-evidence`. When `_execute_action` is replaced by the public seam, that file must be
@@ -213,7 +213,7 @@ repointed or the runtime gate fails.
 This is the same class of change the user explicitly authorized in Phase 2. It is nonetheless a
 cross-repository edit, so:
 
-- the phase must **ask before making it**, stating the two call sites, the new call form, and the
+- the phase must **ask before making it**, stating the one invocation plus import line, the new call form, and the
   fact that it is test-only;
 - no compatibility re-export may be added to avoid asking;
 - the change requires **no image rebuild and no push to pass the gate** — the runtime gate runs
@@ -783,7 +783,7 @@ Gate: the envelope contract has one owner; the model JSON schema diff is empty; 
 5. Mint the post-actuation observation action per finding 4.3.6 and route it through the same seam.
    Assert in the step's report that `plan.json` and `plan_created` are unaffected.
 6. Repoint the affected monkeypatch sites per `patch-impact.tsv`.
-7. After the recorded approval, repoint nintent's two `_execute_action` call sites and its import line
+7. After the recorded approval, repoint nintent's one direct `_execute_action` invocation and its import line
    to `execute_action(ActionContext(...), action)`. Nothing else in that file changes.
 8. Run: nctl ordinary; then the Nautobot runtime gate in `--keepdb` mode to prove the repointed
    nintent sites before continuing.
@@ -981,8 +981,8 @@ Phase 3 is `complete` only when:
     errors; the two `dnsmasq_apply.py` compatibility aliases are deleted with their tests re-owned;
 11. no re-export shim, alias, deprecated import path, or `raising=False` was added, and every
     repointed monkeypatch is recorded as intercepting the same call site;
-12. the nintent change is test-only, was explicitly approved, and touched only the two `_execute_action`
-    call sites and their import line;
+12. the nintent change is test-only, was explicitly approved, and touched only the one direct `_execute_action`
+    invocation and its import line;
 13. compute remains inert and no compute row, comparator, planner action, reconciler, or actuator was
     added;
 14. the nctl ordinary suite, every conformance gate, the privileged-helper gate, and the Nautobot
