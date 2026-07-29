@@ -408,7 +408,9 @@ SECRET_KEY = os.getenv("NAUTOBOT_SECRET_KEY", "*)bgbpw)0oza)glt*h5n9b0-w^@i9#d)m
 
 # Send anonymized installation metrics when `nautobot-server post_upgrade` command is run.
 #
-INSTALLATION_METRICS_ENABLED = is_truthy(os.getenv("NAUTOBOT_INSTALLATION_METRICS_ENABLED", "True"))
+# The persistent local development stack must not send installation telemetry unless an
+# operator deliberately opts in through the environment.
+INSTALLATION_METRICS_ENABLED = is_truthy(os.getenv("NAUTOBOT_INSTALLATION_METRICS_ENABLED", "False"))
 
 # Maximum size in bytes of any single file created by Job.create_file().
 #
