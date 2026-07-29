@@ -33,8 +33,15 @@ nintent and nctl.
 
 ## Scratch-environment deployment
 
-Not performed. Per `.local/localenv_memo.md`, the Nautobot image installs nintent from GitHub,
-not the local checkout. Applying the migration and Import Job therefore requires committing the
-nintent changes, a user-performed push, then rebuilding/restarting the Nautobot image. After that,
-run the Import Job as preview, apply, and no-op repeat, and confirm the `agfixture` endpoint reads
-`192.168.0.9/24` with gateway `192.168.0.1`. No existing LXC was recreated or changed.
+Completed against the pushed nintent commit `5743c6a`.
+
+- The Dockerfile now pins that exact commit; the rebuilt image's `build_info.json` confirms it.
+- The initial migration attempt detected a pre-existing number collision with
+  `0016_remove_reconciliation_dashboard_surfaces`. Added and deployed merge migration
+  `0017_merge_20260729_1945`; all nintent migrations are applied.
+- `Import Intent Sources` completed successfully as preview, apply, and final no-op preview
+  (JobResults: `7df8f1d1`, `9cd13611`, and `1e14fca2`, respectively).
+- A fresh nctl GraphQL desired-state read confirms agfixture primary endpoint:
+  `ip_address=192.168.0.9/24`, `gateway_address=192.168.0.1`, `ip_policy=static`.
+
+No existing LXC was recreated or changed.
