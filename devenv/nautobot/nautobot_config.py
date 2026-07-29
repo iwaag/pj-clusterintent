@@ -507,14 +507,7 @@ PLUGINS = ["nautobot_intent_catalog"]
 #         'buzz': 'bazz'
 #     }
 # }
-# `intent_sources_file` is the one explicit, read-only canonical YAML path baked into the
-# candidate image (see devenv/nautobot/Dockerfile) and shared by web, worker, and scheduler
-# via this same mounted config file. See devdocs/big/interface_contract/p4/plan.md Section 3.3.
-PLUGINS_CONFIG = {
-    "nautobot_intent_catalog": {
-        "intent_sources_file": "/opt/nautobot/intent_sources.yaml",
-    }
-}
+PLUGINS_CONFIG = {}
 # Prefer IPv6 addresses or IPv4 addresses in selecting a device's primary IP address? Default False
 #
 # if "NAUTOBOT_PREFER_IPV4" in os.environ and os.environ["NAUTOBOT_PREFER_IPV4"] != "":
