@@ -19,12 +19,6 @@ commit = info.get('vcs_info', {}).get('commit_id'); \
 expected = '${NINTENT_COMMIT}'; \
 sys.exit(0) if commit == expected else sys.exit(f'installed commit {commit!r} != requested {expected!r}')"
 
-# The exact nauto commit's canonical YAML, baked in read-only at one explicit path shared by
-# web, worker, and scheduler (all three run this same image). Build context is the superproject
-# root so this path resolves through the nauto submodule checkout.
-COPY nauto/seed/intent_sources.yaml /opt/nautobot/intent_sources.yaml
-RUN sha256sum /opt/nautobot/intent_sources.yaml > /opt/nautobot/intent_sources.yaml.sha256
-
 RUN printf '{"nintent_commit": "%s", "nauto_commit": "%s"}\n' "$NINTENT_COMMIT" "$NAUTO_COMMIT" > /opt/nautobot/build_info.json
 
 LABEL org.clusterintent.nintent-commit="${NINTENT_COMMIT}"
