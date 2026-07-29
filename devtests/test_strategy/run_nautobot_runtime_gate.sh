@@ -43,9 +43,14 @@ drop_test_database() {
 
 # All gate invocations share the one test-owned database. Two concurrent runs would migrate it at
 # the same time and fail with an already-existing column, so refuse to start beside another run.
-running_runtime_tests=$(docker exec "$container" sh -c \
-  'for entry in /proc/[0-9]*/cmdline; do tr "\0" " " < "$entry" 2>/dev/null; echo; done' \
-  | grep -c 'nautobot-server test ' || true)
+running_runtime_tests=$(docker exec "$container" sh -c '
+  for entry in /proc/[0-9]*/cmdline; do
+    value=$(tr "\0" " " < "$entry" 2>/dev/null)
+    case "$value" in
+      /usr/local/bin/python*" /usr/local/bin/nautobot-server test "*) printf "running\n" ;;
+    esac
+  done
+' | wc -l | tr -d ' ')
 if ((running_runtime_tests > 0)); then
   printf 'another Nautobot runtime test is already running in %s; refusing to share test_nautobot\n' \
     "$container" >&2
