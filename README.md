@@ -35,6 +35,24 @@ git submodule update --init --recursive
 - [devdocs/functions/](devdocs/functions/) — Design exploration logs for individual features
 - [devdocs/big/core_reconcile/](devdocs/big/core_reconcile/) — nctl reconciliation roadmap and phase reports
 
+## Desired-state operator workflow
+
+The database holds the current desired state. The batch REST endpoint is its
+only writer; GraphQL is the desired-state reader; Git holds framework and
+policy, never the private cluster payload. Keep the operator input in the
+ignored `.local/desired-state.yaml` file, preview it first, then commit the
+same document atomically:
+
+```bash
+uv run --project nctl nctl desired apply -f .local/desired-state.yaml
+uv run --project nctl nctl desired apply -f .local/desired-state.yaml --yes
+# Standard input is also supported.
+… | uv run --project nctl nctl desired apply -f - --yes
+```
+
+The local document is input, not a backup and is not automatically synchronized
+with Nautobot. Use the PostgreSQL dumps in `.local/backups/` for recovery.
+
 ## Reconciliation CLI
 
 From the repository root after configuring `nctl.toml` and `NAUTOBOT_TOKEN`:
