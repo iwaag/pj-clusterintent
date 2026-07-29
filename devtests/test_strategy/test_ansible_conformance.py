@@ -123,7 +123,7 @@ def test_real_create_lxc_playbook_uses_pinned_pct_argv_and_writes_result_locally
     source_playbook = Path(__file__).parents[2] / "ansible_agdev/playbooks/proxmox/create_lxc.yml"
     assert source_playbook.exists()
     inventory = tmp_path / "inventory.yml"
-    inventory.write_text("all:\n  hosts:\n    aghub:\n      ansible_connection: local\n      ansible_become: false\n")
+    inventory.write_text("all:\n  hosts:\n    example-host:\n      ansible_connection: local\n      ansible_become: false\n")
     calls = tmp_path / "pct.calls"
     pct = tmp_path / "pct"
     pct.write_text(
@@ -138,8 +138,8 @@ def test_real_create_lxc_playbook_uses_pinned_pct_argv_and_writes_result_locally
         "template": "local:vztmpl/ubuntu-24.04-standard_24.04-2_amd64.tar.zst",
         "storage": "local-lvm", "bridge": "vmbr0", "unprivileged": True,
         "vcpus": 1, "memory_mb": 512, "root_disk_gb": 8,
-        "hostname": "agfixture", "mac_address": "bc:24:11:00:01:09",
-        "ipv4_cidr": "192.168.0.9/24", "gateway_ipv4": "192.168.0.1",
+        "hostname": "example-guest", "mac_address": "aa:bb:cc:dd:ee:09",
+        "ipv4_cidr": "192.0.2.9/24", "gateway_ipv4": "192.0.2.1",
         "result_path": str(result),
     }
 
@@ -147,10 +147,10 @@ def test_real_create_lxc_playbook_uses_pinned_pct_argv_and_writes_result_locally
     assert "syntax" not in syntax.stderr.lower()
     applied = _run([playbook_binary, "-i", str(inventory), str(source_playbook), "--extra-vars", json.dumps(parameters)])
 
-    assert "aghub" in applied.stdout
+    assert "example-host" in applied.stdout
     assert calls.read_text().splitlines() == [
         "status 109",
-        "create 109 local:vztmpl/ubuntu-24.04-standard_24.04-2_amd64.tar.zst --hostname agfixture --cores 1 --memory 512 --rootfs local-lvm:8 --net0 name=eth0,bridge=vmbr0,hwaddr=bc:24:11:00:01:09,ip=192.168.0.9/24,gw=192.168.0.1 --unprivileged 1 --onboot 1",
+        "create 109 local:vztmpl/ubuntu-24.04-standard_24.04-2_amd64.tar.zst --hostname example-guest --cores 1 --memory 512 --rootfs local-lvm:8 --net0 name=eth0,bridge=vmbr0,hwaddr=aa:bb:cc:dd:ee:09,ip=192.0.2.9/24,gw=192.0.2.1 --unprivileged 1 --onboot 1",
         "start 109",
     ]
     assert json.loads(result.read_text()) == {"created": True, "started": True}
