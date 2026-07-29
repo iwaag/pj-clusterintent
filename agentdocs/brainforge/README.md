@@ -32,6 +32,7 @@ per session**, so a new session never reads a previous session's drafts:
     sources/             # drafts of Braindump text before `nctl braindump create/update`
     reviews/             # drafts of Alignment Review text before `nctl braindump review`
     evidence/            # JSON snapshots pulled during this session, for reference/audit
+    human/               # helpful resources for tasks which only can be done by humans.
   archive/               # old flat-layout sessions moved here 2026-07-22; not read by agents
 ```
 
