@@ -21,8 +21,9 @@ free text.  The only persisted relation in this exchange is one Alignment Review
 per Braindump.  Neither model has a relation to a DesiredNode, DesiredService,
 DesiredComputeInstance, endpoint, or an Actual-state record.
 
-Consequently, deleting a Braindump deletes its review but does not identify or
-change any Desired-state element.  The `nctl braindump` surface has no import
+Consequently, a Braindump has no relation that could identify or change any
+Desired-state element.  Braindumps are now immutable public statements; the `nctl braindump`
+surface has no import
 path into drift, reconciliation, Jobs, nodeutils, or Ansible.  This separation
 is intentional: natural-language text and an agent's interpretation must not
 silently actuate the cluster.
@@ -58,9 +59,8 @@ guest, but cannot stop, destroy, replace, resize, or migrate it.
 
 ### No complete deletion path exists
 
-`nctl braindump delete` is the only relevant deletion command.  It deletes a
-specific Braindump and its Alignment Review after confirmation.  It does not
-delete Desired or Actual state.
+There is no public Braindump deletion command.  A correction or changed wish is recorded as a new
+Braindump (supersession is not implemented yet); this does not delete Desired or Actual state.
 
 The current public Desired-state paths do not expose deletion: the Nautobot UI
 is read-only, retained REST endpoints reject Desired deletes, and the canonical
