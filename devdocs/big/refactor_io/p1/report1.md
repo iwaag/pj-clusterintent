@@ -24,3 +24,7 @@ continues to be owned by `compute_contract.py`.
 The migration is intentionally not applied to the local Nautobot scratch
 database in this step: the required clean runtime migration gate is the Phase
 1 final verification gate.
+
+Follow-up migration metadata verification: `./devtests/test_strategy/run_nautobot_runtime_gate.sh --keepdb`
+completed successfully after adding migration `0020_alter_intentsource_options`; Django reported
+`No changes detected`.
