@@ -72,6 +72,7 @@ doesn't count as stored. Don't put secrets or raw tokens/SSH keys in this worksp
 - `nctl drift [--host H] [--service S] [--json]` — desired vs actual, read-only
 - `nctl lifecycle <node-slug> <state> [--json]` — direct lifecycle setter (planned/approved/active/deprecated/retired), not part of reconcile
 - `nctl reconcile [host] [--yes] [--max-rounds N] [--json]` — without `--yes` it's a dry plan only; `--yes` actually executes. Never pass `--yes` without the user having approved the specific plan.
+- Retirement may use a desired-state batch draft in this session's scratch area, but that draft is never a source of truth: preview the two partial upserts for `DesiredNode.lifecycle: retired` and `DesiredComputeInstance.desired_presence: absent`, then apply that exact reviewed batch only after approval. Run `nctl reconcile GUEST --allow-destroy --json` and review `data.plan.actions` for its one pinned `destroy_compute_instance` action (guest slug, VMID, and control node). Only then may the separately approved `--allow-destroy --yes` run proceed. Success is fresh `compute_instance_removal_complete` drift evidence with reconcile `state: converged`; afterward use the separate `nctl prune GUEST` preview before any prune apply.
 
 `body`/`summary` are opaque strings — write natural language, not JSON, not scores, not status codes.
 
