@@ -3,7 +3,7 @@ FROM networktocode/nautobot:3.1.3-py3.12
 # Exact revision tuple frozen by devdocs/big/nctl_modularization/p1/plan.md Section 3.4.
 # Bump these two ARG defaults (and only these) when the plan's frozen tuple changes; do
 # not install a mutable branch head.
-ARG NINTENT_COMMIT=7c880237eeb5f1f75b678b199ebd19340bc4a5c5
+ARG NINTENT_COMMIT=b2b2b46b1cc7e755b7db3377328211a6814ee622
 ARG NAUTO_COMMIT=6462ebcbd9b8033853b60473dbe7f18d400cdd0b
 
 RUN test -n "$NINTENT_COMMIT" || (echo "NINTENT_COMMIT build arg is required" >&2 && exit 1)

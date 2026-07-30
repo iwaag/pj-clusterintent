@@ -61,3 +61,19 @@ was changed in the scratch environment.
 The destructive scratch apply remains pending the documented nintent deployment
 step. Once deployed, run the dry plan again, review the collector records, then
 use `nctl prune agfixture --yes` and repeat it to verify the no-op result.
+
+## Follow-up deployment attempt
+
+After the initial implementation was pushed, the local Nautobot image was
+rebuilt at nintent `b2b2b46b1cc7e755b7db3377328211a6814ee622`.  The live dry
+plan resolved the same eligible `agfixture` IDs but exposed a collector bug:
+Django treats a list passed to `Collector.collect()` as a homogeneous model
+set, so the mixed Device/VirtualMachine root list returned HTTP 500.  No
+deletion was performed.
+
+The correction is committed locally as nintent
+`b1395903dcd0407484744c732aa1ee61f3fea74a` (`fix collector roots for
+retirement prune`): collect the Device and VirtualMachine as separate roots.
+The nintent ordinary suite still passes (127 tests, 10 expected skips).  Push
+this follow-up commit, update the Dockerfile pin to its full SHA, and rebuild
+before continuing with the destructive acceptance sequence.
