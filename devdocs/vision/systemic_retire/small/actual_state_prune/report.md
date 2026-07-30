@@ -77,3 +77,12 @@ retirement prune`): collect the Device and VirtualMachine as separate roots.
 The nintent ordinary suite still passes (127 tests, 10 expected skips).  Push
 this follow-up commit, update the Dockerfile pin to its full SHA, and rebuild
 before continuing with the destructive acceptance sequence.
+
+The first follow-up deployment exposed the collector API's second constraint:
+each root must be a *homogeneous sequence*, not a bare model instance. The
+dry plan again stopped before mutation with HTTP 500 (`Device object is not
+subscriptable`). The final correction is committed as nintent
+`02156ca18dbe7f6e8dbb43abe595ee645949aeb9` (`fix collector root sequence
+shape`), which calls `collect([device])` and `collect([vm])` separately.
+The same nintent ordinary suite passes. This commit must be pushed and deployed
+before attempting the apply sequence.
