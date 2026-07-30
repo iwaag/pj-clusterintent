@@ -161,6 +161,8 @@ def test_real_destroy_lxc_playbook_uses_pinned_pct_argv_and_writes_result_locall
     playbook_binary = _binary("ansible-playbook")
     source_playbook = Path(__file__).parents[2] / "ansible_agdev/playbooks/proxmox/destroy_lxc.yml"
     assert source_playbook.exists()
+    assert "delegate_to: localhost" in source_playbook.read_text()
+    assert "become: false" in source_playbook.read_text()
     inventory = tmp_path / "inventory.yml"
     inventory.write_text("all:\n  hosts:\n    example-host:\n      ansible_connection: local\n      ansible_become: false\n")
     calls, state = tmp_path / "pct.calls", tmp_path / "present"
