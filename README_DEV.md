@@ -19,6 +19,26 @@ Before adding a test, record its distinct failure mode, tier, why a different la
 
 Use the persistent local Nautobot/PostgreSQL/Redis stack described in `.local/localenv_memo.md` as a reusable scratch prerequisite. Named databases, temporary files, loopback processes, keys, inventories, and synthetic rows are test-owned disposable state and must be cleaned by their gate. Physical nodes, Proxmox, external services, and production data are production/external targets: ordinary tests never contact or mutate them.
 
+## Minimal dry-run policy
+
+Dry-run is an operator-facing **plan**, not a second implementation of every
+operation. Keep it only at the boundaries where a user needs to review a
+pending desired-state write, reconciliation action set, destructive operation,
+or trust-store change. A plan must be read-only and report the target and
+proposed actions.
+
+The apply path is the authority for correctness: it may re-read state and
+reject a stale plan, then verifies its result through the normal observation
+and drift loop. Do not add a lower-level dry-run merely because a command
+mutates. In particular, external-tool check modes (such as Ansible `--check`)
+and Job-local dry-run switches are optional diagnostics, not a requirement for
+ordinary operation. Prefer one `nctl` plan/apply boundary over duplicated
+dry-run/apply branches below it.
+
+This is an experimental environment. Keep explicit confirmation for external
+or destructive targets, but otherwise choose the simplest design that makes
+the intended state transition and its result observable.
+
 ### Commands
 
 Run each command from its stated working directory. Evidence is summarized in the relevant phase report and may be retained privately under `.local/test-strategy/`; never put credentials, raw keys, or private payloads there. Cross-component completion requires the affected ordinary suites and all applicable required Tier A/conformance gates below.
