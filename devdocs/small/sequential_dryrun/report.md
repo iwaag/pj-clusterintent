@@ -50,7 +50,8 @@ uv run --project nctl nctl desired apply \
   --json
 ```
 
-It returned two creates and one conflict:
+Before deployment, it returned the expected old-plugin failure of two creates
+and one conflict:
 
 ```text
 desired_compute_instance: unresolved desired_node reference: 'agdummy'
@@ -58,13 +59,20 @@ totals: create=2, conflict=1
 transaction: dry_run, committed=false
 ```
 
-This is the expected result from the currently deployed, pre-change plugin.
-Per `.local/localenv_memo.md`, the persistent scratch Nautobot image installs
-`nintent` from GitHub and does not mount this local checkout. Therefore the
-requested post-deployment replay cannot be completed until this change is
-committed, pushed by the user, and the Nautobot image is rebuilt/restarted.
-No desired-state write, reconcile, Ansible, SSH, or Proxmox operation was run.
+After the user pushed commit `8ea7d4842c5fa778249ffb304668838fee9550f1`, the
+scratch Nautobot Dockerfile's pinned `NINTENT_COMMIT` was updated to that SHA
+and `docker compose --env-file ../.env up -d --build` was run from
+`devenv/nautobot/`. The rebuilt service reported that same SHA in
+`/opt/nautobot/build_info.json` and all three Nautobot services were healthy.
 
-After that deployment, rerun the same command. Expected result: exactly three
-`create` actions, zero conflicts, and `transaction.status=dry_run` with
-`committed=false`.
+The replay then returned the target result:
+
+```text
+desired_node: create
+desired_endpoint: create
+desired_compute_instance: create
+totals: create=3, conflict=0
+transaction: dry_run, committed=false
+```
+
+No desired-state write, reconcile, Ansible, SSH, or Proxmox operation was run.
