@@ -116,5 +116,7 @@ the planned VMID on its planned control node, and then performs the normal
 observation/ingest loop. Completion is fresh drift showing the retained
 VirtualMachine with `proxmox_presence=absent`, not a direct ledger edit. A
 repeat reconcile must plan no second destroy. This is removal of the compute
-resource only; it does not delete Braindumps, Desired rows, VirtualMachine
-rows, or Device rows.
+resource only. After that converged state has been reviewed, the separate
+`nctl prune RETIRED_GUEST` dry plan and `nctl prune RETIRED_GUEST --yes` can
+remove that guest's retained Actual and Desired ledger records. Pruning never
+contacts infrastructure and retains Braindumps and prior operation evidence.
