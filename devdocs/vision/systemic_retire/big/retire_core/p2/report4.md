@@ -2,21 +2,31 @@
 
 Date: 2026-07-30
 
-## Status: blocked on operator push
+## Status: complete
 
-Local implementation is committed and the scratch image pin is ready:
+The operator pushed the exact nauto revision, and the scratch deployment completed:
 
 - nauto `6462ebcbd9b8033853b60473dbe7f18d400cdd0b`
 - nctl `13ae1cd64646cc94af76f54a200ca3d69b611318`
-- superproject `6964dfd` (before this report commit), with `NAUTO_COMMIT` pinned to the new nauto
-  revision.
+- the rebuilt web image's `/opt/nautobot/build_info.json` records nauto `6462ebc` and nintent
+  `7c88023`.
+- Git Repository `main` synced successfully to `6462ebc`; the worker checkout and refreshed Job
+  records were verified at that SHA.
+- `Seed Home Cluster` was applied with `dry_run=false`, `update_existing=true`; the deployed
+  `proxmox_presence` CustomField now targets both `virtualization.virtualmachine` and
+  `virtualization.vminterface`.
 
-The deployed container still truthfully reports nauto `3bd1820`. The plan explicitly reserves
-nauto push for the operator, and rebuilding or Git Repository sync before that commit is available
-remotely cannot deploy the change. No `agfixture` or Proxmox mutation has occurred.
+The first fresh, `aghub`-scoped `nctl reconcile aghub --refresh-observation --yes` run completed
+as operation `01KYRK6N41KZH4025VK89EXJ12`: normal nodeutils collection and the real **Ingest
+Nodeutils Inventory** Job produced a complete platform observation and wrote all ten real guests
+(including `agfixture`) `proxmox_presence=present`.
 
-Pre-deployment gates already passed: compute conformance 1 case and Nautobot runtime keepdb 181
-cases (plus the Step 1/3 ordinary suites). After the operator pushes the exact nauto commit, the
-remaining scratch-only work is: rebuild/sync, run Seed Home Cluster, take fresh read-only
-observations and ingests, create/verify/delete the disposable synthetic VM row, rerun drift, and
-write the final gate/report evidence.
+A disposable scratch VM `p2-synthetic-absence-proof` (LXC VMID 65002, no Proxmox guest) was then
+created in the observed Cluster. The second fresh observation/real Job ingest, operation
+`01KYRK9W1H1HEX3ZG56P7NRJPM`, changed only that synthetic VM to `absent`; all real guests stayed
+`present` and platform state remained `complete`. Its `proxmox_observed_at` advanced to the fresh
+generation. The synthetic row was deleted afterward. No Proxmox or `agfixture` write occurred.
+
+Before, during, and after the proof, `nctl drift --json` remained `drifting=2`, `converged=9`,
+`unknown=4`, with the same compute codes. The intentional only output addition is
+`compute_realization_summary.actual.presence`.
