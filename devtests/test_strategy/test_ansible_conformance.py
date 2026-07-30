@@ -154,3 +154,36 @@ def test_real_create_lxc_playbook_uses_pinned_pct_argv_and_writes_result_locally
         "start 109",
     ]
     assert json.loads(result.read_text()) == {"created": True, "started": True}
+
+
+def test_real_destroy_lxc_playbook_uses_pinned_pct_argv_and_writes_result_locally(tmp_path: Path):
+    """Tier A: real destroy playbook crosses only a disposable one-guest pct boundary."""
+    playbook_binary = _binary("ansible-playbook")
+    source_playbook = Path(__file__).parents[2] / "ansible_agdev/playbooks/proxmox/destroy_lxc.yml"
+    assert source_playbook.exists()
+    inventory = tmp_path / "inventory.yml"
+    inventory.write_text("all:\n  hosts:\n    example-host:\n      ansible_connection: local\n      ansible_become: false\n")
+    calls, state = tmp_path / "pct.calls", tmp_path / "present"
+    state.write_text("present")
+    pct = tmp_path / "pct"
+    pct.write_text(
+        "#!/bin/sh\n"
+        f"printf '%s\\n' \"$*\" >> {calls}\n"
+        f"if [ \"$1\" = status ] && [ -f {state} ]; then echo 'status: running'; exit 0; fi\n"
+        f"if [ \"$1\" = destroy ]; then rm -f {state}; fi\n"
+        "if [ \"$1\" = status ]; then exit 2; fi\n"
+    )
+    pct.chmod(0o700)
+    result = tmp_path / "result.json"
+    parameters = {"pct_binary": str(pct), "nctl_compute_become": False, "vmid": 109, "result_path": str(result)}
+    syntax = _run([playbook_binary, "-i", str(inventory), str(source_playbook), "--syntax-check"])
+    assert "syntax" not in syntax.stderr.lower()
+    _run([playbook_binary, "-i", str(inventory), str(source_playbook), "--extra-vars", json.dumps(parameters)])
+    assert calls.read_text().splitlines() == ["status 109", "stop 109", "destroy 109", "status 109"]
+    assert json.loads(result.read_text()) == {"destroyed": True, "absent": True}
+
+    calls.unlink()
+    absent_result = tmp_path / "absent-result.json"
+    _run([playbook_binary, "-i", str(inventory), str(source_playbook), "--extra-vars", json.dumps({**parameters, "result_path": str(absent_result)})])
+    assert calls.read_text().splitlines() == ["status 109", "status 109"]
+    assert json.loads(absent_result.read_text()) == {"destroyed": False, "absent": True}
