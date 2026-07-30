@@ -23,6 +23,8 @@ Use the persistent local Nautobot/PostgreSQL/Redis stack described in `.local/lo
 
 Run each command from its stated working directory. Evidence is summarized in the relevant phase report and may be retained privately under `.local/test-strategy/`; never put credentials, raw keys, or private payloads there. Cross-component completion requires the affected ordinary suites and all applicable required Tier A/conformance gates below.
 
+Run Ansible ad-hoc commands and playbooks from `ansible_agdev/` (or set `ANSIBLE_CONFIG=ansible_agdev/ansible.cfg`). Its `ansible.cfg` supplies the approved SSH key, vault, and default inventory settings; an inventory path alone does not load that configuration.
+
 | gate | working directory | command | tier owned | prerequisites / expected skips | evidence and cleanup | required |
 |---|---|---|---|---|---|---|
 | nctl ordinary | `nctl` | `uv run pytest -q --durations=20` | A–C nctl | local uv; no expected skips | pytest output; `tmp_path` owns artifacts | yes for nctl changes |
