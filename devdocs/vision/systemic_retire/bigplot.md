@@ -51,11 +51,13 @@ absence or convergence. Grace-period policy remains future work.
 Once dependency, observation, and retention conditions are satisfied, add narrowly scoped pruning
 for eligible Desired tombstones and Actual ledger rows.
 
-### 8. Define final Braindump deletion
+### 8. Purge explicitly approved superseded Braindumps — complete
 
-Only after the downstream lifecycle is proven, decide when superseded Braindumps can be physically
-deleted.  The policy may retain minimal operation evidence even when resource-specific Desired,
-Actual, and prose records are removed.
+An explicitly approved, already superseded Braindump may be physically deleted immediately through
+the narrow `nctl braindump purge ID --yes` path. The API re-checks the exact UUID and status and
+deletes only that document and its one-to-one Alignment Review transactionally. There is no
+retention timer, soft delete, archive, recovery workflow, or impact on structured Desired/Actual
+state, reconciliation evidence, or cluster resources.
 
 ## Ordering principle
 
