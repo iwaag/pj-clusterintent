@@ -97,3 +97,31 @@ addresses`) now adds an IP only when every Device/VM interface attachment is in
 the selected collector set; shared IPs remain out of scope. The nintent
 ordinary suite remains green. Push and deploy this commit before the final
 dry-plan/apply/no-op acceptance.
+
+## Final scratch acceptance
+
+With nintent `48f6552ab01e119d30e6efe3d50d3914024718b8` deployed, dry plan
+`01KYRX5980YVT86DR1WZAX47Y8` selected exactly seven Actual records: the
+agfixture Device, VirtualMachine, VM interface, exclusively attached
+IPAddress and its link, and two tags. It selected exactly three Desired rows:
+the endpoint, compute instance, and node.
+
+Apply `01KYRX5G5NB4MEGPF7EERHJ8TQ` completed all recorded stages:
+
+1. deleted those seven Actual records, with no sibling guest or cluster in the
+   collector result;
+2. committed all three Desired deletes through the canonical batch API; and
+3. removed the matching agfixture upserts from `.local/desired-state.yaml`.
+
+The retained agfixture Braindump remains readable (`nctl braindump list`), and
+the operation still exposes its event log plus Actual-plan/delete, Desired
+batch, and operator-input evidence via `nctl ops show
+01KYRX5G5NB4MEGPF7EERHJ8TQ`.
+
+A repeat `nctl prune agfixture --yes --json` returned `state=noop` with
+`result=already_pruned`; it performed no mutation. The full cluster drift runs
+successfully and has no agfixture target. During this check, an unrelated
+empty-Desired-platform assertion was discovered and corrected in nctl
+(`compute_evaluation.py`); it now renders a platform summary instead of
+crashing after a complete prune. `cd nctl && uv run pytest -q --durations=20`
+passes with **1010 tests**.
