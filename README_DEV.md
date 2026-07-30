@@ -27,7 +27,7 @@ Run each command from its stated working directory. Evidence is summarized in th
 |---|---|---|---|---|---|---|
 | nctl ordinary | `nctl` | `uv run pytest -q --durations=20` | A–C nctl | local uv; no expected skips | pytest output; `tmp_path` owns artifacts | yes for nctl changes |
 | compute conformance | superproject root | `uv run --project nctl pytest -q devtests/test_strategy/test_compute_conformance.py` | A contract ownership | sibling `nintent` checkout; no expected skips | generated owner fixture equals committed consumer fixture | required when either compute contract changes |
-| nintent Django-free fast | `nintent` | `python3 -m unittest discover -s nautobot_intent_catalog/tests` | B plus static smoke | Python; **14** expected Nautobot/file-location skips | unittest output; no persistent state | yes for nintent pure-domain changes |
+| nintent Django-free fast | `nintent` | `python3 -m unittest discover -s nautobot_intent_catalog/tests` | B plus static smoke | Python; **10** expected Nautobot/file-location skips | unittest output; no persistent state | yes for nintent pure-domain changes |
 | nauto ordinary | `nauto` | `python3 -m unittest discover -s tests` | A–C ingest domain | Python; no expected skips | unittest output; fakes own state | yes for nauto changes |
 | nodeutils ordinary | `nodeutils` | `uv run pytest -q --durations=20` | A–C collector | local uv; no expected skips | pytest output; temporary files | yes for nodeutils changes |
 | Ansible helper ordinary | `ansible_agdev` | `python3 -m unittest discover -s roles/nodeutils_pvesh_helper/tests` | helper contract | Python; no expected skips | unittest output; no external helper | yes for helper changes |
