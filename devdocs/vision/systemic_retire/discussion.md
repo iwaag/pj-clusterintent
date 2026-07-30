@@ -1,13 +1,13 @@
 # Systemic retirement — discussion summary
 
-Date: 2026-07-29
+Date: 2026-07-30
 
 ## Starting point
 
 The disposable Proxmox LXC `agfixture` was successfully moved from a Braindump wish through
-structured Desired state into observed Actual state.  The attempt to clean it up exposed that the
-system has no complete path for retiring Desired intent, removing the real resource, retaining and
-later pruning Actual evidence, or finally deleting related data.
+structured Desired state into observed Actual state. The resulting work now provides a complete
+narrow path to retire its Desired intent, destroy one explicitly absent Proxmox LXC, and retain
+fresh Actual absence evidence. Pruning records and deleting related prose remain outside that path.
 
 The first idea was to design that complete retirement path immediately, including provenance from
 Braindumps to Desired records and a separate retirement case.  The discussion then narrowed to an
@@ -65,15 +65,14 @@ need to be redesigned to establish Braindump content immutability and supersessi
 
 ## Deferred work
 
-This decision deliberately does not yet define:
+This decision deliberately still does not define:
 
 - automatic interpretation of contradictory prose;
-- Desired lifecycle retirement or dependency ordering;
+- general Desired lifecycle retirement or dependency ordering beyond the completed one-LXC path;
 - intentional unmanaged classification for Actual resources;
-- Proxmox stop or destroy actions;
-- absence observation, retention periods, or Actual tombstones;
+- Proxmox stop actions, QEMU destruction, or a general provider-disposal abstraction;
+- retention periods or Actual tombstone pruning;
 - pruning Desired or Actual database records; or
 - when a superseded Braindump becomes eligible for physical deletion.
 
 Those capabilities can be designed in order after the current Braindump set becomes deterministic.
-

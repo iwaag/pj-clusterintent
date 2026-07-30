@@ -66,6 +66,8 @@ uv run --project nctl nctl render production --out ansible_agdev/inventories/gen
 uv run --project nctl nctl reconcile
 uv run --project nctl nctl reconcile HOST --refresh-observation
 uv run --project nctl nctl reconcile --yes
+uv run --project nctl nctl reconcile RETIRED_GUEST --allow-destroy
+uv run --project nctl nctl reconcile RETIRED_GUEST --allow-destroy --yes
 uv run --project nctl nctl ops list
 uv run --project nctl nctl ops show OPERATION_ID
 ```
@@ -98,3 +100,21 @@ Use `nctl reconcile HOST --refresh-observation --yes` when a fresh nodeutils
 collection is explicitly required even though current drift is converged.
 Observation deploys the exact nodeutils commit pinned by this superproject,
 not mutable upstream `HEAD`, and records that SHA in the operation evidence.
+
+## Retiring one Proxmox LXC
+
+Braindumps remain conversational context only: after confirming the user's
+wish, declare the exact `DesiredNode` lifecycle as `retired` and its exact
+`DesiredComputeInstance.desired_presence` as `absent` in one canonical
+desired-state batch. A dry `nctl reconcile RETIRED_GUEST` then shows the
+pinned `destroy_compute_instance` action. `--yes` alone refuses destruction;
+review the unchanged plan and use `--allow-destroy --yes` only for that one
+planned Proxmox LXC.
+
+The action re-resolves its identity immediately before mutation, destroys only
+the planned VMID on its planned control node, and then performs the normal
+observation/ingest loop. Completion is fresh drift showing the retained
+VirtualMachine with `proxmox_presence=absent`, not a direct ledger edit. A
+repeat reconcile must plan no second destroy. This is removal of the compute
+resource only; it does not delete Braindumps, Desired rows, VirtualMachine
+rows, or Device rows.

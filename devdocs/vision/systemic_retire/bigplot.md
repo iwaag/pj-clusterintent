@@ -1,6 +1,6 @@
 # Systemic retirement — big plot
 
-Date: 2026-07-29
+Date: 2026-07-30
 
 ## Goal
 
@@ -27,22 +27,24 @@ When an active Braindump says that an existing object is no longer wanted, the a
 the corresponding structured Desired and Actual objects and presents a read-only proposal.
 Free-form prose alone makes no state change.
 
-### 4. Retire structured Desired state
+### 4. Retire structured Desired state — complete for one LXC
 
-After user confirmation, retire the exact Desired objects in dependency-aware order.  Define drift
-so a retired intent with a still-present actual realization is visible but does not request create,
-start, or ordinary convergence work.
+After user confirmation, the canonical Desired writer can atomically retire the exact node and set
+its compute instance's explicit `desired_presence=absent`. Drift keeps a retired/present
+realization visible without requesting create, start, or ordinary correction.
 
-### 5. Decide and perform resource disposition
+### 5. Decide and perform resource disposition — complete for one Proxmox LXC
 
-Separately choose whether the actual resource is retained, intentionally unmanaged, stopped, or
-destroyed.  Add bounded Proxmox LXC stop/destroy support first, with a dry plan and explicit target
-identity.
+For a retired compute instance explicitly declared absent, `nctl reconcile` plans one bounded
+Proxmox LXC destroy action. `--allow-destroy --yes` is required to execute the pinned VMID on the
+pinned control host; ordinary apply refuses it. Retained and unmanaged resources still do not
+imply deletion, and stop/unmanaged disposition remains future work.
 
-### 6. Re-observe and retain absence evidence
+### 6. Re-observe and retain absence evidence — complete for that LXC path
 
-Run normal observation after resource action.  Represent disappearance and any grace period
-without immediately deleting the Actual ledger record.
+Normal complete Proxmox observation records the destroyed guest as absent while retaining the
+VirtualMachine, Device, and their prior evidence. Incomplete or stale observation cannot claim
+absence or convergence. Grace-period policy remains future work.
 
 ### 7. Prune structured records
 
@@ -59,4 +61,3 @@ Actual, and prose records are removed.
 
 Later stages may refine earlier interfaces, but they must not make superseded prose current again
 or allow prose to actuate the cluster directly.
-
