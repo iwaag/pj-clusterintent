@@ -86,3 +86,14 @@ subscriptable`). The final correction is committed as nintent
 shape`), which calls `collect([device])` and `collect([vm])` separately.
 The same nintent ordinary suite passes. This commit must be pushed and deployed
 before attempting the apply sequence.
+
+After deploying that correction, the dry plan completed successfully (operation
+`01KYRX06ABXRSHZKKF0XFHMRC9`) and identified the exact linked Device, VM, VM
+interface, tags, and IP-link rows. Review found that Django's normal cascade
+does not include the exclusively attached IPAddress itself, so apply was
+deliberately withheld. nintent commit
+`48f6552ab01e119d30e6efe3d50d3914024718b8` (`prune exclusively attached IP
+addresses`) now adds an IP only when every Device/VM interface attachment is in
+the selected collector set; shared IPs remain out of scope. The nintent
+ordinary suite remains green. Push and deploy this commit before the final
+dry-plan/apply/no-op acceptance.
