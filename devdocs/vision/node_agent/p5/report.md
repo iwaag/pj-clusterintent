@@ -1,6 +1,6 @@
 # Node Agent — Phase 5 Report
 
-Status: in progress (2026-07-31).
+Status: complete (2026-07-31).
 
 ## Step 0 — API pinning spike
 
@@ -45,7 +45,46 @@ cd nctl && uv run pytest -q --durations=20
 Adapter coverage uses `httpx.MockTransport` for the pinned paths, normal
 responses, missing sessions, timeout-with-session-ID, and interrupt refusal.
 
-## Next step — live verification
+## Step 3 — live verification
 
-The plan requires explicit operator approval before the state-changing live
-checks. Those checks have not run yet.
+Operator approval was received before the state-changing checks. All commands
+used the managed SSH tunnel and the configured workdir; no endpoint or SSH
+option came from argv.
+
+| Check | Evidence |
+|---|---|
+| Session list | `nctl agent sessions agpc --json` listed known session `ses_048032980ffewkvz6U06YkJJ6P` with its Phase 2 title. |
+| Start and continue | `nctl agent run agstudio` created `ses_047d3080cffenb7sM4bm3LDF64` (operation `01KYW2SXJZ15M030WDEXB38XX6`) and wrote the exact `phase5-run` marker. `nctl agent send` continued that same session (operation `01KYW2TF7NK72ZQA6B1RPGP0CN`) and read the marker back. |
+| Abort proof | The dedicated sleep-then-write session `ses_047d27081ffeCvPwVsCxXg8K9W` was interrupted by `nctl agent abort` (operation `01KYW2VERS9XV1P7R16T8NN2X1`, HTTP 204 accepted). After more than the requested 30 seconds, `.p5-abort-marker.txt` was absent. The ordinary live marker was then verified and removed. |
+| Failure shape | `nctl agent sessions no-such-node --json` returned the structured `unknown_host` error with no tunnel or node action. |
+
+The first abort attempt exposed two OpenCode timing details that the API
+document alone did not establish: message POST can acknowledge before the
+remote task starts, and a completed-looking assistant message can have no text
+parts. The adapter now polls the node-local message stream for a new completed
+text response. It reports `agent_interrupted` when an active session stops
+before that response, and `agent_reply_missing` after a short inactive grace
+period. The initial probe files were removed before the successful retry; all
+final probe artifacts are absent. The validated temporary SSH processes also
+exited; no forwarding tunnel remained.
+
+## Step 4 — close
+
+The run/send envelopes now record controller-configured runtime version
+`1.18.10`, model `ollama/qwen3.6:35b-a3b-coding-nvfp4`, operation ID, node,
+session ID, timing, and outcome. Prompt/reply text remains out of the durable
+operation log.
+
+Final verification:
+
+```text
+cd nctl && uv run pytest -q --durations=20
+1034 passed in 8.62s
+```
+
+## Carried limitation
+
+OpenCode may produce a no-text assistant record while becoming inactive. This
+is reported as `agent_reply_missing` rather than leaving a controller wait
+running until the full reply timeout. Diagnosis remains available through the
+session ID with `sessions`, `attach`, or the node-local runtime.

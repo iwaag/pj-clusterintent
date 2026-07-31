@@ -115,6 +115,8 @@ service using the normal reconciliation path.
 
 ## Phase 5 — Programmatic delegation
 
+Status: complete (2026-07-31). See [Phase 5 report](p5/report.md).
+
 Expose enough structured control for a controller-side agent to delegate work
 without driving a TUI.
 
