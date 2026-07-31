@@ -1,6 +1,7 @@
 # Phase 3 Report — Consumer-Side Actual Evidence
 
-Status: **in progress**.
+Status: **in progress** (Step 4 binding baseline complete; whole-cluster
+baseline and Step 5 fault drills remain open).
 
 ## Step 1 — Metadata and probe-config plumbing
 
@@ -147,8 +148,65 @@ after Step 1; 27 net new). Ansible conformance gate
 
 Commit: nctl `d72d873`.
 
+## Step 4 — Deploy and live baseline
+
+Run live on 2026-08-01 JST from the repository root:
+
+```text
+uv run --project nctl nctl reconcile aghub --refresh-observation --yes
+uv run --project nctl nctl reconcile agpc --refresh-observation --yes
+uv run --project nctl nctl reconcile agstudio --refresh-observation --yes
+```
+
+The three collection, service-profile, and post-actuation observation paths
+all completed successfully. The operation results were:
+
+- `aghub`: operation `01KYWQ1EZ8AGBBYEM8S61RS7WY`; the node itself was
+  converged, but the command exited non-zero with `no_progress` because its
+  scoped service included binding drift on the other consumer placements.
+- `agpc`: operation `01KYWQ4QHAPHDS4A8DK07H60XQ`; its original
+  `agstudio.local` binding was repaired. The command exited non-zero with
+  `no_progress` because unrelated service drift and the then-unrepaired
+  `agstudio` binding remained in the scope.
+- `agstudio`: operation `01KYWQ6T6KNBWVNFB6017RM2XH`; converged successfully
+  with `scope summary: converged=3` and `ok: True`.
+
+Fresh nodeutils evidence was present for all three consumers under
+`facts.services.observed_services["node-agent"].bindings.llm_provider`:
+
+| Node | Checked at (UTC) | Configured endpoint | HTTP | Reachability |
+| --- | --- | --- | --- | --- |
+| `aghub` | `2026-07-31T18:31:10+00:00` | `http://agstudio.home.arpa:11434/v1` | 200 | reachable |
+| `agpc` | `2026-07-31T18:32:36+00:00` | `http://agstudio.home.arpa:11434/v1` | 200 | reachable |
+| `agstudio` | `2026-07-31T18:33:25+00:00` | `http://agstudio.home.arpa:11434/v1` | 200 | reachable |
+
+The desired endpoint was the same value for every placement. The final
+`node-agent` service target was `converged` with no `binding_*` diffs, so all
+three bindings evaluated as `satisfied` (satisfied is represented by absence
+of a binding gap rather than a stored state).
+
+The final whole-cluster result was not converged:
+
+```json
+{
+  "generated_at": "2026-07-31T18:33:40.700533+00:00",
+  "summary": {"drifting": 3, "converged": 10, "unknown": 3},
+  "severity_summary": {"error": 6, "warning": 5, "info": 6},
+  "node_agent": {"status": "converged", "binding_diffs": []}
+}
+```
+
+The remaining gaps are outside the Phase 3 binding implementation:
+`agdnsmasq` compute-primary-endpoint/observation staleness, `agbach`
+observation staleness, missing `pj-voxel3dprint`, and a `prometheus`
+placement mismatch. Consequently Step 4's binding-evidence and satisfied-state
+checks are complete, while its literal whole-cluster convergence check remains
+open.
+
 ## Next
 
-Step 4 — deploy and live baseline (pause for user approval: push
-nodeutils/nctl, agree the superproject gitlink move, then
-`nctl reconcile <slug> --refresh-observation` for aghub/agpc/agstudio).
+Step 5 — fault drills. This still requires separate explicit approval because
+it deliberately edits a live consumer configuration and stops the shared
+Ollama provider. After restoration, the pre-existing non-binding cluster gaps
+above also need resolution before literal whole-cluster convergence can be
+recorded.

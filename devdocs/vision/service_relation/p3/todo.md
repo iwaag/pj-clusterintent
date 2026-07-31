@@ -7,17 +7,9 @@ observation, and nctl's five-state evaluation folded into drift/convergence.
 gitlink already points at the pushed commits (`ansible_agdev` `9b3afae`,
 `nctl` `d72d873`, `nodeutils` `7030bbd`) — no gitlink move is outstanding.
 
-## Blocked: live actuation cannot run from this session
+## Step 4 — Deploy and live baseline (binding checks done; cluster check open)
 
-`nctl reconcile <slug> --refresh-observation --yes` (real SSH/Ansible
-actuation against aghub/agpc/agstudio) is rejected by this environment's
-auto-mode tool classifier, independent of in-conversation approval. Retrying
-the identical command does not help. This blocks both remaining steps below
-until the operator runs the commands directly from their own terminal.
-
-## Step 4 — Deploy and live baseline (not done)
-
-Run from the repository root:
+Run from the repository root on 2026-08-01 JST:
 
 ```
 uv run --project nctl nctl reconcile aghub --refresh-observation --yes
@@ -25,13 +17,16 @@ uv run --project nctl nctl reconcile agpc --refresh-observation --yes
 uv run --project nctl nctl reconcile agstudio --refresh-observation --yes
 ```
 
-Then confirm via `uv run --project nctl nctl drift --json`:
+Results are recorded in [report.md](report.md):
 
-- evidence present for all three nodes' `llm_provider` binding
-  (`observed_services["node-agent"].bindings.llm_provider`);
-- all three show binding state `satisfied` (not `binding_unknown`, which is
-  the current state — confirmed live before this session paused);
-- whole-cluster drift converged.
+- done: evidence is present for all three nodes' `llm_provider` binding
+  (`observed_services["node-agent"].bindings.llm_provider`), with the desired
+  endpoint, HTTP 200, and `reachable`;
+- done: all three evaluate as `satisfied`; the final `node-agent` service is
+  `converged` with no `binding_*` diffs;
+- open: whole-cluster drift is not converged (`drifting=3`, `converged=10`,
+  `unknown=3`) because of pre-existing non-binding gaps on `agdnsmasq`,
+  `agbach`, `pj-voxel3dprint`, and `prometheus`.
 
 Report the exact `nctl drift --json` output (or at least the per-node
 binding state and overall convergence) back so it can be recorded in
@@ -59,7 +54,8 @@ From plan.md's "Completion criteria" section, not yet verified live:
   (verified only via a doctored unit-test snapshot in Step 3, not live);
 - stopping Ollama produces `unreachable` (not yet exercised live);
 - restoring both and reconciling returns the cluster to converged (not yet
-  exercised live);
+  exercised live; pre-existing non-binding cluster gaps must also be resolved
+  for the literal whole-cluster criterion);
 - freshness threshold is chosen and written down — done
   (`service_observation_max_age_hours`, default 24h, threaded into every
   binding's evidence as `stale_after_hours`) — this one criterion is
