@@ -1,0 +1,3 @@
+node-agentにollamaのエンドポイントのアドレスが渡っていなかった。
+理想的にはbraidumpにollamaの必要性が記述され、そこからdesired serivceやdesired service placementにollamaについてのdesired stateが表現され、実際にインストールのうえ、actual stateとしてserviceの一つとして登録され、そこからansible_agdevのvarとして出力されていなければならない。
+githubの公開リポジトリにローカルPCのアドレスが載ってるのはまずい。これはgitignoreになっているべきではないか。
