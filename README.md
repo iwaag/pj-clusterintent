@@ -60,6 +60,7 @@ From the repository root after configuring `nctl.toml` and `NAUTOBOT_TOKEN`:
 ```bash
 uv run --project nctl nctl status
 uv run --project nctl nctl drift --json
+uv run --project nctl nctl relations --json
 uv run --project nctl nctl render dnsmasq
 uv run --project nctl nctl render hosts-intent --out ansible_agdev/inventories/generated
 uv run --project nctl nctl render production --out ansible_agdev/inventories/generated
@@ -76,6 +77,10 @@ uv run --project nctl nctl ops show OPERATION_ID
 composition and dnsmasq rendering are also nctl responsibilities; nintent stores desired state,
 Nautobot stores actual ledger state, nodeutils supplies observations, and Ansible actuates
 generated artifacts.
+`nctl relations` projects that same state as a service-binding graph: one edge per consumer
+binding with its resolved provider, actual state, and gap codes, plus an informational
+`unreferenced` service list — derived fresh on every call, never persisted, and always agreeing
+with `nctl drift` on binding state since both call the same evaluation.
 For dnsmasq, a healthy daemon alone is not convergence: nctl also compares the SHA-256 of its
 deterministic, nctl-owned records/ranges file with the digest nodeutils observed on the target.
 Only `/etc/dnsmasq.d/nintent-records.conf` is content-observed in this phase; other package and
