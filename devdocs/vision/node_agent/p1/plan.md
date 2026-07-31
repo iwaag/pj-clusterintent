@@ -1,6 +1,6 @@
 # Node Agent — Phase 1 Implementation Plan: Single-Node Technology Spike
 
-Status: planned.
+Status: complete (2026-07-31; see [report.md](report.md)).
 
 This is a spike, not a framework. The goal is to prove, on one real node, that a
 controller-side terminal can open and resume a useful local coding-agent
