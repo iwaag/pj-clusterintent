@@ -66,6 +66,8 @@ node without manual setup.
 
 ## Phase 3 — Interactive `nctl` entry point
 
+Status: complete (2026-07-31). See [Phase 3 report](p3/report.md).
+
 Add the smallest useful controller interface.
 
 Suggested commands:
