@@ -1,6 +1,6 @@
 # Node Agent — Phase 2 Plan: Repeatable Ansible Deployment
 
-Status: not started.
+Status: complete (2026-07-31).
 Input: [Phase 1 findings](../p1/report.md), [roadmap Phase 2](../roadmap.md).
 
 ## Goal

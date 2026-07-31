@@ -47,6 +47,8 @@ session on one node without an interactive SSH shell.
 
 ## Phase 2 — Repeatable Ansible deployment
 
+Status: complete (2026-07-31).
+
 Turn the successful spike into a small `ansible_agdev` role and playbook.
 
 - Install a pinned agent runtime version and its minimal dependencies.
