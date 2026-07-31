@@ -61,3 +61,22 @@ collection and inventory regeneration but correctly stopped as
 Future work should identify the local Ollama process/API exposure as seen from
 `agstudio`'s collector and adjust only that probe, then rerun
 `nctl reconcile agstudio --refresh-observation --yes`.
+
+## Follow-up Diagnosis (2026-07-31)
+
+Direct read-only checks on `agstudio` established the immediate cause:
+
+- Ollama is healthy (`ollama serve`, launchd label `homebrew.mxcl.ollama`, and
+  a listener on port 11434); both loopback API endpoints return HTTP 200.
+- `agstudio.home.arpa` does not resolve on `agstudio` itself. The original
+  nodeutils HTTP probe used that client-facing DNS name, so it could not
+  observe its own provider even though consumers could use it.
+
+The follow-up implementation adds a generated local-loopback probe endpoint
+as a fallback while retaining the client-facing endpoint for consumers.
+However, `playbooks/nautobot/run_nodeutils_collect.yml` clones nodeutils from
+GitHub into `/opt/nodeutils`; it cannot use an unpushed local nodeutils commit.
+The remote collector was confirmed to lack the new probe function. Push the
+new nodeutils commits, then rerun the `agstudio` refresh observation. This is
+expected to register `ollama` as an active `http_probe` service and converge
+the remaining drift.
