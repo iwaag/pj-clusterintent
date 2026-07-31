@@ -92,7 +92,16 @@ The commit exists locally but has not been published to the node's configured
 nodeutils Git remote. nctl correctly refused to substitute mutable upstream
 HEAD, so no new observation was ingested and no agent service was mutated.
 
-To resume, an operator must push nodeutils commit `070b656` to the configured
+The original pinned commit was subsequently published and fresh collection
+then reached both hosts. That live check found a Linux-only collector defect:
+the deployed unit is `opencode-agent.service`, while the first collector
+revision looked for `opencode.service`. macOS correctly recorded the running
+agent; Linux therefore emitted no node-agent entry even though the service
+playbook completed unchanged. The corrected collector is local commit
+`d5a4cf6` and again needs publication before the exact pinned deployment can
+be rerun. No agent has been stopped for the repair proof yet.
+
+To resume, an operator must push nodeutils commit `d5a4cf6` to the configured
 remote (the local-environment rules reserve pushes for the user), then rerun
 the fresh observation. After it succeeds, perform the planned reversible
 `agpc` stop/reconcile proof and verify the immediate repeat has no action.
@@ -101,6 +110,7 @@ the fresh observation. After it succeeds, perform the planned reversible
 
 - `ansible_agdev` `c9d26e7` — profile and reconcile-compatible playbook.
 - `nodeutils` `070b656` — user-service observation.
+- `nodeutils` `d5a4cf6` — corrected Linux user-unit name.
 - `nctl` `cc409f0` — profile scope/contract coverage.
 - Superproject `f1afd50` — submodule pointer integration.
 
