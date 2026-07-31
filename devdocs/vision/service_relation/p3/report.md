@@ -203,10 +203,28 @@ placement mismatch. Consequently Step 4's binding-evidence and satisfied-state
 checks are complete, while its literal whole-cluster convergence check remains
 open.
 
+### Re-check (later the same session)
+
+A follow-up `nctl drift --json` no longer shows all three bindings
+`satisfied`: `agstudio`'s own `node-agent` placement (bound to the ollama
+instance running on the same node) now shows `binding_unreachable` —
+`configured_endpoint` still equals `desired_endpoint`
+(`http://agstudio.home.arpa:11434/v1`, `configuration_status: present`,
+so not `misbound`), but `reachability_status: unreachable` from a fresh
+`checked_at` (`2026-07-31T18:39:15+00:00`, `age_hours` ~0.02, well under the
+24h threshold — not `unknown`). `aghub`/`agpc`'s bindings are still
+unaffected (no `binding_*` diff on their placements). This is unplanned —
+not a Step 5 fault drill — and reads as a real, live signal that agstudio's
+Ollama was briefly unreachable from itself at that probe moment, exactly the
+kind of evidence this phase exists to surface. Left unresolved for now: not
+investigated further pending the user's direction on Step 5.
+
 ## Next
 
 Step 5 — fault drills. This still requires separate explicit approval because
 it deliberately edits a live consumer configuration and stops the shared
-Ollama provider. After restoration, the pre-existing non-binding cluster gaps
-above also need resolution before literal whole-cluster convergence can be
-recorded.
+Ollama provider. Given the unplanned `agstudio` `binding_unreachable` above,
+the user may want to look into that first, since it could double as (or
+interfere with) drill (b)'s expected `binding_unreachable` result. After
+restoration, the pre-existing non-binding cluster gaps above also need
+resolution before literal whole-cluster convergence can be recorded.
