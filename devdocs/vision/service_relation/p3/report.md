@@ -41,7 +41,43 @@ at Phase 2 completion; 5 net new tests).
 
 Commits: ansible_agdev `9b3afae`, nctl `f5719f7`.
 
+## Step 2 — nodeutils binding observation
+
+`nodeutils/nodeutils_collect.py`: added `_read_json_path` (dot-path walk),
+`probe_binding_endpoint` (bounded ~3s GET against `<configured>/models`,
+mirroring `probe_service_endpoint`'s ollama shape — an `HTTPError` still
+yields its status code, since any HTTP response is reachability evidence
+regardless of status range), `observe_binding` (reads only the one
+allowlisted JSON key via `Path(config_file).expanduser()`, bounded to
+`MAX_BINDING_CONFIG_BYTES` = 1 MiB, classifies `configuration_status` as
+`present`/`absent`/`unreadable`, probes only when present), and
+`bindings_for_service` (the `managed_files_for_service` twin). Wired into
+`normalize_observed_services` with the same attach-and-create pattern as
+`managed_files` — a binding's evidence is observable even when its own
+service entry wasn't independently detected by docker/systemd. Schema
+stays `nodeutils.inventory.v2` (additive key inside an existing
+`observed_services` entry, no bump needed).
+
+`configured_endpoint` passes through `bounded_value` before being stored,
+so a slot value over 512 chars is truncated same as everywhere else in the
+report; nothing named `*_token`/`*_secret`/etc. is ever a binding-slot key.
+
+Tests added to `tests/test_inventory_report.py` (9 new): present+reachable
+(asserts the exact `<endpoint>/models` probe URL), unreachable on probe
+failure, absent on missing file, absent on missing JSON key, unreadable on
+malformed JSON, `~`-expansion via `Path.expanduser`, `bounded_value`
+truncation applied to an oversized configured endpoint, malformed-spec
+rejection in `bindings_for_service`, and one `normalize_observed_services`
+integration test proving a `node-agent` entry is created from a binding
+alone (`source: probe`).
+
+Gate: `uv run pytest -q --durations=20` (nodeutils) — **68 passed** (was 59
+before this step; 9 net new).
+
+Commit: nodeutils `7030bbd`.
+
 ## Next
 
-Step 2 — nodeutils binding observation (read the slot, expanduser, bounded
-JSON parse, probe the configured endpoint, emit the evidence record).
+Step 3 — nctl evaluation (`normalize_endpoint_url`, the five-state pure
+function, folding into `evaluate_all_services` with new gap codes,
+`classify.py` routing, tests).
