@@ -4,10 +4,10 @@ Date: 2026-07-31
 
 ## Status
 
-**Implemented, not deployed.** The final source contract is implemented and
-the local unit suites pass. Deployment and the required clean Nautobot runtime
-test remain pending because the nintent image installs from GitHub and the new
-nintent commit has not been pushed.
+**Partially complete.** The final source contract is deployed to the local
+scratch Nautobot, and the operator document has been re-applied without
+conflict. The required clean Nautobot runtime gate remains inconclusive because
+its container test process stopped before the wrapper could record `cases=`.
 
 ## Delivered
 
@@ -27,7 +27,7 @@ nintent commit has not been pushed.
 
 ## Commits
 
-- nintent: `ee23e4d Simplify desired service identity`
+- nintent: `b809fae Simplify desired service identity`
 - nctl: `a9dd4af Read desired services by slug identity`
 
 ## Verification
@@ -37,16 +37,16 @@ nintent commit has not been pushed.
 | `cd nctl && uv run pytest -q --durations=20` | passed — 1015 tests |
 | `cd nintent && python3 -m unittest discover -s nautobot_intent_catalog/tests` | passed — 128 tests, 10 expected skips |
 | source sweep (excluding migrations) | passed — no removed-field references remain in nintent, nctl source/tests/docs |
-| `run_nautobot_runtime_gate.sh --clean` | inconclusive — clean DB setup and `makemigrations --check --dry-run` reached `No changes detected`, but the container test runner outlived the local gate process before it emitted a case count; the exact test-owned `test_nautobot` DB was dropped afterward |
+| local image rebuild | passed — no-cache build resolved nintent `b809fae3869cd7f251db331ee46e576bed359508`; Nautobot is healthy |
+| live local migration | passed — migrations `0023` and `0024` applied; `DesiredService.slug.unique` is `True` and retained fields are `name`, `slug`, `lifecycle` |
+| desired-state apply | passed — preview and confirmed apply both returned 22 unchanged, 0 conflicts |
+| `nctl drift` / `nctl reconcile` | ran — cluster remains `converged=8`, `drifting=3`, `unknown=3`; the findings are existing observation/service state, not schema or batch-contract failures |
+| `run_nautobot_runtime_gate.sh --clean` | inconclusive — clean DB setup, staged-source import, migration check (`No changes detected`), and 190-case collection ran, but the container test process stopped before the wrapper could record `cases=`; the exact test-owned `test_nautobot` DB was dropped afterward |
 
 ## Required handoff
 
-1. Push nintent commit `ee23e4d` to GitHub.
-2. Rebuild and restart the local Nautobot image from `devenv/nautobot/` with
-   `docker compose build --no-cache` and `docker compose --env-file ../.env up -d`.
-   Confirm the build resolved the pushed nintent SHA.
-3. Run `nautobot-server migrate`, then rerun
-   `./devtests/test_strategy/run_nautobot_runtime_gate.sh --clean` and record
-   its `cases=` count.
-4. Preview and commit `.local/desired-state.yaml` with `nctl desired apply`,
-   then verify `nctl drift` and a dry `nctl reconcile`.
+1. Rerun `./devtests/test_strategy/run_nautobot_runtime_gate.sh --clean` in
+   an execution context that allows the container test runner to finish, and
+   record its `cases=` count.
+2. Address the pre-existing drift/unknown findings separately if full cluster
+   convergence is required; this schema rollout did not mutate external nodes.
