@@ -1,7 +1,7 @@
 # Phase 3 Report — Consumer-Side Actual Evidence
 
-Status: **in progress** (Step 4 binding baseline complete; whole-cluster
-baseline and Step 5 fault drills remain open).
+Status: **in progress** (Step 4 binding baseline and Step 5 fault drills are
+complete; literal whole-cluster convergence remains open).
 
 ## Step 1 — Metadata and probe-config plumbing
 
@@ -216,15 +216,66 @@ so not `misbound`), but `reachability_status: unreachable` from a fresh
 unaffected (no `binding_*` diff on their placements). This is unplanned —
 not a Step 5 fault drill — and reads as a real, live signal that agstudio's
 Ollama was briefly unreachable from itself at that probe moment, exactly the
-kind of evidence this phase exists to surface. Left unresolved for now: not
-investigated further pending the user's direction on Step 5.
+kind of evidence this phase exists to surface. This was subsequently
+investigated and restored during the approved Step 5 drill; see Step 5.3.
 
 ## Next
 
-Step 5 — fault drills. This still requires separate explicit approval because
-it deliberately edits a live consumer configuration and stops the shared
-Ollama provider. Given the unplanned `agstudio` `binding_unreachable` above,
-the user may want to look into that first, since it could double as (or
-interfere with) drill (b)'s expected `binding_unreachable` result. After
-restoration, the pre-existing non-binding cluster gaps above also need
-resolution before literal whole-cluster convergence can be recorded.
+Step 5 is recorded below. The remaining work is the pre-existing non-binding
+cluster drift described in Step 4 if literal whole-cluster convergence is
+required.
+
+## Step 5 — Fault drills
+
+Run live on 2026-08-01 JST with explicit approval. All mutations were
+restored before completing this step.
+
+1. **Misbound consumer configuration.** On `agpc`, backed up
+   `~/.config/opencode/opencode.json`, changed only
+   `provider.ollama.options.baseURL` to `http://127.0.0.1:9/v1`, and ran the
+   normal nodeutils collection/ingest pipeline (operation
+   `01KYWQE1R710Z0M7Y7AY9WBSNJ`). `nctl drift --json` produced
+   `binding_misbound` for the `agpc` node-agent placement, with desired
+   `http://agstudio.home.arpa:11434/v1`, configured
+   `http://127.0.0.1:9/v1`, `configuration_status: present`, and
+   `reachability_status: unreachable` at `2026-07-31T18:37:01+00:00`.
+   `nctl reconcile agpc --refresh-observation --yes` (operation
+   `01KYWQETTNG47YZN9DQB43HPD2`) restored the desired endpoint and left the
+   `node-agent` service converged with no binding gaps. Its non-zero terminal
+   state was solely an existing unsupported `manual_toolchain` finding.
+
+2. **Stopped provider.** Stopped the Homebrew LaunchAgent
+   `homebrew.mxcl.ollama` on `agstudio`; the local API became unreachable.
+   The fresh observation/ingest operation `01KYWQGZH4SQ7AGVP271Z5Q1M0` then
+   produced `binding_unreachable` for `agstudio`'s consumer binding, with
+   matching desired/configured endpoints and
+   `reachability_status: unreachable` at `2026-07-31T18:38:36+00:00`.
+   The provider's own service result was **`service_missing`**, not the
+   planned `service_not_running`: a stopped Homebrew service is absent from
+   nodeutils' observed-services enumeration rather than retained as a known
+   inactive service. This is a real observation-contract gap to address if
+   the exact provider-state assertion is required.
+
+3. **Restoration.** Restarting with `brew services` revealed that the
+   generated LaunchAgent only bound Ollama to loopback. To restore the
+   pre-drill LAN-reachable behaviour, the existing
+   `~/Library/LaunchAgents/homebrew.mxcl.ollama.plist` was restored, amended
+   with `EnvironmentVariables.OLLAMA_HOST = 0.0.0.0`, and registered directly
+   with `launchctl`; it now listens on `*:11434`. The temporary plist backup
+   was removed after verification. Fresh observation/ingest operation
+   `01KYWQQBHCJQ4NGZ16YJ13JPSH` restored both `ollama` and `node-agent` to
+   `converged` with no binding gaps. Final binding-relevant drift was:
+
+```json
+{
+  "summary": {"drifting": 3, "converged": 10, "unknown": 3},
+  "services": [
+    {"service": "ollama", "status": "converged", "binding_codes": []},
+    {"service": "node-agent", "status": "converged", "binding_codes": []}
+  ]
+}
+```
+
+The binding fault drills and their restoration criteria are satisfied. Literal
+whole-cluster convergence remains blocked only by the pre-existing non-binding
+gaps listed in Step 4.

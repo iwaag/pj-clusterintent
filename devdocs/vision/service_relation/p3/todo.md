@@ -32,30 +32,35 @@ Report the exact `nctl drift --json` output (or at least the per-node
 binding state and overall convergence) back so it can be recorded in
 `report.md`.
 
-## Step 5 — Fault drills (not started, needs separate approval)
+## Step 5 — Fault drills (done; provider-state observation gap found)
 
-Per plan.md Step 5, requires explicit approval before running (it mutates a
-live node and stops the shared Ollama provider):
+Executed with explicit approval on 2026-08-01 JST; full outputs and operation
+IDs are in [report.md](report.md).
 
-1. Hand-edit `opencode.json` on one consumer node -> refresh observation ->
-   confirm `binding_misbound` in drift.
-2. Stop Ollama on agstudio -> refresh observation -> confirm
-   `binding_unreachable` (and the provider's own `service_not_running`).
-3. Restore both -> reconcile -> refresh observation -> confirm whole-cluster
-   convergence again.
+1. done: hand-editing `agpc`'s `opencode.json` -> fresh observation produced
+   `binding_misbound`; reconcile restored the desired endpoint.
+2. done with a discrepancy: stopping Ollama on `agstudio` -> fresh observation
+   produced `binding_unreachable` for its consumer binding. The provider was
+   reported as `service_missing`, not `service_not_running`, because a stopped
+   Homebrew service disappears from nodeutils enumeration.
+3. done for bindings: Ollama and all node-agent bindings were restored to
+   converged. Literal whole-cluster convergence remains unavailable due to the
+   pre-existing non-binding gaps recorded in Step 4.
 
 Record all three outputs in `report.md`.
 
-## Completion criteria still open
+## Completion criteria status
 
-From plan.md's "Completion criteria" section, not yet verified live:
+From plan.md's "Completion criteria" section:
 
-- mis-editing OpenCode config produces `misbound` drift on that consumer
-  (verified only via a doctored unit-test snapshot in Step 3, not live);
-- stopping Ollama produces `unreachable` (not yet exercised live);
-- restoring both and reconciling returns the cluster to converged (not yet
-  exercised live; pre-existing non-binding cluster gaps must also be resolved
-  for the literal whole-cluster criterion);
+- mis-editing OpenCode config produces `misbound` drift on that consumer —
+  done live on `agpc`;
+- stopping Ollama produces `unreachable` — done live for the consumer binding;
+  the provider's own state is currently surfaced as `service_missing` rather
+  than the planned `service_not_running`;
+- restoring both returns Ollama and all node-agent bindings to converged —
+  done live; literal whole-cluster convergence remains unavailable until the
+  pre-existing non-binding cluster gaps are resolved;
 - freshness threshold is chosen and written down — done
   (`service_observation_max_age_hours`, default 24h, threaded into every
   binding's evidence as `stale_after_hours`) — this one criterion is
