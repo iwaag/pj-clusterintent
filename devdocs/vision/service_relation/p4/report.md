@@ -114,3 +114,61 @@ Step 1; 4 net new). `uv run nctl --help` confirmed `relations` listed with
 its help text.
 
 Commit: nctl `3b38208`.
+
+## Step 3 — Live run and roadmap close-out
+
+Read-only, no approval needed (the command makes no writes). Run live on
+2026-08-01 JST from the repository root:
+
+```bash
+uv run --project nctl nctl relations
+uv run --project nctl nctl relations --json
+```
+
+Text output:
+
+```text
+aghub/node-agent —llm_provider→ ollama @agstudio [satisfied, 0.5h]
+agpc/node-agent —llm_provider→ ollama @agstudio [satisfied, 0.4h]
+agstudio/node-agent —llm_provider→ ollama @agstudio [satisfied, 0.3h]
+unreferenced (informational): dnsmasq, node-agent, pj-voxel3dprint
+summary: satisfied=3
+```
+
+The three expected `llm_provider` edges (aghub/agpc/agstudio node-agent →
+ollama@agstudio) all resolved `satisfied`, evidence 0.3–0.5h old, well under
+the 24h staleness threshold — matching the plan's expectation and P3's
+final restored state, not the transient `binding_unreachable` the P3 re-check
+saw. Cross-checked against `nctl drift --json`: the `node-agent` and `ollama`
+service targets are both `status: converged` with zero diffs, so drift and
+relations agree exactly, as the hard rule requires (both call
+`evaluate_binding_state` on the same evidence).
+
+`unreferenced` lists `dnsmasq`, `node-agent`, and `pj-voxel3dprint` — none of
+these are Phase 4 bugs: `dnsmasq` and `pj-voxel3dprint` are services with no
+service-binding consumers at all (nothing in this cluster binds to them via
+`DesiredServiceBinding`), and `node-agent` is itself a pure binding consumer
+with no inbound bindings of its own. This is the informational reading the
+roadmap specifies, not a deletion recommendation.
+
+The `--json` envelope (`nctl.relations.v1`) matched the documented shape
+exactly: `edges` (consumer/binding_name/provider/state/gap_codes/evidence,
+sorted), `unreferenced`, `summary`, `generated_at`. Full payload captured in
+this report's Step 3 command transcript above and in the live terminal
+session; no secrets appear in it by construction (observation returns only
+the allowlisted `llm_provider` slot value, same as `nctl drift`).
+
+Roadmap `service_relation/roadmap.md` Phase 4 marked complete. No live
+mutation occurred in this step (`--refresh-observation` was not needed —
+evidence was already fresh from Phase 3's Step 4/5 runs).
+
+## Completion
+
+`nctl relations` (one command, `--host`/`--service`/`--json`) answers "who
+depends on what, and is it real" for the whole cluster: every binding edge
+with resolved provider, actual state, gap codes, and evidence freshness;
+unreferenced services listed as information only. Live output agrees with
+`nctl drift` on binding states. Nothing persisted — every invocation
+recomputes from current desired + actual state. The whole `service_relation`
+roadmap (Phases 0–4) is now complete.
+

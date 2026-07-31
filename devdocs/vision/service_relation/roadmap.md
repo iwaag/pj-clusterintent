@@ -100,7 +100,7 @@ Completion: manually mis-editing the OpenCode config on one node produces
 `misbound` drift; stopping Ollama produces `unreachable`; restoring both and
 reconciling returns the cluster to converged.
 
-## Phase 4 — Inspection projection
+## Phase 4 — Inspection projection (complete)
 
 One deterministic graph view for humans and agents, derived on demand.
 
