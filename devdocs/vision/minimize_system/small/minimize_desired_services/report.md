@@ -48,12 +48,19 @@ was an execution-context artifact, not a defect in this change.
 | `nctl drift` / `nctl reconcile` | ran — cluster remains `converged=8`, `drifting=3`, `unknown=3`; the findings are existing observation/service state, not schema or batch-contract failures |
 | `run_nautobot_runtime_gate.sh --clean` | passed on rerun — migration check `No changes detected`, `Ran 190 tests … OK`, `runtime gate result mode=clean label=nautobot_intent_catalog cases=190` |
 
-The source sweep excludes
-`nautobot_intent_catalog/tests/test_batch.py`, which holds the four removed key
-names as plain literals on purpose: the batch-rejection test only proves that no
-dual reader survived if it sends the exact bytes a stale client would send. A
-comment in that file records this so a later refactor does not "clean up" the
-literals and silently weaken the sweep.
+The source sweep needs no exclusions: it returns zero hits outside Django
+migration history.
+
+A `test_rejects_the_removed_legacy_desired_service_identity` test initially
+survived this rollout, sending the four removed key names to prove no dual
+reader remained. It was deleted afterwards as a compatibility artifact in its
+own right. `batch.py` contains no legacy-specific handling — the rejection comes
+entirely from the generic `tuple(key) != _KEYS[kind]` check at `batch.py:93`, so
+the test pinned no unique code path and existed only to keep the dead names
+alive in the tree. It was the sole coverage of that generic branch, so it was
+replaced by `test_rejects_a_key_that_is_not_the_declared_identity`, which
+exercises the same line with neutral keys (wrong name, superset, empty value).
+Coverage is preserved; the removed vocabulary is not.
 
 ## Required handoff
 
