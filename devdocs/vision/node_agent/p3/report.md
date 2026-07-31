@@ -33,7 +33,7 @@ from the command line.
 
 ## Controlled configuration
 
-The optional `[agent]` section has controller-owned values only:
+The optional `[agent]` section has controller-owned OS-wide values only:
 
 ```toml
 [agent]
@@ -42,11 +42,12 @@ ssh_user = "eiji"
 identity_file = "~/.ssh/ansible_key"
 macos_workdir = "/Users/eiji/agent-work"
 linux_workdir = "/home/eiji/agent-work"
-
-[agent.workdir_by_slug]
-agstudio = "/Users/eiji/agent-work"
-agpc = "/home/eiji/agent-work"
 ```
+
+`nctl agent` selects the workdir from the realized Device's nodeutils
+`observed_system` (`Darwin` or `Linux`).  Before a node has been observed, it
+uses `declared_host_os` as a bootstrap fallback.  There is deliberately no
+per-node workdir map: the workspace is an OS-wide convention.
 
 The explicit identity file plus `IdentitiesOnly=yes` avoids unrelated keys in
 the controller SSH agent causing authentication failures. The SSH command also
