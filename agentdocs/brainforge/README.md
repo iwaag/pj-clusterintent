@@ -108,3 +108,5 @@ user instead of guessing when:
 - nintent plugin changes require commit + user-initiated push + rebuild to take effect in the
   running Nautobot container (no hot reload). Don't expect a nintent code change to show up
   without that cycle.
+- `deployment_profile` selection: Never set `deployment_profile: dnsmasq` on a `DesiredServicePlacement` unless the service is genuinely part of the managed dnsmasq DNS infrastructure. Specifying `dnsmasq` for a general host/service will cause `nctl reconcile` to trigger an incompatible Ansible deployment playbook, resulting in a Playbook failure (`ansible-playbook daemon setup apply exited with code 2`). For manual or CLI toolchains, choose an appropriate profile that matches the node's role.
+
