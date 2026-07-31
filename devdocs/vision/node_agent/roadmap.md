@@ -94,7 +94,7 @@ than remembering runtime-specific endpoints and commands.
 
 ## Phase 4 — Cluster intent and observation
 
-Status: blocked pending publication of the pinned nodeutils commit (2026-07-31).
+Status: complete (2026-07-31). See [Phase 4 report](p4/report.md).
 
 Make agent availability visible and deployable through the existing cluster
 workflow.

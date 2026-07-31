@@ -1,6 +1,6 @@
 # Node Agent — Phase 4 Report
 
-Status: blocked pending publication of the pinned nodeutils commit (2026-07-31).
+Status: complete (2026-07-31).
 
 ## Step 1 — Profile metadata and playbook adaptation
 
@@ -74,8 +74,41 @@ The declared `node-agent` service has active `node_agent` placements on
 
 ## Step 5 — Live repair proof
 
-Blocked before any agent was stopped or repaired. A fresh observation for
-`agstudio` was started with:
+The first fresh observation was deliberately pinned to the new nodeutils
+commit. Its initial deployment correctly failed rather than falling back to
+mutable `HEAD`, because the target had not yet received the commit. After the
+operator published it, a Linux-only collector defect was found and corrected:
+the deployed unit is `opencode-agent.service`, not `opencode.service`. The
+corrected pinned revision `d5a4cf6` was then published and observed on agpc
+as:
+
+```text
+source=systemd_user, state=active, unit=opencode-agent.service, version=1.18.10
+```
+
+The reversible repair fixture stopped only agpc's user service:
+
+```text
+XDG_RUNTIME_DIR=/run/user/1000 systemctl --user stop opencode-agent.service
+```
+
+The read-only `nctl reconcile agpc --refresh-observation` plan retained its
+normal forced-observation action. `nctl reconcile agpc --refresh-observation
+--yes` then followed the authoritative normal loop: fresh observation,
+detected `service_not_running`, exactly one `node_agent` playbook action
+against agpc (exit 0), post-actuation observation, and fresh node-agent drift
+converged. Operation evidence is `01KYW1TH45TE8F8ZE8HS15F85C`.
+
+An immediate repeat plan (`01KYW1VTEMRYX2912Z0G5CFX1Y`) contained no actions.
+It retained only the unrelated, pre-existing observe-only
+`pj-voxel3dprint`/`manual_toolchain` unsupported finding; it contained no
+node-agent action or node-agent drift. `nctl agent status agpc --json` also
+passed through the managed SSH path and returned HTTP 200 from the node-local
+agent endpoint.
+
+## Earlier publication blocker
+
+For completeness, the first pinned observation attempt was:
 
 ```text
 nctl reconcile agstudio --refresh-observation --yes
@@ -88,23 +121,8 @@ the deliberately pinned commit `070b656dd378a2f9d3de5a8086da5ef449e784bf`:
 fatal: unable to read tree (070b656dd378a2f9d3de5a8086da5ef449e784bf)
 ```
 
-The commit exists locally but has not been published to the node's configured
-nodeutils Git remote. nctl correctly refused to substitute mutable upstream
-HEAD, so no new observation was ingested and no agent service was mutated.
-
-The original pinned commit was subsequently published and fresh collection
-then reached both hosts. That live check found a Linux-only collector defect:
-the deployed unit is `opencode-agent.service`, while the first collector
-revision looked for `opencode.service`. macOS correctly recorded the running
-agent; Linux therefore emitted no node-agent entry even though the service
-playbook completed unchanged. The corrected collector is local commit
-`d5a4cf6` and again needs publication before the exact pinned deployment can
-be rerun. No agent has been stopped for the repair proof yet.
-
-To resume, an operator must push nodeutils commit `d5a4cf6` to the configured
-remote (the local-environment rules reserve pushes for the user), then rerun
-the fresh observation. After it succeeds, perform the planned reversible
-`agpc` stop/reconcile proof and verify the immediate repeat has no action.
+The failure was expected safe behavior: nctl refused to substitute mutable
+upstream `HEAD`. It was resolved by publishing the exact revision, as above.
 
 ## Commits and current state
 
@@ -112,8 +130,8 @@ the fresh observation. After it succeeds, perform the planned reversible
 - `nodeutils` `070b656` — user-service observation.
 - `nodeutils` `d5a4cf6` — corrected Linux user-unit name.
 - `nctl` `cc409f0` — profile scope/contract coverage.
-- Superproject `f1afd50` — submodule pointer integration.
+- Superproject `b5294bd` — Linux observation correction and pointer update.
 
-All local component tests are green, but Phase 4 is not complete until the
-pinned collector is available to the target nodes and the live stopped-agent
-repair has converged with no repeated action.
+All touched local suites passed. Both declared node-agent placements are
+observed as running, and the stopped agpc service was repaired through the
+normal reconciliation action with no repeated node-agent action.
