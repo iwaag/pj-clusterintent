@@ -72,8 +72,10 @@ Direct read-only checks on `agstudio` established the immediate cause:
   nodeutils HTTP probe used that client-facing DNS name, so it could not
   observe its own provider even though consumers could use it.
 
-The follow-up implementation adds a generated local-loopback probe endpoint
-as a fallback while retaining the client-facing endpoint for consumers.
+The follow-up initially added a generated local-loopback probe endpoint as a
+fallback. After the resolver cache was flushed and normal `home.arpa`
+resolution recovered, that fallback was removed: observation now uses the
+same client-facing endpoint as consumers.
 However, `playbooks/nautobot/run_nodeutils_collect.yml` clones nodeutils from
 GitHub into `/opt/nodeutils`; it cannot use an unpushed local nodeutils commit.
 The remote collector was confirmed to lack the new probe function. Push the
