@@ -4,12 +4,9 @@ Date: 2026-07-31
 
 ## Result
 
-**Implemented, not deployed.** `DesiredDependency` and the inert service
-`requirements` evaluator contract have been removed in a coordinated breaking
-change. The local nintent and nctl commits are ready for deployment, but the
-running Nautobot image still installs nintent from GitHub. Per the local
-environment policy, pushing that commit is an operator action and was not
-performed here.
+**Complete.** `DesiredDependency` and the inert service `requirements`
+evaluator contract have been removed in a coordinated breaking change and are
+deployed to the local Nautobot scratch environment.
 
 ## Changes
 
@@ -54,18 +51,20 @@ Local commits:
   and `nctl/docs/` returns only Django migration history and the new removal
   migration; `git diff --check` passes.
 
-## Deployment handoff
+## Deployment confirmation
 
-1. Push nintent commit `aca2fa9` (and the superproject pointer after its local
-   commit) to the repository used by the Nautobot Dockerfile.
-2. From `devenv/nautobot`, run `docker compose --env-file ../.env build
-   --no-cache`, verify the resolved nintent SHA is `aca2fa9`, then restart the
-   stack.
-3. Run `nautobot-server migrate` in the Nautobot container and confirm the
-   Dependencies navigation item is gone and a desired-service detail page
-   renders.
-4. Run `uv run --project nctl nctl drift --json`; it should still run cleanly
-   against the rebuilt instance and contain no `unresolved_dependency` code.
+- User pushed nintent `aca2fa9`; the Dockerfile pin was updated to its full
+  SHA and a `docker compose --env-file ../.env build --no-cache` build resolved
+  and installed exactly that revision.
+- The Nautobot, worker, and scheduler containers were recreated. The container
+  reports the same installed nintent revision.
+- `nautobot-server migrate` completed, and `showmigrations` confirms
+  `0022_remove_desireddependency` is applied.
+- An authenticated local Django client returned HTTP 200 for a desired-service
+  detail page. It found neither a Dependencies navigation label nor a
+  `desireddependency_list` route.
+- Post-deployment `uv run --project nctl nctl drift --json` completed without
+  `unresolved_dependency`. Unrelated existing drift remains.
 
 Do not restore the two exploratory dependency rows. If their host/artifact
 facts need to become managed intent, obtain an operator decision and express
