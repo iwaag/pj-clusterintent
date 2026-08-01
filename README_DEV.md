@@ -385,6 +385,15 @@ traceable statement that the intended action was planned, securely authorized,
 executed against the exact scope, observed through the supported path, and
 shown by fresh drift not to require repetition.
 
+## New models need a minimal read-only GUI
+
+When a change adds a new nintent model or a new field a human would want to inspect, add a
+minimal read-only list/detail view for it (list view, detail view, table, filterset, template,
+nav entry — no add/edit/delete) in the same change or a prompt follow-up, following the existing
+`Desired*` view pattern. Do not let a model go live as API/CLI-only with no way for a human to
+casually check it in the Nautobot UI; that gap is easy to miss and easy to leave unnoticed for
+multiple phases (as happened with `DesiredWorkspace`).
+
 ## Advice for adding a future compute provider
 
 The VM-platform roadmap intentionally implements Proxmox only. Do not add AWS,
