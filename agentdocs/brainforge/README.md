@@ -9,6 +9,14 @@ only ever touch real cluster state through separately confirmed, deterministic n
 - read nctl/docs/usage_example.md
 - When you get requests from user, first you must show plan to how to do it using nctl before actually performing it. If it's not possible by using only nctl, you need to explain what necessary fanctionality is lacking in nctl.
 
+## Execution tool guidelines
+
+Select the appropriate tool for node operations based on the task requirements:
+
+- **SSH**: Recommended for error analysis, troubleshooting, or complex operations requiring strong privileges and custom handling.
+- **Ansible**: Recommended for routine, deterministic setup, provisioning, and configuration management tasks (actuated via `nctl reconcile`).
+- **node-agent** (`nctl agent`): Recommended when node-local judgment, flexible, or non-deterministic processing is required within the host environment.
+
 ## The four things you're allowed to touch, and how
 
 | Thing | You may... | You may NOT |
