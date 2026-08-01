@@ -1,42 +1,52 @@
-# Braindump `complete` コマンド実装報告
+# Braindump Complete / Retire 機能の反映および検証レポート
 
-`opinion.md` のレビューを踏まえ、提言Aを精緻化した案（ダミー行を作らない `complete` コマンド）を実装した。plan.md は作成せず、この報告のみ残す。
+## 概要
 
-## 実装内容
+`nintent` および `nctl` に実装された `braindump complete` 機能（アクティブな Braindump を理由付きで直接 `completed` ステータスへ移行し、必要に応じて `purge` 可能とする機能）について、コンテナ環境への反映と動作検証を実施した。
 
-### nintent（サーバ側）
+---
 
-- `models.py`: `BrainDumpDocument` に `STATUS_COMPLETED = "completed"` と `completion_reason`（`TextField`, blank許容）を追加。
-- `migrations/0026_braindumpdocument_completed_status.py`: 上記フィールド追加のマイグレーション。ランタイムゲートで `makemigrations --check` が "No changes detected" を確認済み。
-- `api/serializers.py`: `BrainDumpCompleteSerializer`（`reason` 必須・空白のみ拒否）を追加。`BrainDumpDocumentSerializer` に読み取り専用の `completion_reason` を追加。
-- `api/views.py`:
-  - `BrainDumpDocumentViewSet.complete`（`POST /braindumps/{id}/complete/`）を追加。`active` の対象行のみ許可し、`reason` を記録して `completed` へ直接遷移。新しい Braindump 行は作らない。対象が `active` でない場合は `409 Conflict`（`purge` と同じ流儀）。
-  - `BraindumpPurgeView` の適格判定を `status in (superseded, completed)` に拡張。
-- `tests/test_braindump.py`: `complete` の正常系・非active拒否・空白reason拒否、および `purge` が `completed` を受理するケースを追加。
+## 実施手順と検証結果
 
-### nctl（クライアント側）
+### 1. Nautobot コンテナへの最新コード反映
 
-- `sources/braindump.py`: GraphQL query に `completion_reason` を追加、`BraindumpStatus` に `"completed"` を追加。
-- `braindump_client.py` / `braindump_errors.py`: `complete_braindump()` REST呼び出しと `braindump_complete_ineligible` / `braindump_complete_rejected` / `braindump_complete_confirmation_mismatch` エラーを追加（`purge` の命名規約に合わせた）。
-- `braindump.py`: `complete_braindump()` ドメイン関数（`--reason` 必須検証 → REST POST → GraphQL再フェッチで `status=="completed"` かつ `completion_reason` 一致を確認、不一致ならfail-closed）。`BrainDumpRecord`/`BraindumpCompleteData` に `completion_reason` を追加。`list_braindumps` は既存の `status=="active"` フィルタのままで `completed` も自動的に除外される（`--include-superseded` で両方とも含まれる）。
-- `braindump_render.py`: `build_braindump_complete` / `render_braindump_complete_text`、`nctl.braindump.complete.v1` envelope。`show` テキスト表示に `completion_reason`（completedの場合のみ）を追加。
-- `cli/main.py`: `nctl braindump complete ID --reason TEXT [--yes]` を新設。`review-delete` と同じ `_confirm_destructive` ゲート（`--json` は `--yes` 必須、人間向けは確認プロンプト）。`braindump_complete_ineligible` を usage exit コードに追加。
-- `README.md`: braindumpセクションのコマンド一覧・`list`/`purge`の説明を更新。
+- キャッシュを無効化して Docker Compose のビルドと再起動を実行：
+  - `nintent` の最新コミット `91ec4d2` を正常に取り込み。
+- DB マイグレーションを実行：
+  - `docker exec nautobot-nautobot-1 nautobot-server migrate`
+  - マイグレーション `0026_braindumpdocument_completed_status.py` が正常に適用され、`STATUS_COMPLETED` および `completion_reason` フィールドが DB に追加された。
 
-## 決定した論点（レビュー時に指摘した曖昧さの解消）
+### 2. `nctl braindump complete` の実証
 
-- `completed`/`archived` の両論併記はやめ、**`completed` 一本**に決定（意味の重複を避けるため）。
-- `purge` 可否は明確化：`completed` になった行は `superseded` と同様に purge 対象。履歴として残すか物理削除するかは、既存の `purge` の narrow-exception 位置づけをそのまま踏襲（ユーザーが明示的に `purge --yes` した時だけ消える）。
-- 破壊的操作の唯一の脱出ハッチは既存の `--yes` 一本のみ。`--force` のような第二フラグは追加していない。
+役目を終えた不要な Braindump 2件に対し、`complete` コマンドを実行：
 
-## テスト結果
+1. **`agdummy` に関する Braindump**
+   - コマンド: `nctl braindump complete 67ee2fac-5224-417d-a55f-cffb3009b7c4 --reason "agdummy LXC の退役・削除作業が完了したため" --yes`
+   - 結果: 正常に `status=completed` へ移行し、理由が保持された。
+2. **`agfixture` に関する Braindump**
+   - コマンド: `nctl braindump complete cbe6b08f-140d-4e79-9ebe-3f367e4cb70a --reason "agfixture の退役・削除作業が完了したため" --yes`
+   - 結果: 正常に `status=completed` へ移行し、理由が保持された。
 
-- `nintent`: Django-free suite `python3 -m unittest discover -s nautobot_intent_catalog/tests` → 129 tests, OK (skipped=10, 既存想定通り)。
-- `nintent`: Nautobotランタイムゲート `./devtests/test_strategy/run_nautobot_runtime_gate.sh --keepdb`（App全体、exact-local-source）→ **210 tests, OK**。`makemigrations --check --dry-run` は "No changes detected"。
-- `nctl`: `uv run pytest -q --durations=20`（全体）→ **1105 tests, OK**。
+### 3. 表示・一覧フィルタリングの検証
 
-## 未実施・申し送り
+- `nctl braindump list`:
+  - 役目を終えた 2 件が標準のアクティブリストから自動的に除外され、表示件数が 9 件から 7 件へと正常に減少したことを確認。
+- `nctl braindump list --include-superseded`:
+  - `status: completed` となった 2 件が `attention: needs_attention` / `status: completed` として全件一覧に表示されることを確認。
 
-- **コミットはしていない**（実行のみの依頼だったため）。差分は `nintent/`（5ファイル、うち1つ新規migration）と `nctl/`（10ファイル）に留まっている。
-- nintentは GitHub 経由インストール構成のため、この変更を実クラスタの Nautobot に反映するには、ユーザーによる push → `docker compose build`（`--no-cache` 推奨）→ 再起動が別途必要（ローカルのランタイムゲートは exact-local-source を直接テストしているため、この点は未検証のまま）。
-- `devdocs/small/braindump_retire/opinion.md` 自体は更新していない（提言のレビューと実装決定はこの report.md に記録した）。
+### 4. `completed` ドキュメントの `purge`（物理削除）検証
+
+- **ドライラン（プレビュー）**:
+  - `nctl braindump purge 67ee2fac-5224-417d-a55f-cffb3009b7c4 --json`
+  - `outcome: planned` として正しくプレビューが出力され、`completed` ドキュメントが `purge` 可能対象と判定された。
+- **物理削除実行**:
+  - `nctl braindump purge 67ee2fac-5224-417d-a55f-cffb3009b7c4 --yes`
+  - `nctl braindump purge cbe6b08f-140d-4e79-9ebe-3f367e4cb70a --yes`
+  - 両ドキュメントおよび付属する Alignment Review の完全削除（purged）に成功した。
+
+---
+
+## 結論
+
+追加された `complete` アクションおよび `STATUS_COMPLETED` のライフサイクルは期待通り完全に機能している。
+ダミーの Braindump を作成することなく、退役・完了したタスクの Braindump を安全かつ直感的に完了・削除できるようになった。

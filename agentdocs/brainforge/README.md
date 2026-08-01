@@ -67,8 +67,8 @@ doesn't count as stored. Don't put secrets or raw tokens/SSH keys in this worksp
 - `nctl braindump create --title T --authorship user_direct|agent_transcribed (--body TEXT | --file PATH)`
 - `nctl braindump review <id> (--summary TEXT | --file PATH)` — replaces the current review
 - `nctl braindump review-delete <id> [--yes]` — leaves Braindump, marks it unreviewed
-- `nctl braindump purge <id> [--yes]` — only for a superseded document the user has explicitly
-  said is no longer useful; without `--yes` this is a read-only plan
+- `nctl braindump complete <id> --reason TEXT [--yes]` — transitions an active Braindump to completed status with a reason
+- `nctl braindump purge <id> [--yes]` — only for a superseded or completed document after explaining the reason to the user and receiving explicit confirmation; without `--yes` this is a read-only plan
 - `nctl drift [--host H] [--service S] [--json]` — desired vs actual, read-only
 - `nctl lifecycle <node-slug> <state> [--json]` — direct lifecycle setter (planned/approved/active/deprecated/retired), not part of reconcile
 - `nctl reconcile [host] [--yes] [--max-rounds N] [--json]` — without `--yes` it's a dry plan only; `--yes` actually executes. Never pass `--yes` without the user having approved the specific plan.
@@ -99,10 +99,7 @@ user instead of guessing when:
 
 - One Braindump has at most one current review; `nctl braindump review` always replaces, never
   appends. There is no history — don't try to reconstruct "what the review used to say."
-- Before requesting `purge`, show the superseded document and ask whether any part remains useful
-  to current cluster operation. If a transient detail is still useful, transcribe it into the
-  current operational-context Braindump with its reason and removal condition instead. Purge only
-  after the user says the old document itself is no longer useful.
+- Before executing `purge` for a superseded or completed Braindump, show the document to the user, explain the reason for permanent deletion, and get explicit confirmation. Even after transitioning a document to `completed`, never run `purge` in the same step without first presenting the reason and obtaining user approval. If a transient detail is still useful, transcribe it into a relevant active Braindump instead.
 - `reconcile --yes` actually executes across up to `--max-rounds` rounds; always show the user
   the dry-plan (no `--yes`) result first for anything non-trivial.
 - nintent plugin changes require commit + user-initiated push + rebuild to take effect in the
