@@ -1,4 +1,4 @@
-# Step 5 — Declare pj-voxel3dprint (in progress, paused)
+# Step 5 — Declare pj-voxel3dprint
 
 Appended the planned `desired_workspace` upsert to `.local/desired-state.yaml` (values from
 Step 0):
@@ -53,6 +53,34 @@ until the container is rebuilt from the new nintent commit. Stopping here per th
 push boundary (`.local/localenv_memo.md`: nintent reaches the container only via GitHub push,
 never local mount) to ask the user to `git -C nintent push`.
 
-Once pushed, remaining work: `--no-cache` rebuild, runtime gate (expect 216 cases, one more than
-Step 4's 215), retry the `nctl desired apply` preview (expect one `create`, rest `unchanged`),
-then `--yes`, then Step 6 (GraphQL proof + phase report + submodule pointer bump).
+## Resumed after user push
+
+User pushed `c17f646` to `nintent` `main`. Rebuilt with `--no-cache`; build log confirmed resolved
+commit `c17f6463011a94c6ef19cfdff69b5f59aa658c43` matches. `up -d` + `nautobot-server migrate`
+(no new migration, schema already at `0027_desiredworkspace` from Step 4).
+
+Runtime gates re-run, both green with the new regression test counted:
+
+```
+runtime gate result mode=keepdb label=nautobot_intent_catalog cases=216
+runtime gate result mode=clean  label=nautobot_intent_catalog cases=216
+```
+
+(216 = Step 4's 215 + the new `BatchModelRegistryTests.test_batch_models_covers_kind_order`.)
+
+Preview then matched the plan exactly:
+
+```
+$ uv run --project nctl nctl desired apply -f .local/desired-state.yaml
+dry_run: {'create': 1, 'update': 0, 'delete': 0, 'unchanged': 26, 'conflict': 0}
+```
+
+Shown to the user, who confirmed. Applied:
+
+```
+$ uv run --project nctl nctl desired apply -f .local/desired-state.yaml --yes
+committed: {'create': 1, 'update': 0, 'delete': 0, 'unchanged': 26, 'conflict': 0}
+```
+
+`pj-voxel3dprint` now exists as a `DesiredWorkspace` row in the scratch Nautobot. Step complete;
+proceeding to Step 6 (GraphQL proof + phase report).
