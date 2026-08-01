@@ -1,4 +1,4 @@
-# Phase 4 Plan — Inspection Projection
+no# Phase 4 Plan — Inspection Projection
 
 Goal (roadmap Phase 4, idea-A §9): one deterministic, derived-on-demand graph
 view — an `nctl` command that answers "who depends on what, and is it real"
