@@ -38,20 +38,32 @@ Phase 0/1.
 
 - `python3 -m unittest discover -s nautobot_intent_catalog/tests` (nintent Django-free fast gate,
   per README_DEV.md matrix): 130 tests, OK, 10 expected skips (unchanged skip count — the new
-  runtime-matrix tests are part of the skipped Nautobot-dependent group in this environment).
-- The full runtime UI contract suite (`UIRuntimeRenderTests`, `UINonMutationRuntimeTests`,
-  `UIMissingPermissionRuntimeTests` in `test_ui_contract.py`) requires a live Nautobot test
-  runner and was not executed in this pass — nintent here is deployed via
-  `pip install git+https://github.com/iwaag/nintent.git@<branch>` (not a local source mount), so
-  exercising it live requires the same commit → push → `docker compose build` → restart cycle as
-  prior nintent changes. Committed locally in the `nintent` submodule; push and rebuild are left
-  for the user per the established flow.
+  runtime-matrix tests belong to the skipped Nautobot-dependent group in this local unittest
+  runner).
+- Committed to the `nintent` submodule (`0c594d3`, "Add minimal read-only GUI for
+  DesiredWorkspace") and pushed to `origin/main` by the user.
+- Deployed live: `docker compose --env-file ../.env build --no-cache nautobot` from
+  `devenv/nautobot`, then `docker compose --env-file ../.env up -d`. Per the known rebuild-cache
+  gotcha, verified the resolved commit in both the build log
+  (`Resolved https://github.com/iwaag/nintent.git to commit 0c594d3a5ad0b2...`) and the running
+  container (`/opt/nautobot/build_info.json` → `{"nintent_commit": "0c594d3a5ad0b2..."}`), both
+  matching the pushed commit.
+- Live proof against the running scratch Nautobot (session-authenticated as `admin`, real desired
+  state, no test fixtures):
+  - `/plugins/intent-catalog/workspaces/` → 200, htmx-rendered table lists the real
+    `pj-voxel3dprint` row (node `agpc`).
+  - `/plugins/intent-catalog/workspaces/<pk>/` → 200, detail page shows Desired Node,
+    Source Remote URL, Expected Path, Lifecycle, Desired Presence, and the workspace name
+    `pj-voxel3dprint`.
+  - An unauthenticated request to the same list URL correctly redirects to login (302), and a
+    nonexistent `/plugins/intent-catalog/does-not-exist/` still 404s, confirming the new route is
+    real and not masking a catch-all.
 
 ## Exit
 
 - `DesiredWorkspace` now has the same read-only list/detail/nav/table/filter surface as every
-  other retained desired-state model.
+  other retained desired-state model, live and confirmed against the real declared
+  `pj-voxel3dprint` workspace — not just passing tests.
 - Nothing about Phase 2's evaluation semantics (`nctl workspaces`, `nctl drift`) changed.
-- Remaining: push the `nintent` submodule commit, rebuild/restart the Nautobot container, and
-  bump the superproject's `nintent` submodule pointer — same live-deploy pattern used for prior
-  submodule changes, deferred here pending approval.
+- Remaining: bump the superproject's `nintent` submodule pointer to `0c594d3` (this repo's
+  root commit, done alongside this report).
