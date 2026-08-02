@@ -1,0 +1,22 @@
+[project]
+name = "cagent-api"
+version = "0.0.1"
+description = "cluster-agent API: loopback HTTP server proxying a dedicated OpenCode instance (pj-clusterintent, devdocs/vision/cluster_agent)"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+cagent-api = "cagent_api.main:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/cagent_api"]
