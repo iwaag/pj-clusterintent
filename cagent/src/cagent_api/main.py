@@ -31,10 +31,12 @@ def main() -> None:
     evidence_dir = Path(os.environ.get("CAGENT_EVIDENCE_DIR", str(DEFAULT_EVIDENCE_DIR)))
 
     evidence = EvidenceWriter(evidence_dir)
-    store = scan_and_load(evidence)
-    interrupted = sum(1 for r in store._requests.values() if r.state == "interrupted")
-    if interrupted:
-        log.warning("startup scan: marked %d non-terminal request(s) as interrupted", interrupted)
+    store, newly_interrupted = scan_and_load(evidence)
+    if newly_interrupted:
+        log.warning(
+            "startup scan: marked %d non-terminal request(s) as interrupted: %s",
+            len(newly_interrupted), ", ".join(newly_interrupted),
+        )
 
     opencode = OpenCodeClient(base_url=opencode_url, directory=directory)
     worker = Worker(store, opencode)

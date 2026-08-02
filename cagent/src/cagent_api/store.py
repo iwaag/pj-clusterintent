@@ -174,7 +174,7 @@ class Store:
             return [self._requests[rid] for rid in session.request_ids]
 
 
-def scan_and_load(evidence: EvidenceWriter) -> Store:
+def scan_and_load(evidence: EvidenceWriter) -> tuple[Store, list[str]]:
     """Rebuild a Store from evidence on startup.
 
     Any request whose latest recorded event is not a terminal state
@@ -185,9 +185,16 @@ def scan_and_load(evidence: EvidenceWriter) -> Store:
     fresh means that in-flight wait is gone too. Either way, this process
     has no way to resume it, so it is marked `interrupted` here, once, at
     startup.
+
+    Returns `(store, newly_interrupted_request_ids)` — the second element
+    is only the requests transitioned *by this call*, not every request
+    that happens to already be `interrupted` from a previous restart, so a
+    caller logging it doesn't misreport an idle restart as having found
+    fresh damage.
     """
     store = Store(evidence=evidence)
     by_session: dict[str, list[Request]] = {}
+    newly_interrupted: list[str] = []
 
     for request_id in evidence.list_request_ids():
         record = evidence.read_request(request_id)
@@ -198,6 +205,7 @@ def scan_and_load(evidence: EvidenceWriter) -> Store:
         if state not in TERMINAL_STATES:
             evidence.append_event(request_id, "interrupted", {})
             state = "interrupted"
+            newly_interrupted.append(request_id)
 
         identity = Identity(record["identity"]["class"], record["identity"]["name"])
         request = Request(
@@ -221,4 +229,4 @@ def scan_and_load(evidence: EvidenceWriter) -> Store:
         session.request_ids = [r.request_id for r in requests]
         store._sessions[session_id] = session
 
-    return store
+    return store, newly_interrupted

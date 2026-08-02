@@ -46,6 +46,32 @@ def test_full_turn_completes():
     assert final.error is None
 
 
+def test_multi_step_turn_does_not_complete_early():
+    """A real multi-step tool-calling turn produces several assistant
+    messages, only the last of which is the true end (OpenCode's
+    `finish != "tool-calls"`). The worker must not treat an intermediate
+    step's completion as the whole turn finishing."""
+    store = Store()
+    opencode = FakeOpenCodeClient()
+    w = Worker(store, opencode)
+    w.start()
+
+    identity = Identity("node", "agpc")
+    session_id = opencode.create_session("t")
+    request = store.create_session_and_request(session_id, identity, "hello")
+    w.enqueue(request.request_id)
+
+    wait_for_state(store, request.request_id, "running")
+    opencode.push_intermediate_step(session_id)
+    opencode.push_intermediate_step(session_id)
+    time.sleep(0.1)
+    assert store.get_request(request.request_id).state == "running"
+
+    opencode.complete_latest_turn(session_id, text="final answer")
+    wait_for_state(store, request.request_id, "completed")
+    assert store.get_request(request.request_id).response == "final answer"
+
+
 def test_opencode_error_marks_failed():
     store = Store()
     opencode = FakeOpenCodeClient()

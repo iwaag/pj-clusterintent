@@ -109,7 +109,7 @@ class Worker:
                 count = self._opencode.count_assistant_messages(session_id)
                 if count > baseline:
                     msg = self._opencode.latest_assistant_message(session_id)
-                    if msg is not None and msg.completed:
+                    if msg is not None and msg.completed and msg.is_final_step:
                         if msg.error_name == "MessageAbortedError":
                             self._store.update_request(request_id, state="cancelled")
                         elif msg.error_name:

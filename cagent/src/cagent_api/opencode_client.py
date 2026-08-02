@@ -23,6 +23,7 @@ class AssistantMessage:
     completed: bool
     text: str
     error_name: str | None
+    is_final_step: bool
 
 
 class OpenCodeClient:
@@ -87,10 +88,19 @@ class OpenCodeClient:
                 for part in entry.get("parts", [])
                 if part.get("type") == "text"
             )
+            # A multi-step tool-calling turn produces one assistant message
+            # per step, each independently completed; only a step whose
+            # `finish` is not "tool-calls" (or one that ended in an error,
+            # e.g. abort) is the turn's actual end. Verified live: a
+            # 5-step turn had `finish: "tool-calls"` on steps 1-4 and
+            # `finish: "stop"` only on the final step. Treating step 1's
+            # completion as the turn's completion previously produced an
+            # empty response mid-turn.
             return AssistantMessage(
                 completed=completed,
                 text=text,
                 error_name=error.get("name") if error else None,
+                is_final_step=bool(error) or info.get("finish") != "tool-calls",
             )
         return None
 

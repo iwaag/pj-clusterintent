@@ -41,7 +41,8 @@ def test_scan_and_load_marks_non_terminal_as_interrupted(tmp_path):
     store.update_request(done.request_id, state="completed", response="fine")
 
     # Simulate a fresh process: rebuild purely from what is on disk.
-    reloaded = scan_and_load(evidence)
+    reloaded, newly_interrupted = scan_and_load(evidence)
+    assert newly_interrupted == [stuck.request_id]
 
     stuck_reloaded = reloaded.get_request(stuck.request_id)
     assert stuck_reloaded.state == "interrupted"
@@ -63,8 +64,25 @@ def test_scan_and_load_marks_non_terminal_as_interrupted(tmp_path):
 
 def test_scan_and_load_on_empty_evidence_dir_is_empty_store(tmp_path):
     evidence = EvidenceWriter(tmp_path / "does-not-exist-yet")
-    store = scan_and_load(evidence)
+    store, newly_interrupted = scan_and_load(evidence)
     assert store.list_sessions() == []
+    assert newly_interrupted == []
+
+
+def test_scan_and_load_does_not_redouble_already_interrupted(tmp_path):
+    evidence = EvidenceWriter(tmp_path)
+    store = Store(evidence=evidence)
+    identity = Identity("node", "agpc")
+    request = store.create_session_and_request("ses_1", identity, "hi")
+    store.update_request(request.request_id, state="running")
+
+    _, first_pass = scan_and_load(evidence)
+    assert first_pass == [request.request_id]
+
+    _, second_pass = scan_and_load(evidence)
+    assert second_pass == []
+    events = (evidence.evidence_dir / request.request_id / "events.jsonl").read_text()
+    assert events.count('"interrupted"') == 1
 
 
 def test_queued_request_never_dispatched_is_marked_interrupted(tmp_path):
@@ -76,5 +94,6 @@ def test_queued_request_never_dispatched_is_marked_interrupted(tmp_path):
     identity = Identity("node", "agpc")
     request = store.create_session_and_request("ses_1", identity, "never started")
 
-    reloaded = scan_and_load(evidence)
+    reloaded, newly_interrupted = scan_and_load(evidence)
+    assert newly_interrupted == [request.request_id]
     assert reloaded.get_request(request.request_id).state == "interrupted"

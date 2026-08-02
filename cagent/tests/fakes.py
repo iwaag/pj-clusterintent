@@ -37,7 +37,9 @@ class FakeOpenCodeClient:
         if self.raise_on_prompt:
             raise OpenCodeError("simulated prompt_async failure")
         with self.lock:
-            self._sessions[session_id].append({"completed": False, "text": "", "error_name": None})
+            self._sessions[session_id].append(
+                {"completed": False, "text": "", "error_name": None, "is_final_step": False}
+            )
 
     def count_assistant_messages(self, session_id: str) -> int:
         if self.raise_on_poll:
@@ -51,22 +53,46 @@ class FakeOpenCodeClient:
             if not turns:
                 return None
             t = turns[-1]
-            return AssistantMessage(completed=t["completed"], text=t["text"], error_name=t["error_name"])
+            return AssistantMessage(
+                completed=t["completed"],
+                text=t["text"],
+                error_name=t["error_name"],
+                is_final_step=t["is_final_step"],
+            )
 
     def abort(self, session_id: str) -> bool:
         self.abort_calls.append(session_id)
         with self.lock:
             turns = self._sessions.get(session_id, [])
             if turns and not turns[-1]["completed"]:
-                turns[-1] = {"completed": True, "text": "", "error_name": "MessageAbortedError"}
+                turns[-1] = {
+                    "completed": True, "text": "", "error_name": "MessageAbortedError", "is_final_step": True,
+                }
         return True
 
     # --- test helpers, not part of the real client's interface ---
 
-    def complete_latest_turn(self, session_id: str, text: str = "ok") -> None:
+    def push_intermediate_step(self, session_id: str) -> None:
+        """Simulate a completed tool-calling step that is NOT the turn's end
+        (OpenCode's `finish: "tool-calls"`) — appends a new assistant
+        message so `count_assistant_messages` increases, same as a real
+        multi-step turn."""
         with self.lock:
-            self._sessions[session_id][-1] = {"completed": True, "text": text, "error_name": None}
+            self._sessions[session_id].append(
+                {"completed": True, "text": "", "error_name": None, "is_final_step": False}
+            )
+
+    def complete_latest_turn(self, session_id: str, text: str = "ok") -> None:
+        """Append (not overwrite) the turn's final assistant message — a real
+        multi-step turn is a sequence of distinct messages; the last one is
+        the only one with `finish` != "tool-calls"."""
+        with self.lock:
+            self._sessions[session_id].append(
+                {"completed": True, "text": text, "error_name": None, "is_final_step": True}
+            )
 
     def fail_latest_turn(self, session_id: str, error_name: str = "SomeError") -> None:
         with self.lock:
-            self._sessions[session_id][-1] = {"completed": True, "text": "", "error_name": error_name}
+            self._sessions[session_id].append(
+                {"completed": True, "text": "", "error_name": error_name, "is_final_step": True}
+            )
