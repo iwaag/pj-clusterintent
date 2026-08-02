@@ -1,9 +1,13 @@
-"""In-memory request/session state.
+"""Request/session state, backed by durable evidence (see evidence.py).
 
-Step 3 scope only: state lives in process memory. Step 4 replaces this with
-an evidence-backed store where the durable copy is authoritative and
-process memory is just a cache — see p1/contract.md's note that "request
-state lives on the evidence side, not only in process memory."
+Process memory is a cache; `EvidenceWriter` is the durable copy of record,
+written synchronously on every mutation, matching contract.md's "request
+state lives on the evidence side, not only in process memory." Module-level
+`scan_and_load` rebuilds a `Store` from evidence at startup and marks any
+non-terminal request `interrupted` — see p1/report4.md for why this is
+needed beyond process-restart alone (a wedged backend call can also leave a
+request stuck `running` forever without a restart; that case is left
+`running` here deliberately, only a restart re-scans evidence).
 """
 
 from __future__ import annotations
@@ -12,6 +16,8 @@ import threading
 import time
 import uuid
 from dataclasses import dataclass, field
+
+from .evidence import EvidenceWriter
 
 VALID_STATES = {
     "queued",
@@ -84,12 +90,13 @@ class OwnershipError(Exception):
 
 
 class Store:
-    """Thread-safe in-memory store. One lock guards all mutation."""
+    """Thread-safe store. One lock guards all mutation and evidence writes."""
 
-    def __init__(self) -> None:
+    def __init__(self, evidence: EvidenceWriter | None = None) -> None:
         self._lock = threading.Lock()
         self._requests: dict[str, Request] = {}
         self._sessions: dict[str, Session] = {}
+        self._evidence = evidence
 
     def create_session_and_request(
         self, session_id: str, identity: Identity, message: str
@@ -123,6 +130,10 @@ class Store:
             identity=identity,
             message=message,
         )
+        if self._evidence is not None:
+            self._evidence.record_created(
+                request_id, session.session_id, identity.as_dict(), message, request.created_at
+            )
         self._requests[request_id] = request
         session.request_ids.append(request_id)
         return request
@@ -142,6 +153,13 @@ class Store:
             for key, value in fields.items():
                 setattr(request, key, value)
             request.updated_at = time.time()
+            if self._evidence is not None and "state" in fields:
+                detail = {}
+                if request.response is not None:
+                    detail["response"] = request.response
+                if request.error is not None:
+                    detail["error"] = request.error
+                self._evidence.append_event(request_id, request.state, detail)
             return request
 
     def list_sessions(self) -> list[Session]:
@@ -154,3 +172,53 @@ class Store:
             if session is None:
                 raise NotFoundError(f"session not found: {session_id}")
             return [self._requests[rid] for rid in session.request_ids]
+
+
+def scan_and_load(evidence: EvidenceWriter) -> Store:
+    """Rebuild a Store from evidence on startup.
+
+    Any request whose latest recorded event is not a terminal state
+    (`queued` or `running`) is stuck: either the process was killed
+    mid-turn (exit criterion 4), or — per the Step 2 finding that OpenCode
+    can retry a dead backend forever without ever settling a message — the
+    process is still running OpenCode's underlying wait but restarting
+    fresh means that in-flight wait is gone too. Either way, this process
+    has no way to resume it, so it is marked `interrupted` here, once, at
+    startup.
+    """
+    store = Store(evidence=evidence)
+    by_session: dict[str, list[Request]] = {}
+
+    for request_id in evidence.list_request_ids():
+        record = evidence.read_request(request_id)
+        latest = evidence.read_latest_event(request_id)
+        state = latest["state"] if latest else "queued"
+        detail = latest.get("detail", {}) if latest else {}
+
+        if state not in TERMINAL_STATES:
+            evidence.append_event(request_id, "interrupted", {})
+            state = "interrupted"
+
+        identity = Identity(record["identity"]["class"], record["identity"]["name"])
+        request = Request(
+            request_id=record["request_id"],
+            session_id=record["session_id"],
+            identity=identity,
+            message=record["message"],
+            state=state,
+            created_at=record["created_at"],
+            updated_at=latest["ts"] if latest else record["created_at"],
+            response=detail.get("response"),
+            error=detail.get("error"),
+        )
+        store._requests[request_id] = request
+        by_session.setdefault(request.session_id, []).append(request)
+
+    for session_id, requests in by_session.items():
+        requests.sort(key=lambda r: r.created_at)
+        owner = requests[0].identity
+        session = Session(session_id=session_id, identity=owner, created_at=requests[0].created_at)
+        session.request_ids = [r.request_id for r in requests]
+        store._sessions[session_id] = session
+
+    return store

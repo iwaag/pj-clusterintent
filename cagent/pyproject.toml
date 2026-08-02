@@ -8,6 +8,7 @@ dependencies = []
 
 [project.scripts]
 cagent-api = "cagent_api.main:main"
+cagent-evidence = "cagent_api.evidence_cli:main"
 
 [dependency-groups]
 dev = [
