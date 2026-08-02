@@ -1,0 +1,20 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "ollama/glm-4.7-flash:latest",
+  "provider": {
+    "ollama": {
+      "npm": "@ai-sdk/openai-compatible",
+      "options": { "baseURL": "http://127.0.0.1:11434/v1" },
+      "models": { "glm-4.7-flash:latest": {} }
+    }
+  },
+  "permission": {
+    "bash": {
+      "*": "allow",
+      "*nctl*reconcile*--yes*": "deny",
+      "*nctl*desired*apply*--yes*": "deny",
+      "*nctl*desired*apply*-f*--yes*": "deny"
+    }
+  },
+  "instructions": ["__AGENTS_PATH__"]
+}
