@@ -12,6 +12,7 @@ cagent-evidence = "cagent_api.evidence_cli:main"
 
 [dependency-groups]
 dev = [
+    "cryptography>=50.0.0",
     "pytest>=8.0",
 ]
 
