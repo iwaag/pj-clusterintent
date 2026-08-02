@@ -1,4 +1,5 @@
-"""cluster-agent API HTTP server (loopback MVP). See p1/contract.md."""
+"""cluster-agent API HTTP server. See p2/contract.md (identity is mTLS-derived;
+see p1/contract.md for the resources/state-machine parts unchanged since Phase 1)."""
 
 from __future__ import annotations
 
@@ -6,12 +7,10 @@ import json
 import re
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+from .auth import AuthError
 from .opencode_client import OpenCodeClient, OpenCodeError
 from .store import Identity, NotFoundError, OwnershipError, Store, TERMINAL_STATES
 from .worker import Worker
-
-MAX_IDENTITY_NAME_LENGTH = 200
-VALID_IDENTITY_CLASSES = {"node", "human"}
 
 _ROUTE_REQUESTS = re.compile(r"^/requests$")
 _ROUTE_SESSION_REQUESTS = re.compile(r"^/sessions/(?P<session_id>[^/]+)/requests$")
@@ -29,7 +28,13 @@ class ApiError(Exception):
         self.request_id = request_id
 
 
-def make_handler(store: Store, opencode: OpenCodeClient, worker: Worker):
+def make_handler(store: Store, opencode: OpenCodeClient, worker: Worker, authenticate):
+    """`authenticate(handler) -> Identity` is the mTLS identity/connect-time-check
+    seam (p2/contract.md): production wires `auth.CertAuthenticator`
+    (reads `handler.connection.getpeercert()`, checks the ledger and
+    DesiredNode validity); tests inject a fake that needs no real TLS
+    handshake (see tests/fakes.py)."""
+
     class Handler(BaseHTTPRequestHandler):
         server_version = "cagent-api/0.0.1"
 
@@ -37,13 +42,10 @@ def make_handler(store: Store, opencode: OpenCodeClient, worker: Worker):
             pass
 
         def _identity(self) -> Identity:
-            identity_class = self.headers.get("X-Cluster-Agent-Identity-Class", "")
-            name = self.headers.get("X-Cluster-Agent-Identity-Name", "")
-            if identity_class not in VALID_IDENTITY_CLASSES:
-                raise ApiError(400, "bad_request", "X-Cluster-Agent-Identity-Class must be 'node' or 'human'")
-            if not name or len(name) > MAX_IDENTITY_NAME_LENGTH:
-                raise ApiError(400, "bad_request", "X-Cluster-Agent-Identity-Name must be 1-200 chars")
-            return Identity(identity_class=identity_class, name=name)
+            try:
+                return authenticate(self)
+            except AuthError as exc:
+                raise ApiError(exc.status, exc.code, exc.message)
 
         def _body(self) -> dict:
             length = int(self.headers.get("Content-Length", "0") or "0")
@@ -198,6 +200,17 @@ def make_handler(store: Store, opencode: OpenCodeClient, worker: Worker):
     return Handler
 
 
-def build_server(host: str, port: int, store: Store, opencode: OpenCodeClient, worker: Worker) -> ThreadingHTTPServer:
-    handler_cls = make_handler(store, opencode, worker)
-    return ThreadingHTTPServer((host, port), handler_cls)
+def build_server(
+    host: str,
+    port: int,
+    store: Store,
+    opencode: OpenCodeClient,
+    worker: Worker,
+    authenticate,
+    ssl_context=None,
+) -> ThreadingHTTPServer:
+    handler_cls = make_handler(store, opencode, worker, authenticate)
+    httpd = ThreadingHTTPServer((host, port), handler_cls)
+    if ssl_context is not None:
+        httpd.socket = ssl_context.wrap_socket(httpd.socket, server_side=True)
+    return httpd

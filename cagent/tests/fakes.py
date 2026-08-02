@@ -12,7 +12,26 @@ from __future__ import annotations
 import itertools
 import threading
 
+from cagent_api.auth import AuthError
 from cagent_api.opencode_client import AssistantMessage, OpenCodeError
+from cagent_api.store import Identity
+
+
+class FakeAuthenticator:
+    """Test-only stand-in for `auth.CertAuthenticator` (p2/contract.md's
+    real identity source is a verified client cert's SAN, which unit tests
+    have no reason to set up a real TLS handshake for — see
+    p2/plan.md Step 4: 'keep the seam such that unit tests don't need real
+    TLS'). Reads a test-only header instead of `getpeercert()`, entirely
+    outside the real contract — no production code reads this header."""
+
+    HEADER = "X-Test-Node-Uuid"
+
+    def __call__(self, handler) -> Identity:
+        node_uuid = handler.headers.get(self.HEADER)
+        if not node_uuid:
+            raise AuthError(401, "unauthorized", f"missing test header {self.HEADER}")
+        return Identity(identity_class="node", uuid=node_uuid, cert_serial=f"test-serial-{node_uuid}")
 
 
 class FakeOpenCodeClient:

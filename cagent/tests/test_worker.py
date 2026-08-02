@@ -32,7 +32,7 @@ def test_full_turn_completes():
     w = Worker(store, opencode)
     w.start()
 
-    identity = Identity("node", "agpc")
+    identity = Identity("node", "agpc-uuid", "agpc-serial")
     session_id = opencode.create_session("t")
     request = store.create_session_and_request(session_id, identity, "hello")
     w.enqueue(request.request_id)
@@ -56,7 +56,7 @@ def test_multi_step_turn_does_not_complete_early():
     w = Worker(store, opencode)
     w.start()
 
-    identity = Identity("node", "agpc")
+    identity = Identity("node", "agpc-uuid", "agpc-serial")
     session_id = opencode.create_session("t")
     request = store.create_session_and_request(session_id, identity, "hello")
     w.enqueue(request.request_id)
@@ -79,7 +79,7 @@ def test_opencode_error_marks_failed():
     w = Worker(store, opencode)
     w.start()
 
-    identity = Identity("node", "agpc")
+    identity = Identity("node", "agpc-uuid", "agpc-serial")
     session_id = opencode.create_session("t")
     request = store.create_session_and_request(session_id, identity, "hello")
     w.enqueue(request.request_id)
@@ -94,7 +94,7 @@ def test_assistant_error_marks_failed():
     w = Worker(store, opencode)
     w.start()
 
-    identity = Identity("node", "agpc")
+    identity = Identity("node", "agpc-uuid", "agpc-serial")
     session_id = opencode.create_session("t")
     request = store.create_session_and_request(session_id, identity, "hello")
     w.enqueue(request.request_id)
@@ -111,7 +111,7 @@ def test_cancel_while_running_aborts_and_marks_cancelled():
     w = Worker(store, opencode)
     w.start()
 
-    identity = Identity("node", "agpc")
+    identity = Identity("node", "agpc-uuid", "agpc-serial")
     session_id = opencode.create_session("t")
     request = store.create_session_and_request(session_id, identity, "hello")
     w.enqueue(request.request_id)
@@ -128,7 +128,7 @@ def test_cancel_while_queued_never_dispatches():
     w = Worker(store, opencode)
     # Do not start the worker thread — simulate cancel landing before dispatch.
 
-    identity = Identity("node", "agpc")
+    identity = Identity("node", "agpc-uuid", "agpc-serial")
     session_id = opencode.create_session("t")
     request = store.create_session_and_request(session_id, identity, "hello")
     store.update_request(request.request_id, state="cancelled")
@@ -148,7 +148,7 @@ def test_turn_timeout_marks_failed():
     original_timeout = worker_module.TURN_TIMEOUT_SECONDS
     worker_module.TURN_TIMEOUT_SECONDS = 0.05
     try:
-        identity = Identity("node", "agpc")
+        identity = Identity("node", "agpc-uuid", "agpc-serial")
         session_id = opencode.create_session("t")
         request = store.create_session_and_request(session_id, identity, "hello")
         w.enqueue(request.request_id)
@@ -166,7 +166,7 @@ def test_global_serialization_second_request_waits():
     w = Worker(store, opencode)
     w.start()
 
-    identity = Identity("node", "agpc")
+    identity = Identity("node", "agpc-uuid", "agpc-serial")
     session_a = opencode.create_session("a")
     session_b = opencode.create_session("b")
     req1 = store.create_session_and_request(session_a, identity, "first")

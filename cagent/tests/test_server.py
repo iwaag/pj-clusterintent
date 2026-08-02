@@ -13,7 +13,7 @@ from cagent_api.server import build_server
 from cagent_api.store import Store
 from cagent_api.worker import Worker
 
-from .fakes import FakeOpenCodeClient
+from .fakes import FakeAuthenticator, FakeOpenCodeClient
 
 
 @pytest.fixture(autouse=True)
@@ -27,7 +27,7 @@ def running_server():
     opencode = FakeOpenCodeClient()
     w = Worker(store, opencode)
     w.start()
-    httpd = build_server("127.0.0.1", 0, store, opencode, w)
+    httpd = build_server("127.0.0.1", 0, store, opencode, w, FakeAuthenticator())
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
     thread.start()
     port = httpd.server_address[1]
@@ -49,24 +49,16 @@ def _call(url: str, method: str = "GET", body: dict | None = None, headers: dict
 
 
 NODE_HEADERS = {
-    "X-Cluster-Agent-Identity-Class": "node",
-    "X-Cluster-Agent-Identity-Name": "agpc",
+    "X-Test-Node-Uuid": "agpc-uuid",
     "Content-Type": "application/json",
 }
 
 
-def test_create_request_missing_identity_returns_400(running_server):
+def test_create_request_missing_identity_returns_401(running_server):
     base, _ = running_server
     status, payload = _call(base + "/requests", "POST", {"message": "hi"})
-    assert status == 400
-    assert payload["error"]["code"] == "bad_request"
-
-
-def test_create_request_bad_identity_class_returns_400(running_server):
-    base, _ = running_server
-    headers = {**NODE_HEADERS, "X-Cluster-Agent-Identity-Class": "robot"}
-    status, payload = _call(base + "/requests", "POST", {"message": "hi"}, headers)
-    assert status == 400
+    assert status == 401
+    assert payload["error"]["code"] == "unauthorized"
 
 
 def test_create_and_poll_request_to_completion(running_server):
@@ -94,7 +86,9 @@ def test_create_and_poll_request_to_completion(running_server):
         time.sleep(0.01)
     assert get_payload["state"] == "completed"
     assert get_payload["response"] == "the answer"
-    assert get_payload["identity"] == {"class": "node", "name": "agpc"}
+    assert get_payload["identity"] == {
+        "class": "node", "uuid": "agpc-uuid", "cert_serial": "test-serial-agpc-uuid",
+    }
 
 
 def test_get_unknown_request_returns_404(running_server):
@@ -109,7 +103,7 @@ def test_continue_session_requires_matching_identity(running_server):
     status, payload = _call(base + "/requests", "POST", {"message": "hi"}, NODE_HEADERS)
     session_id = payload["session_id"]
 
-    other_headers = {**NODE_HEADERS, "X-Cluster-Agent-Identity-Name": "someone-else"}
+    other_headers = {**NODE_HEADERS, "X-Test-Node-Uuid": "someone-else-uuid"}
     status, payload = _call(f"{base}/sessions/{session_id}/requests", "POST", {"message": "again"}, other_headers)
     assert status == 403
 

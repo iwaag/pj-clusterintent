@@ -33,10 +33,11 @@ TERMINAL_STATES = {"completed", "failed", "cancelled", "interrupted"}
 @dataclass
 class Identity:
     identity_class: str
-    name: str
+    uuid: str
+    cert_serial: str
 
     def as_dict(self) -> dict:
-        return {"class": self.identity_class, "name": self.name}
+        return {"class": self.identity_class, "uuid": self.uuid, "cert_serial": self.cert_serial}
 
 
 @dataclass
@@ -113,10 +114,7 @@ class Store:
             session = self._sessions.get(session_id)
             if session is None:
                 raise NotFoundError(f"session not found: {session_id}")
-            if (
-                session.identity.identity_class != identity.identity_class
-                or session.identity.name != identity.name
-            ):
+            if session.identity.uuid != identity.uuid:
                 raise OwnershipError("identity does not own this session")
             return self._new_request_locked(session, identity, message)
 
@@ -207,7 +205,9 @@ def scan_and_load(evidence: EvidenceWriter) -> tuple[Store, list[str]]:
             state = "interrupted"
             newly_interrupted.append(request_id)
 
-        identity = Identity(record["identity"]["class"], record["identity"]["name"])
+        identity = Identity(
+            record["identity"]["class"], record["identity"]["uuid"], record["identity"]["cert_serial"]
+        )
         request = Request(
             request_id=record["request_id"],
             session_id=record["session_id"],

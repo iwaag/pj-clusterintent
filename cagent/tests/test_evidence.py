@@ -7,7 +7,7 @@ from cagent_api.store import Identity, Store, scan_and_load
 def test_evidence_written_on_create_and_transitions(tmp_path):
     evidence = EvidenceWriter(tmp_path)
     store = Store(evidence=evidence)
-    identity = Identity("node", "agpc")
+    identity = Identity("node", "agpc-uuid", "agpc-serial")
 
     request = store.create_session_and_request("ses_1", identity, "hello")
     store.update_request(request.request_id, state="running")
@@ -15,7 +15,7 @@ def test_evidence_written_on_create_and_transitions(tmp_path):
 
     record = evidence.read_request(request.request_id)
     assert record["session_id"] == "ses_1"
-    assert record["identity"] == {"class": "node", "name": "agpc"}
+    assert record["identity"] == {"class": "node", "uuid": "agpc-uuid", "cert_serial": "agpc-serial"}
     assert record["message"] == "hello"
 
     events_path = tmp_path / request.request_id / "events.jsonl"
@@ -31,7 +31,7 @@ def test_evidence_written_on_create_and_transitions(tmp_path):
 def test_scan_and_load_marks_non_terminal_as_interrupted(tmp_path):
     evidence = EvidenceWriter(tmp_path)
     store = Store(evidence=evidence)
-    identity = Identity("human", "eiji")
+    identity = Identity("human", "eiji-uuid", "eiji-serial")
 
     stuck = store.create_session_and_request("ses_1", identity, "stuck one")
     store.update_request(stuck.request_id, state="running")
@@ -57,7 +57,7 @@ def test_scan_and_load_marks_non_terminal_as_interrupted(tmp_path):
 
     session = reloaded.list_sessions()[0]
     assert session.session_id == "ses_1"
-    assert session.identity.name == "eiji"
+    assert session.identity.uuid == "eiji-uuid"
     requests = reloaded.list_session_requests("ses_1")
     assert [r.request_id for r in requests] == [stuck.request_id, done.request_id]
 
@@ -72,7 +72,7 @@ def test_scan_and_load_on_empty_evidence_dir_is_empty_store(tmp_path):
 def test_scan_and_load_does_not_redouble_already_interrupted(tmp_path):
     evidence = EvidenceWriter(tmp_path)
     store = Store(evidence=evidence)
-    identity = Identity("node", "agpc")
+    identity = Identity("node", "agpc-uuid", "agpc-serial")
     request = store.create_session_and_request("ses_1", identity, "hi")
     store.update_request(request.request_id, state="running")
 
@@ -91,7 +91,7 @@ def test_queued_request_never_dispatched_is_marked_interrupted(tmp_path):
     `unknown` or a 404 — this is exit criterion 4's literal wording."""
     evidence = EvidenceWriter(tmp_path)
     store = Store(evidence=evidence)
-    identity = Identity("node", "agpc")
+    identity = Identity("node", "agpc-uuid", "agpc-serial")
     request = store.create_session_and_request("ses_1", identity, "never started")
 
     reloaded, newly_interrupted = scan_and_load(evidence)
