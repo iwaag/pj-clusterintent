@@ -16,8 +16,11 @@ guidance, preserved as evidence.
 
 1. The wrapper is distributed to the target nodes by an Ansible role (fixed
    URL + TLS settings baked in as role configuration).
-2. At least one node-agent sends a resource question through the wrapper and
-   receives useful guidance back.
+2. At least one request from a real node sends a resource question through the
+   wrapper and receives useful guidance back. The normal proof is a
+   development-assist agent SSHing to the node and invoking the wrapper
+   directly; it must not require the node-agent's local LLM to decide to use
+   the wrapper.
 3. The example is preserved as evidence (cagent evidence on the command node
    plus a transcript in this directory).
 
@@ -178,15 +181,13 @@ covered by the Step 3 approval unless the user said otherwise).
 
 The exit-criteria run. With the cluster-agent stack up on the command node:
 
-1. Drive the **real node-agent** on agpc — not a human typing curl — into
-   asking the question. Practical method: talk to agpc's node-agent OpenCode
-   instance over SSH-forwarded loopback (or `ansible ... -m uri` against
-   127.0.0.1:4096 from agpc itself; the p1 research notes
-   [p1/opencode_api_notes.md](../p1/opencode_api_notes.md) document the
-   session API) and prompt it with a task that requires cluster knowledge,
-   e.g. "You need S3-compatible storage for a job. Find out what this
-   cluster offers before doing anything." The node-agent should, per its
-   Step 4 instructions, run `cagent ask` itself.
+1. Have the development-assist agent SSH to **agpc** and directly invoke its
+   installed `cagent` wrapper — not a human typing curl and not an invocation
+   of agpc's node-agent OpenCode instance. Submit once with `--no-wait` and
+   poll that same request ID with `cagent status`; do not retry by submitting
+   another request merely because the first is still running. This proves the
+   real-node mTLS and wrapper path without making the unrelated local
+   node-agent model compete with the cluster-agent for the same Ollama server.
 2. Confirm the guidance is *useful*: grounded in actual cluster state, i.e.
    consistent with what `nctl relations --json` / `nctl drift` say (the
    cluster-agent's own OpenCode already runs in the superproject and can run
@@ -196,8 +197,8 @@ The exit-criteria run. With the cluster-agent stack up on the command node:
    service relation, both count; asking one of each makes a stronger report).
 3. Preserve evidence: `cagent-evidence list`/`show` on the command node must
    show the request with agpc's UUID/serial identity; save the full exchange
-   (node-agent prompt → its wrapper call → cluster-agent answer) as
-   `p3/e2e_transcript.md`.
+   (development-assist SSH command on agpc → wrapper call → cluster-agent
+   answer) as `p3/e2e_transcript.md`.
 4. Stop the manually-started processes when done (house pattern from p1/p2);
    agpc keeps the wrapper, conf, and instructions — that is the phase's
    exit state.

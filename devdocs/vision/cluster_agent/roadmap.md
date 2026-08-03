@@ -139,15 +139,19 @@ passes.
   continue with a session ID / get status. Minimize what the node-agent
   prompt has to be taught.
 - Add how to call the cluster-agent to the node-agent instructions
-  (prompt/AGENTS equivalent), and confirm that a real node-agent-originated
-  request gets "guidance to an existing service" back. `nctl relations
-  --json` can be used as-is as the material for that guidance (the
+  (prompt/AGENTS equivalent), but do not make a local node-agent's
+  instruction-following a Phase 3 availability dependency. Confirm instead
+  that a request originates from one real node through the distributed
+  wrapper; a development-assist agent that SSHes to that node and invokes the
+  wrapper directly is the normal proof path. `nctl relations --json` can be
+  used as-is as the material for that guidance (the
   service-binding graph plus the unreferenced-service list, computed fresh on
   every call).
 
-**Exit criteria**: at least one node-agent sends a resource question through
-the wrapper and receives useful guidance, with the example preserved as
-evidence.
+**Exit criteria**: at least one request from a real node sends a resource
+question through the wrapper and receives useful guidance, with the example
+preserved as evidence. Node-agent integration remains distributed guidance,
+not this phase's proof gate.
 
 ## Phase 4: the human (smartphone) entrance
 
