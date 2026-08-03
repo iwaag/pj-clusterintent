@@ -31,7 +31,7 @@ def test_evidence_written_on_create_and_transitions(tmp_path):
 def test_scan_and_load_marks_non_terminal_as_interrupted(tmp_path):
     evidence = EvidenceWriter(tmp_path)
     store = Store(evidence=evidence)
-    identity = Identity("human", "eiji-uuid", "eiji-serial")
+    identity = Identity(identity_class="human", name="operator")
 
     stuck = store.create_session_and_request("ses_1", identity, "stuck one")
     store.update_request(stuck.request_id, state="running")
@@ -57,7 +57,8 @@ def test_scan_and_load_marks_non_terminal_as_interrupted(tmp_path):
 
     session = reloaded.list_sessions()[0]
     assert session.session_id == "ses_1"
-    assert session.identity.uuid == "eiji-uuid"
+    assert session.identity.identity_class == "human"
+    assert session.identity.name == "operator"
     requests = reloaded.list_session_requests("ses_1")
     assert [r.request_id for r in requests] == [stuck.request_id, done.request_id]
 

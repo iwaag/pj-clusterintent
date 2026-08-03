@@ -34,6 +34,20 @@ class FakeAuthenticator:
         return Identity(identity_class="node", uuid=node_uuid, cert_serial=f"test-serial-{node_uuid}")
 
 
+class FakeHumanAuthenticator:
+    """Test-only stand-in for `auth.TokenAuthenticator`: reads a test-only
+    header instead of the real `Authorization: Bearer` header, so server
+    tests can exercise the human read-all/continue-own rules without a real
+    token comparison."""
+
+    HEADER = "X-Test-Human"
+
+    def __call__(self, handler) -> Identity:
+        if not handler.headers.get(self.HEADER):
+            raise AuthError(401, "unauthorized", f"missing test header {self.HEADER}")
+        return Identity(identity_class="human", name="operator")
+
+
 class FakeOpenCodeClient:
     def __init__(self) -> None:
         self._session_ids = itertools.count(1)

@@ -32,12 +32,29 @@ TERMINAL_STATES = {"completed", "failed", "cancelled", "interrupted"}
 
 @dataclass
 class Identity:
+    """Class-tagged identity (p4/contract.md, breaking change over Phase 2's
+    fixed node-only shape). A node identity carries `uuid`/`cert_serial`; a
+    human identity carries only `name` (a fixed operator label, not
+    per-token — see contract's single-operator assumption). `owner_key()` is
+    the value session/request ownership comparisons use, so callers never
+    compare `uuid` directly (which is `None` for humans)."""
+
     identity_class: str
-    uuid: str
-    cert_serial: str
+    uuid: str | None = None
+    cert_serial: str | None = None
+    name: str | None = None
 
     def as_dict(self) -> dict:
-        return {"class": self.identity_class, "uuid": self.uuid, "cert_serial": self.cert_serial}
+        if self.identity_class == "human":
+            return {"class": "human", "name": self.name}
+        return {"class": "node", "uuid": self.uuid, "cert_serial": self.cert_serial}
+
+    def owner_key(self) -> str:
+        """Every human-authenticated request is the same owner (single
+        operator, p4/contract.md); nodes are keyed by DesiredNode UUID."""
+        if self.identity_class == "human":
+            return "human"
+        return f"node:{self.uuid}"
 
 
 @dataclass
@@ -114,7 +131,7 @@ class Store:
             session = self._sessions.get(session_id)
             if session is None:
                 raise NotFoundError(f"session not found: {session_id}")
-            if session.identity.uuid != identity.uuid:
+            if session.identity.owner_key() != identity.owner_key():
                 raise OwnershipError("identity does not own this session")
             return self._new_request_locked(session, identity, message)
 
@@ -172,6 +189,15 @@ class Store:
             return [self._requests[rid] for rid in session.request_ids]
 
 
+def _identity_from_record(d: dict) -> Identity:
+    """Tolerant of both the Phase 2 shape (`{class, uuid, cert_serial}`,
+    always `class: "node"`) and the Phase 4 class-tagged shape on disk —
+    old evidence is read as history, not migrated (p4/contract.md)."""
+    if d.get("class") == "human":
+        return Identity(identity_class="human", name=d.get("name"))
+    return Identity(identity_class=d.get("class", "node"), uuid=d.get("uuid"), cert_serial=d.get("cert_serial"))
+
+
 def scan_and_load(evidence: EvidenceWriter) -> tuple[Store, list[str]]:
     """Rebuild a Store from evidence on startup.
 
@@ -205,9 +231,7 @@ def scan_and_load(evidence: EvidenceWriter) -> tuple[Store, list[str]]:
             state = "interrupted"
             newly_interrupted.append(request_id)
 
-        identity = Identity(
-            record["identity"]["class"], record["identity"]["uuid"], record["identity"]["cert_serial"]
-        )
+        identity = _identity_from_record(record["identity"])
         request = Request(
             request_id=record["request_id"],
             session_id=record["session_id"],

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from cagent_api.auth import AuthError, CertAuthenticator, extract_node_identity
+from cagent_api.auth import AuthError, CertAuthenticator, TokenAuthenticator, extract_node_identity
 from cagent_api.ledger import Ledger
 from cagent_api.node_resolver import NodeResolverError
 
@@ -108,3 +108,38 @@ def test_cert_authenticator_surfaces_node_resolver_failure_as_502(tmp_path):
     with pytest.raises(AuthError) as exc_info:
         authenticator(_Handler(_peercert()))
     assert exc_info.value.status == 502
+
+
+class _TokenHandler:
+    """Stand-in for a real handler: only `.headers.get(...)` is used."""
+
+    def __init__(self, headers: dict):
+        self.headers = headers
+
+
+def test_token_authenticator_accepts_correct_bearer_token():
+    authenticator = TokenAuthenticator("s3cr3t", human_name="operator")
+    identity = authenticator(_TokenHandler({"Authorization": "Bearer s3cr3t"}))
+    assert identity.identity_class == "human"
+    assert identity.name == "operator"
+
+
+def test_token_authenticator_rejects_wrong_token():
+    authenticator = TokenAuthenticator("s3cr3t")
+    with pytest.raises(AuthError) as exc_info:
+        authenticator(_TokenHandler({"Authorization": "Bearer wrong"}))
+    assert exc_info.value.status == 401
+
+
+def test_token_authenticator_rejects_missing_header():
+    authenticator = TokenAuthenticator("s3cr3t")
+    with pytest.raises(AuthError) as exc_info:
+        authenticator(_TokenHandler({}))
+    assert exc_info.value.status == 401
+
+
+def test_token_authenticator_rejects_non_bearer_scheme():
+    authenticator = TokenAuthenticator("s3cr3t")
+    with pytest.raises(AuthError) as exc_info:
+        authenticator(_TokenHandler({"Authorization": "Basic s3cr3t"}))
+    assert exc_info.value.status == 401

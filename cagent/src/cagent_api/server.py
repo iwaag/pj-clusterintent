@@ -167,7 +167,7 @@ def make_handler(store: Store, opencode: OpenCodeClient, worker: Worker, authent
                 request = store.get_request(request_id)
             except NotFoundError as exc:
                 raise ApiError(404, "not_found", str(exc), request_id=request_id)
-            if request.identity.uuid != identity.uuid:
+            if identity.identity_class != "human" and request.identity.owner_key() != identity.owner_key():
                 raise ApiError(403, "forbidden", "identity does not own this request", request_id=request_id)
             self._write_json(200, request.as_dict())
 
@@ -177,7 +177,7 @@ def make_handler(store: Store, opencode: OpenCodeClient, worker: Worker, authent
                 request = store.get_request(request_id)
             except NotFoundError as exc:
                 raise ApiError(404, "not_found", str(exc), request_id=request_id)
-            if request.identity.uuid != identity.uuid:
+            if request.identity.owner_key() != identity.owner_key():
                 raise ApiError(403, "forbidden", "identity does not own this request", request_id=request_id)
 
             if request.state in TERMINAL_STATES:
@@ -194,7 +194,10 @@ def make_handler(store: Store, opencode: OpenCodeClient, worker: Worker, authent
 
         def _list_sessions(self) -> None:
             identity = self._identity()
-            sessions = [s for s in store.list_sessions() if s.identity.uuid == identity.uuid]
+            if identity.identity_class == "human":
+                sessions = store.list_sessions()
+            else:
+                sessions = [s for s in store.list_sessions() if s.identity.owner_key() == identity.owner_key()]
             self._write_json(200, [s.as_dict() for s in sessions])
 
         def _list_session_requests(self, session_id: str) -> None:
@@ -203,7 +206,11 @@ def make_handler(store: Store, opencode: OpenCodeClient, worker: Worker, authent
                 requests = store.list_session_requests(session_id)
             except NotFoundError as exc:
                 raise ApiError(404, "not_found", str(exc))
-            if requests and requests[0].identity.uuid != identity.uuid:
+            if (
+                requests
+                and identity.identity_class != "human"
+                and requests[0].identity.owner_key() != identity.owner_key()
+            ):
                 raise ApiError(403, "forbidden", "identity does not own this session")
             self._write_json(200, [r.as_dict() for r in requests])
 

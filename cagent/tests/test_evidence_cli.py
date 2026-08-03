@@ -16,6 +16,20 @@ def test_cmd_list_prints_uuid_identity(tmp_path, capsys):
     assert "ses_1" in out
 
 
+def test_cmd_list_distinguishes_human_from_node_identity(tmp_path, capsys):
+    """p4/plan.md exit criterion 3: a human request and a node request must
+    be distinguishable in cagent-evidence output."""
+    evidence = EvidenceWriter(tmp_path)
+    evidence.record_created("req_1", "ses_1", {"class": "node", "uuid": "agpc-uuid", "cert_serial": "s1"}, "hi", 0.0)
+    evidence.record_created("req_2", "ses_2", {"class": "human", "name": "operator"}, "hi", 0.0)
+
+    cmd_list(evidence)
+
+    out = capsys.readouterr().out
+    assert "node:agpc-uuid" in out
+    assert "human:operator" in out
+
+
 def test_cmd_show_prints_record_and_events(tmp_path, capsys):
     evidence = EvidenceWriter(tmp_path)
     evidence.record_created("req_1", "ses_1", {"class": "node", "uuid": "agpc-uuid", "cert_serial": "s1"}, "hi", 0.0)

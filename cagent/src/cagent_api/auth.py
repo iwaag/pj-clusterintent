@@ -17,6 +17,8 @@ step 3 (DesiredNode validity).
 
 from __future__ import annotations
 
+import hmac
+
 from .ledger import Ledger
 from .node_resolver import NodeResolverError
 from .store import Identity
@@ -78,3 +80,26 @@ class CertAuthenticator:
             raise AuthError(403, "forbidden", "DesiredNode no longer exists or is not active")
 
         return Identity(identity_class="node", uuid=node_uuid, cert_serial=cert_serial)
+
+
+class TokenAuthenticator:
+    """Human entrance authenticator (p4/contract.md): the human listener has
+    no client cert (server-only TLS), so identity comes from a single
+    static bearer token instead. Constant-time comparison
+    (`hmac.compare_digest`) — this is the only production credential check
+    that isn't a certificate chain, so it must not be vulnerable to a
+    timing side-channel the TLS layer wouldn't otherwise expose."""
+
+    def __init__(self, token: str, human_name: str = "operator") -> None:
+        self._token = token
+        self._human_name = human_name
+
+    def __call__(self, handler) -> Identity:
+        header = handler.headers.get("Authorization", "")
+        prefix = "Bearer "
+        if not header.startswith(prefix):
+            raise AuthError(401, "unauthorized", "missing bearer token")
+        provided = header[len(prefix):]
+        if not hmac.compare_digest(provided, self._token):
+            raise AuthError(401, "unauthorized", "invalid token")
+        return Identity(identity_class="human", name=self._human_name)

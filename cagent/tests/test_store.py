@@ -41,9 +41,48 @@ def test_get_request_not_found():
 
 def test_list_sessions_reflects_turn_count():
     store = Store()
-    identity = Identity("human", "eiji-uuid", "eiji-serial")
+    identity = Identity("node", "agpc-uuid", "agpc-serial")
     store.create_session_and_request("ses_1", identity, "first")
     store.continue_session("ses_1", identity, "second")
     sessions = store.list_sessions()
     assert len(sessions) == 1
     assert sessions[0].as_dict()["turn_count"] == 2
+
+
+def test_human_identity_as_dict_and_owner_key():
+    identity = Identity(identity_class="human", name="operator")
+    assert identity.as_dict() == {"class": "human", "name": "operator"}
+    assert identity.owner_key() == "human"
+
+
+def test_node_owner_key_distinguishes_uuids():
+    a = Identity("node", "agpc-uuid", "agpc-serial")
+    b = Identity("node", "agstudio-uuid", "agstudio-serial")
+    assert a.owner_key() != b.owner_key()
+    assert a.owner_key() == Identity("node", "agpc-uuid", "other-serial").owner_key()
+
+
+def test_human_can_continue_human_created_session():
+    store = Store()
+    human = Identity(identity_class="human", name="operator")
+    r1 = store.create_session_and_request("ses_1", human, "first")
+    r2 = store.continue_session("ses_1", human, "second")
+    assert r1.session_id == r2.session_id == "ses_1"
+
+
+def test_human_cannot_continue_node_session():
+    store = Store()
+    node = Identity("node", "agpc-uuid", "agpc-serial")
+    human = Identity(identity_class="human", name="operator")
+    store.create_session_and_request("ses_1", node, "first")
+    with pytest.raises(OwnershipError):
+        store.continue_session("ses_1", human, "second")
+
+
+def test_node_cannot_continue_human_session():
+    store = Store()
+    node = Identity("node", "agpc-uuid", "agpc-serial")
+    human = Identity(identity_class="human", name="operator")
+    store.create_session_and_request("ses_1", human, "first")
+    with pytest.raises(OwnershipError):
+        store.continue_session("ses_1", node, "second")

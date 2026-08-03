@@ -32,7 +32,11 @@ def cmd_list(evidence: EvidenceWriter) -> None:
         latest = evidence.read_latest_event(request_id)
         state = latest["state"] if latest else "unknown"
         identity = record["identity"]
-        print(f"{request_id}  {state:<12}  {identity['class']}:{identity['uuid']}  {record['session_id']}")
+        if identity.get("class") == "human":
+            identity_label = f"human:{identity.get('name')}"
+        else:
+            identity_label = f"node:{identity.get('uuid')}"
+        print(f"{request_id}  {state:<12}  {identity_label}  {record['session_id']}")
 
 
 def cmd_show(evidence: EvidenceWriter, request_id: str) -> None:

@@ -13,7 +13,7 @@ from cagent_api.server import build_server
 from cagent_api.store import Store
 from cagent_api.worker import Worker
 
-from .fakes import FakeAuthenticator, FakeOpenCodeClient
+from .fakes import FakeAuthenticator, FakeHumanAuthenticator, FakeOpenCodeClient
 
 
 @pytest.fixture(autouse=True)
@@ -36,6 +36,39 @@ def running_server():
     finally:
         httpd.shutdown()
         httpd.server_close()
+
+
+@pytest.fixture()
+def running_dual_server():
+    """Node listener + human listener sharing one store/worker (p4/plan.md
+    Step 1: 'a second build_server() call sharing the same
+    store/worker/opencode objects'), both plain HTTP here — the fakes
+    replace the auth seam, real TLS is the Step 3 conformance test's job."""
+    store = Store()
+    opencode = FakeOpenCodeClient()
+    w = Worker(store, opencode)
+    w.start()
+    node_httpd = build_server("127.0.0.1", 0, store, opencode, w, FakeAuthenticator())
+    human_httpd = build_server("127.0.0.1", 0, store, opencode, w, FakeHumanAuthenticator())
+    node_thread = threading.Thread(target=node_httpd.serve_forever, daemon=True)
+    human_thread = threading.Thread(target=human_httpd.serve_forever, daemon=True)
+    node_thread.start()
+    human_thread.start()
+    node_port = node_httpd.server_address[1]
+    human_port = human_httpd.server_address[1]
+    try:
+        yield f"http://127.0.0.1:{node_port}", f"http://127.0.0.1:{human_port}", opencode
+    finally:
+        node_httpd.shutdown()
+        node_httpd.server_close()
+        human_httpd.shutdown()
+        human_httpd.server_close()
+
+
+HUMAN_HEADERS = {
+    "X-Test-Human": "1",
+    "Content-Type": "application/json",
+}
 
 
 def _call(url: str, method: str = "GET", body: dict | None = None, headers: dict | None = None):
@@ -188,3 +221,94 @@ def test_list_session_requests_owned_by_another_uuid_is_rejected(running_server)
     status, payload = _call(f"{base}/sessions/{session_id}/requests", headers=other_headers)
     assert status == 403
     assert payload["error"]["code"] == "forbidden"
+
+
+def test_human_request_identity_recorded_in_evidence(running_dual_server):
+    _, human_base, _ = running_dual_server
+    status, payload = _call(human_base + "/requests", "POST", {"message": "hi"}, HUMAN_HEADERS)
+    assert status == 202
+    request_id = payload["request_id"]
+
+    status, get_payload = _call(f"{human_base}/requests/{request_id}", headers=HUMAN_HEADERS)
+    assert status == 200
+    assert get_payload["identity"] == {"class": "human", "name": "operator"}
+
+
+def test_human_can_list_all_sessions_including_node_sessions(running_dual_server):
+    node_base, human_base, _ = running_dual_server
+    status, node_payload = _call(node_base + "/requests", "POST", {"message": "hi"}, NODE_HEADERS)
+    node_session_id = node_payload["session_id"]
+
+    status, human_payload = _call(human_base + "/requests", "POST", {"message": "hi"}, HUMAN_HEADERS)
+    human_session_id = human_payload["session_id"]
+
+    status, sessions = _call(human_base + "/sessions", headers=HUMAN_HEADERS)
+    assert status == 200
+    session_ids = {s["session_id"] for s in sessions}
+    assert node_session_id in session_ids
+    assert human_session_id in session_ids
+
+
+def test_human_can_read_a_node_created_request(running_dual_server):
+    node_base, human_base, _ = running_dual_server
+    status, payload = _call(node_base + "/requests", "POST", {"message": "hi"}, NODE_HEADERS)
+    request_id = payload["request_id"]
+
+    status, payload = _call(f"{human_base}/requests/{request_id}", headers=HUMAN_HEADERS)
+    assert status == 200
+    assert payload["identity"]["class"] == "node"
+
+
+def test_node_cannot_read_a_human_created_request(running_dual_server):
+    node_base, human_base, _ = running_dual_server
+    status, payload = _call(human_base + "/requests", "POST", {"message": "hi"}, HUMAN_HEADERS)
+    request_id = payload["request_id"]
+
+    status, payload = _call(f"{node_base}/requests/{request_id}", headers=NODE_HEADERS)
+    assert status == 403
+    assert payload["error"]["code"] == "forbidden"
+
+
+def test_human_cannot_continue_a_node_created_session(running_dual_server):
+    node_base, human_base, _ = running_dual_server
+    status, payload = _call(node_base + "/requests", "POST", {"message": "hi"}, NODE_HEADERS)
+    session_id = payload["session_id"]
+
+    status, payload = _call(
+        f"{human_base}/sessions/{session_id}/requests", "POST", {"message": "again"}, HUMAN_HEADERS
+    )
+    assert status == 403
+    assert payload["error"]["code"] == "forbidden"
+
+
+def test_node_cannot_continue_a_human_created_session(running_dual_server):
+    node_base, human_base, _ = running_dual_server
+    status, payload = _call(human_base + "/requests", "POST", {"message": "hi"}, HUMAN_HEADERS)
+    session_id = payload["session_id"]
+
+    status, payload = _call(
+        f"{node_base}/sessions/{session_id}/requests", "POST", {"message": "again"}, NODE_HEADERS
+    )
+    assert status == 403
+    assert payload["error"]["code"] == "forbidden"
+
+
+def test_human_cannot_cancel_a_node_created_request(running_dual_server):
+    node_base, human_base, _ = running_dual_server
+    status, payload = _call(node_base + "/requests", "POST", {"message": "first"}, NODE_HEADERS)
+    request_id = payload["request_id"]
+
+    status, payload = _call(f"{human_base}/requests/{request_id}/cancel", "POST", headers=HUMAN_HEADERS)
+    assert status == 403
+    assert payload["error"]["code"] == "forbidden"
+
+
+def test_human_can_cancel_own_queued_request(running_dual_server):
+    node_base, human_base, _ = running_dual_server
+    _call(human_base + "/requests", "POST", {"message": "first"}, HUMAN_HEADERS)
+    status, payload = _call(human_base + "/requests", "POST", {"message": "second"}, HUMAN_HEADERS)
+    request_id = payload["request_id"]
+
+    status, cancelled = _call(f"{human_base}/requests/{request_id}/cancel", "POST", headers=HUMAN_HEADERS)
+    assert status == 200
+    assert cancelled["state"] == "cancelled"
