@@ -22,8 +22,14 @@ Successfully retired and destroyed the `homeassistant` QEMU Virtual Machine (`ag
    - **Proxmox VM Destroy Result**: `destroyed: true`, `absent: true`.
    - **Post-Actuation Observation**: Triggered automatic nodeutils collection on `aghub` and updated Nautobot actual ledger.
 
+4. **Ledger Pruning**:
+   - Command: `nctl prune aghaos --yes`
+   - **Operation ID**: `01KZ30FRTGF808QSK8SC2M8QCE`
+   - **State**: `pruned`
+   - **Records Cleared**: Removed `virtualization.virtualmachine` (`aghaos`), `vminterface`, `ipaddress`, `DesiredComputeInstance`, and `DesiredNode` from Nautobot ledger.
+
 ## Final Result
 
-- **Reconcile State**: `converged`
-- **Scope Status**: `aghaos` scope converged (13 total converged targets in cluster).
+- **Reconcile State**: `converged` -> `pruned`
+- **Scope Status**: `aghaos` scope fully cleaned up from both infrastructure and Nautobot ledger.
 - **Proxmox VM State**: VMID 102 successfully removed from host `aghub`.
