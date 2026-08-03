@@ -1,20 +1,32 @@
 ---
 name: retire-proxmox-lxc
 description: Retire one Proxmox LXC guest (declare retired/absent, destroy via nctl reconcile --allow-destroy, then nctl prune) with an enumerated manual_review branch table.
-version: 1
+version: 2
 execution_level: 3
 triggers: [proxmox_lxc_retirement, guest_retirement_request, decommission_lxc]
 risk: destructive_scoped
-prerequisites: [existing_desired_node]
+prerequisites: [existing_realized_compute_instance]
 last_verified: null
 verified_against: null
 ---
 
-**Unverified.** Authored 2026-08-03, not yet used on a real retirement. Per
-policy §8.3, authoring alone never sets `last_verified` — that field stays
-`null` until a real use (see `../../devdocs/vision/easier_next_time/p3/plan.md`
-Step 2/3) fills it in with a date and the `nctl` SHA (`git -C nctl rev-parse
-HEAD`).
+**Unverified.** Authored 2026-08-03, revised 2026-08-03 (Fix 1 Step 1: added
+the missing `dry_run: true` envelope field and the realized-compute
+prerequisite below), not yet used on a real retirement. Per policy §8.3,
+authoring alone never sets `last_verified` — that field stays `null` until a
+real use (see
+`../../devdocs/vision/easier_next_time/p3/fix1/plan.md` Step 5/6) fills it in
+with a date and the `nctl` SHA (`git -C nctl rev-parse HEAD`).
+
+**Prerequisite — realized compute instance.** `GUEST`'s Proxmox realization
+must already be observed, ingested into Nautobot, and linked to
+`DesiredComputeInstance.realized_vm` in a **prior session**, before this
+skill's Step 1 begins. A guest that was only just created (or never had its
+control node's platform observation ingested) is not yet a valid input —
+this skill retires an existing realized guest, it does not create,
+observe, or link one. If that link does not already exist, stop before
+Step 1 and return the task to a human or capable model to establish it
+first; do not fold that recovery into this skill's run.
 
 This skill wraps `README.md` §"Retiring one Proxmox LXC" and `nctl/README.md`
 §"Retiring one Proxmox LXC" for an executor — read those for background if
@@ -52,6 +64,7 @@ permitted by this skill.
    the filename):
 
    ```yaml
+   dry_run: true
    operations:
      - op: upsert
        kind: desired_node
@@ -127,13 +140,15 @@ cause was the desired state not yet being in a realizable shape.
 |---|---|---|---|
 | `no_realized_object` | error | the node's `actual_state_policy` is `required` but no realized device or VM is linked yet | **stop.** The guest's realized link isn't established; do not force a destroy against an unlinked node. Return to a human/capable model to establish the link or confirm the guest truly has no realized object, then retry from step 5. |
 | `actual_node_not_linked` | warning | the only actual candidate is a `virtualization.virtualmachine`, but `DesiredNode`-level realization only accepts `dcim.device` — VM realization belongs to `DesiredComputeInstance.realized_vm`, not this node link | Alongside `no_realized_object`, informational — no separate action beyond resolving `no_realized_object`. If this code appears **alone** (no `no_realized_object`), **stop** — this is the node/compute realization split that `nctl_core/reconcile/classify.py` deliberately keeps as manual review; do not link the VM candidate as the node's realized object. |
+| `compute_instance_missing` | error | no VM candidate exists in the matched Cluster for `DesiredComputeInstance` — the realized-compute prerequisite above was not actually met | **precondition failure — stop.** This is not a wait-and-retry condition and not a defect in the skill. Return to a human or capable model to establish the realized-compute link in a separate session (this skill does not create, observe, or link a VM). Do not retry the dry reconcile expecting it to resolve on its own; do not add a direct `pct`/REST link as a workaround. |
+| plan with only a `link_compute_realization`-shaped action, or any plan with **zero** `destroy_compute_instance` actions | n/a | the realized-compute prerequisite was not met, so there is nothing yet to destroy | **precondition failure — stop.** Same handling as `compute_instance_missing`: return to a human or capable model outside this skill's run rather than proceeding. |
 
-**Any other `manual_review` code**, or either code appearing in a
-combination not listed above: **stop** (`manual_intervention_required`,
-policy §5). Return the task to a human or capable model. Do not improvise a
-resolution — enumerating every nctl error code is explicitly out of scope for
-this skill; an unenumerated code is not a bug in the skill, it is the skill
-doing its job.
+**Any other `manual_review` code**, or either of the first two codes
+appearing in a combination not listed above: **stop**
+(`manual_intervention_required`, policy §5). Return the task to a human or
+capable model. Do not improvise a resolution — enumerating every nctl error
+code is explicitly out of scope for this skill; an unenumerated code is not a
+bug in the skill, it is the skill doing its job.
 
 ## Prohibitions
 
@@ -157,6 +172,8 @@ doing its job.
 ## Stop conditions
 
 - Any typed input (`GUEST`, `VMID`, `CONTROL_NODE`) unknown at the start.
+- The realized-compute prerequisite is not already met (`compute_instance_missing`,
+  a link-only plan, or any plan with zero `destroy_compute_instance` actions).
 - A `manual_review` code, or combination, not resolved by the branch table.
 - A step 6 checkpoint mismatch.
 - Reconcile does not reach `converged`, or the repeat dry plan (step 9) is
