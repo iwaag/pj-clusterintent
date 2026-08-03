@@ -6,6 +6,7 @@ from __future__ import annotations
 import json
 import re
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 
 from .auth import AuthError
 from .opencode_client import OpenCodeClient, OpenCodeError
@@ -17,6 +18,16 @@ _ROUTE_SESSION_REQUESTS = re.compile(r"^/sessions/(?P<session_id>[^/]+)/requests
 _ROUTE_REQUEST_GET = re.compile(r"^/requests/(?P<request_id>[^/]+)$")
 _ROUTE_REQUEST_CANCEL = re.compile(r"^/requests/(?P<request_id>[^/]+)/cancel$")
 _ROUTE_SESSIONS_LIST = re.compile(r"^/sessions$")
+_ROUTE_UI_ROOT = re.compile(r"^/$")
+
+_CHAT_HTML_PATH = Path(__file__).parent / "static" / "chat.html"
+
+
+def _load_chat_html() -> bytes:
+    """Read on every request rather than caching at import time — this is a
+    handful of KB served rarely (once per browser tab load), and it keeps
+    editing the static file during local development a no-restart change."""
+    return _CHAT_HTML_PATH.read_bytes()
 
 
 class ApiError(Exception):
@@ -28,12 +39,17 @@ class ApiError(Exception):
         self.request_id = request_id
 
 
-def make_handler(store: Store, opencode: OpenCodeClient, worker: Worker, authenticate):
+def make_handler(store: Store, opencode: OpenCodeClient, worker: Worker, authenticate, serve_ui: bool = False):
     """`authenticate(handler) -> Identity` is the mTLS identity/connect-time-check
     seam (p2/contract.md): production wires `auth.CertAuthenticator`
     (reads `handler.connection.getpeercert()`, checks the ledger and
     DesiredNode validity); tests inject a fake that needs no real TLS
-    handshake (see tests/fakes.py)."""
+    handshake (see tests/fakes.py).
+
+    `serve_ui` gates `GET /` (the chat HTML, unauthenticated — the page
+    itself carries no data, only the fetch calls it makes need the token).
+    `main.py` passes `True` only for the human listener build_server() call
+    (p4/contract.md: 'UI routes exist only on the human listener')."""
 
     class Handler(BaseHTTPRequestHandler):
         server_version = "cagent-api/0.0.1"
@@ -106,6 +122,9 @@ def make_handler(store: Store, opencode: OpenCodeClient, worker: Worker, authent
         def _dispatch_get(self) -> None:
             path = self.path.split("?", 1)[0]
 
+            if serve_ui and _ROUTE_UI_ROOT.match(path):
+                return self._serve_ui()
+
             m = _ROUTE_REQUEST_GET.match(path)
             if m:
                 return self._get_request(m.group("request_id"))
@@ -118,6 +137,14 @@ def make_handler(store: Store, opencode: OpenCodeClient, worker: Worker, authent
                 return self._list_session_requests(m.group("session_id"))
 
             raise ApiError(404, "not_found", f"no such route: GET {path}")
+
+        def _serve_ui(self) -> None:
+            body = _load_chat_html()
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
 
         def _create_request(self) -> None:
             identity = self._identity()
@@ -225,8 +252,9 @@ def build_server(
     worker: Worker,
     authenticate,
     ssl_context=None,
+    serve_ui: bool = False,
 ) -> ThreadingHTTPServer:
-    handler_cls = make_handler(store, opencode, worker, authenticate)
+    handler_cls = make_handler(store, opencode, worker, authenticate, serve_ui=serve_ui)
     httpd = ThreadingHTTPServer((host, port), handler_cls)
     if ssl_context is not None:
         httpd.socket = ssl_context.wrap_socket(httpd.socket, server_side=True)

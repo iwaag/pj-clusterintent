@@ -105,7 +105,8 @@ def main() -> None:
     human_authenticate = TokenAuthenticator(human_token, human_name)
     human_ssl_context = _build_human_ssl_context(server_cert, server_key)
     human_httpd = build_server(
-        host, human_port, store, opencode, worker, human_authenticate, ssl_context=human_ssl_context
+        host, human_port, store, opencode, worker, human_authenticate,
+        ssl_context=human_ssl_context, serve_ui=True,
     )
     human_thread = threading.Thread(target=human_httpd.serve_forever, daemon=True)
     human_thread.start()

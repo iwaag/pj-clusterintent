@@ -38,6 +38,15 @@ def running_server():
         httpd.server_close()
 
 
+def _call_raw(url: str):
+    req = urllib.request.Request(url, method="GET")
+    try:
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            return resp.status, resp.headers.get("Content-Type"), resp.read()
+    except urllib.error.HTTPError as exc:
+        return exc.code, exc.headers.get("Content-Type"), exc.read()
+
+
 @pytest.fixture()
 def running_dual_server():
     """Node listener + human listener sharing one store/worker (p4/plan.md
@@ -49,7 +58,9 @@ def running_dual_server():
     w = Worker(store, opencode)
     w.start()
     node_httpd = build_server("127.0.0.1", 0, store, opencode, w, FakeAuthenticator())
-    human_httpd = build_server("127.0.0.1", 0, store, opencode, w, FakeHumanAuthenticator())
+    human_httpd = build_server(
+        "127.0.0.1", 0, store, opencode, w, FakeHumanAuthenticator(), serve_ui=True
+    )
     node_thread = threading.Thread(target=node_httpd.serve_forever, daemon=True)
     human_thread = threading.Thread(target=human_httpd.serve_forever, daemon=True)
     node_thread.start()
@@ -312,3 +323,17 @@ def test_human_can_cancel_own_queued_request(running_dual_server):
     status, cancelled = _call(f"{human_base}/requests/{request_id}/cancel", "POST", headers=HUMAN_HEADERS)
     assert status == 200
     assert cancelled["state"] == "cancelled"
+
+
+def test_human_listener_serves_chat_ui_at_root_unauthenticated(running_dual_server):
+    _, human_base, _ = running_dual_server
+    status, content_type, body = _call_raw(human_base + "/")
+    assert status == 200
+    assert "text/html" in content_type
+    assert b"cluster-agent" in body
+
+
+def test_node_listener_does_not_serve_chat_ui(running_dual_server):
+    node_base, _, _ = running_dual_server
+    status, _, _ = _call_raw(node_base + "/")
+    assert status == 404
