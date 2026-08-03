@@ -76,7 +76,7 @@ self-report to `.local/evidence/workflow-episodes/<YYYYMMDD>_<task-slug>/selfrep
 ```markdown
 # Self-report: <task, one line>
 date: 2026-08-03
-tags: [painful | second-occurrence | routine]
+tags: [painful | second-occurrence | routine | retroactive]
 
 ## What was requested and what happened
 <2-4 lines; outcome per §2 vocabulary>
@@ -96,9 +96,11 @@ tags: [painful | second-occurrence | routine]
 <anything that felt like "we did this before"; candidate for a runbook>
 ```
 
-Reference `nctl` operation IDs; do not copy evidence bodies. Only sessions
-tagged `painful` or `second-occurrence` are expected to be audited. A later
-review adds `review.md` beside the self-report with the §2 attributes and the
+Reference `nctl` operation IDs; do not copy evidence bodies. Prefer slugs or
+names over raw UUIDs when referencing Braindump/desired-state objects and
+both are available — cheaper to cross-reference later. Only sessions tagged
+`painful` or `second-occurrence` are expected to be audited. A later review
+adds `review.md` beside the self-report with the §2 attributes and the
 promotion verdict.
 
 The episode directory — not the session — is the audit unit: one task may span
