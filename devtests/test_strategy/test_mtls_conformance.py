@@ -226,6 +226,25 @@ def test_uuid_with_no_valid_desired_node_is_rejected(fixture):
     assert payload["error"]["code"] == "forbidden"
 
 
+def test_revoked_serial_is_rejected_on_status_poll_not_just_creation(fixture):
+    """Regression: p3 Step 0's live prototype found that GET /requests/{id}
+    (and cancel/list) skipped the identity check entirely, so a revoked or
+    otherwise deauthorized cert could still read/cancel/list requests after
+    revocation. p2/contract.md requires the three checks on every request,
+    not just session creation."""
+    signed, key_path, cert_path = fixture.sign_node_cert(NODE_UUID)
+    fixture.register(signed, NODE_UUID)
+    status, created = fixture.request(cert_path, key_path, "POST", "/requests", {"message": "hi"})
+    assert status == 202
+    request_id = created["request_id"]
+
+    fixture.ledger.revoke(signed.serial_hex)
+
+    status, payload = fixture.request(cert_path, key_path, "GET", f"/requests/{request_id}")
+    assert status == 403
+    assert payload["error"]["code"] == "forbidden"
+
+
 def test_session_owned_by_another_uuid_is_rejected(fixture):
     owner_signed, owner_key, owner_cert = fixture.sign_node_cert(NODE_UUID)
     fixture.register(owner_signed, NODE_UUID)

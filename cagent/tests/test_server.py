@@ -71,7 +71,7 @@ def test_create_and_poll_request_to_completion(running_server):
 
     deadline = time.monotonic() + 2
     while time.monotonic() < deadline:
-        status, get_payload = _call(f"{base}/requests/{request_id}")
+        status, get_payload = _call(f"{base}/requests/{request_id}", headers=NODE_HEADERS)
         if get_payload["state"] == "running":
             break
         time.sleep(0.01)
@@ -80,7 +80,7 @@ def test_create_and_poll_request_to_completion(running_server):
     opencode.complete_latest_turn(session_id, text="the answer")
     deadline = time.monotonic() + 2
     while time.monotonic() < deadline:
-        status, get_payload = _call(f"{base}/requests/{request_id}")
+        status, get_payload = _call(f"{base}/requests/{request_id}", headers=NODE_HEADERS)
         if get_payload["state"] == "completed":
             break
         time.sleep(0.01)
@@ -91,9 +91,30 @@ def test_create_and_poll_request_to_completion(running_server):
     }
 
 
+def test_get_request_missing_identity_returns_401(running_server):
+    base, _ = running_server
+    status, payload = _call(base + "/requests", "POST", {"message": "hi"}, NODE_HEADERS)
+    request_id = payload["request_id"]
+
+    status, payload = _call(f"{base}/requests/{request_id}")
+    assert status == 401
+    assert payload["error"]["code"] == "unauthorized"
+
+
+def test_get_request_owned_by_another_uuid_is_rejected(running_server):
+    base, _ = running_server
+    status, payload = _call(base + "/requests", "POST", {"message": "hi"}, NODE_HEADERS)
+    request_id = payload["request_id"]
+
+    other_headers = {**NODE_HEADERS, "X-Test-Node-Uuid": "someone-else-uuid"}
+    status, payload = _call(f"{base}/requests/{request_id}", headers=other_headers)
+    assert status == 403
+    assert payload["error"]["code"] == "forbidden"
+
+
 def test_get_unknown_request_returns_404(running_server):
     base, _ = running_server
-    status, payload = _call(base + "/requests/req_missing")
+    status, payload = _call(base + "/requests/req_missing", headers=NODE_HEADERS)
     assert status == 404
     assert payload["error"]["request_id"] == "req_missing"
 
@@ -116,9 +137,20 @@ def test_cancel_queued_request_is_immediate(running_server):
     status, second = _call(base + "/requests", "POST", {"message": "second"}, NODE_HEADERS)
     request_id = second["request_id"]
 
-    status, cancelled = _call(f"{base}/requests/{request_id}/cancel", "POST")
+    status, cancelled = _call(f"{base}/requests/{request_id}/cancel", "POST", headers=NODE_HEADERS)
     assert status == 200
     assert cancelled["state"] == "cancelled"
+
+
+def test_cancel_request_owned_by_another_uuid_is_rejected(running_server):
+    base, _ = running_server
+    status, payload = _call(base + "/requests", "POST", {"message": "first"}, NODE_HEADERS)
+    request_id = payload["request_id"]
+
+    other_headers = {**NODE_HEADERS, "X-Test-Node-Uuid": "someone-else-uuid"}
+    status, payload = _call(f"{base}/requests/{request_id}/cancel", "POST", headers=other_headers)
+    assert status == 403
+    assert payload["error"]["code"] == "forbidden"
 
 
 def test_list_sessions_and_session_requests(running_server):
@@ -128,10 +160,31 @@ def test_list_sessions_and_session_requests(running_server):
     opencode.complete_latest_turn(session_id)
 
     time.sleep(0.05)
-    status, sessions = _call(base + "/sessions")
+    status, sessions = _call(base + "/sessions", headers=NODE_HEADERS)
     assert status == 200
     assert any(s["session_id"] == session_id for s in sessions)
 
-    status, requests = _call(f"{base}/sessions/{session_id}/requests")
+    status, requests = _call(f"{base}/sessions/{session_id}/requests", headers=NODE_HEADERS)
     assert status == 200
     assert len(requests) == 1
+
+
+def test_list_sessions_excludes_other_identities_sessions(running_server):
+    base, opencode = running_server
+    _call(base + "/requests", "POST", {"message": "hi"}, NODE_HEADERS)
+
+    other_headers = {**NODE_HEADERS, "X-Test-Node-Uuid": "someone-else-uuid"}
+    status, sessions = _call(base + "/sessions", headers=other_headers)
+    assert status == 200
+    assert sessions == []
+
+
+def test_list_session_requests_owned_by_another_uuid_is_rejected(running_server):
+    base, _ = running_server
+    status, payload = _call(base + "/requests", "POST", {"message": "hi"}, NODE_HEADERS)
+    session_id = payload["session_id"]
+
+    other_headers = {**NODE_HEADERS, "X-Test-Node-Uuid": "someone-else-uuid"}
+    status, payload = _call(f"{base}/sessions/{session_id}/requests", headers=other_headers)
+    assert status == 403
+    assert payload["error"]["code"] == "forbidden"
