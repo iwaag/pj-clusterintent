@@ -68,3 +68,36 @@ start command" is the chosen option, unchanged in Phase 2).
 
 Not built into `nctl` — see `README_DEV.md`'s note that `nctl serve` was
 built once, went unused, and was deleted.
+
+## OpenAI model backend
+
+The dedicated cluster-agent OpenCode instance uses OpenAI's
+`gpt-5.6-luna` model. It is intentionally separate from every node-agent's
+local Ollama configuration, so node-agent work cannot queue behind a
+cluster-agent turn (or vice versa).
+
+Before starting `./opencode/start.sh`, supply an OpenAI API key by **one** of
+these methods:
+
+1. Export `OPENAI_API_KEY` in the shell that starts it. This is useful for a
+   one-off run.
+2. Preferred for the documented manual service: create the gitignored file
+   `.local/cagent/openai_api_key`, containing only the key, with mode `0600`.
+   The start script reads it only when `OPENAI_API_KEY` is unset. To store it
+   elsewhere, set `CAGENT_OPENAI_API_KEY_FILE` to that file path.
+
+For example, create the file with a local editor, then verify its permissions
+without displaying its contents:
+
+```bash
+mkdir -p .local/cagent
+chmod 700 .local/cagent
+$EDITOR .local/cagent/openai_api_key
+chmod 600 .local/cagent/openai_api_key
+```
+
+The start script refuses to run if neither source is available. It does not
+fall back to Ollama. After authentication is provided, start the normal stack
+and make one read-only `cagent ask --no-wait` request from agpc to verify the
+provider end to end. Record the selected provider/model and timing in the
+request evidence, but never the key.

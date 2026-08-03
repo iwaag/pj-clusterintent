@@ -16,8 +16,24 @@ PORT="${CAGENT_OPENCODE_PORT:-4097}"
 RUNTIME_DIR="$REPO_ROOT/.local/cagent"
 CONFIG_DIR="$RUNTIME_DIR/config"
 DATA_DIR="$RUNTIME_DIR/data"
+OPENAI_KEY_FILE="${CAGENT_OPENAI_API_KEY_FILE:-$RUNTIME_DIR/openai_api_key}"
 
 mkdir -p "$CONFIG_DIR/opencode" "$DATA_DIR"
+
+# OpenCode's built-in OpenAI provider reads OPENAI_API_KEY. Prefer an
+# explicitly supplied environment variable; otherwise read the cluster-agent
+# specific, gitignored key file. Never put this key in the rendered config,
+# request evidence, or Git. Refuse to start rather than silently falling back
+# to the former local Ollama model.
+if [[ -z "${OPENAI_API_KEY:-}" ]]; then
+  if [[ -r "$OPENAI_KEY_FILE" ]]; then
+    export OPENAI_API_KEY
+    OPENAI_API_KEY="$(<"$OPENAI_KEY_FILE")"
+  else
+    echo "OpenAI authentication is required: set OPENAI_API_KEY or create $OPENAI_KEY_FILE (mode 0600)." >&2
+    exit 2
+  fi
+fi
 
 # Render the committed template with an absolute path to AGENTS.md — a
 # relative "AGENTS.md" resolves against the session's working directory,
