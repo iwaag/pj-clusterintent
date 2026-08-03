@@ -19,8 +19,10 @@ _ROUTE_REQUEST_GET = re.compile(r"^/requests/(?P<request_id>[^/]+)$")
 _ROUTE_REQUEST_CANCEL = re.compile(r"^/requests/(?P<request_id>[^/]+)/cancel$")
 _ROUTE_SESSIONS_LIST = re.compile(r"^/sessions$")
 _ROUTE_UI_ROOT = re.compile(r"^/$")
+_ROUTE_LLMS_TXT = re.compile(r"^/llms\.txt$")
 
 _CHAT_HTML_PATH = Path(__file__).parent / "static" / "chat.html"
+_LLMS_TXT_PATH = Path(__file__).parent / "static" / "llms.txt"
 
 
 def _load_chat_html() -> bytes:
@@ -28,6 +30,10 @@ def _load_chat_html() -> bytes:
     handful of KB served rarely (once per browser tab load), and it keeps
     editing the static file during local development a no-restart change."""
     return _CHAT_HTML_PATH.read_bytes()
+
+
+def _load_llms_txt() -> bytes:
+    return _LLMS_TXT_PATH.read_bytes()
 
 
 class ApiError(Exception):
@@ -122,6 +128,9 @@ def make_handler(store: Store, opencode: OpenCodeClient, worker: Worker, authent
         def _dispatch_get(self) -> None:
             path = self.path.split("?", 1)[0]
 
+            if _ROUTE_LLMS_TXT.match(path):
+                return self._serve_llms_txt()
+
             if serve_ui and _ROUTE_UI_ROOT.match(path):
                 return self._serve_ui()
 
@@ -137,6 +146,17 @@ def make_handler(store: Store, opencode: OpenCodeClient, worker: Worker, authent
                 return self._list_session_requests(m.group("session_id"))
 
             raise ApiError(404, "not_found", f"no such route: GET {path}")
+
+        def _serve_llms_txt(self) -> None:
+            """Unauthenticated on both listeners — a discovery doc for agent
+            consumers (llms.txt convention), same spirit as robots.txt: no
+            data behind it, so no reason to gate it on identity/TLS mode."""
+            body = _load_llms_txt()
+            self.send_response(200)
+            self.send_header("Content-Type", "text/plain; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
 
         def _serve_ui(self) -> None:
             body = _load_chat_html()

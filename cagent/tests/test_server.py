@@ -337,3 +337,12 @@ def test_node_listener_does_not_serve_chat_ui(running_dual_server):
     node_base, _, _ = running_dual_server
     status, _, _ = _call_raw(node_base + "/")
     assert status == 404
+
+
+def test_llms_txt_served_unauthenticated_on_both_listeners(running_dual_server):
+    node_base, human_base, _ = running_dual_server
+    for base in (node_base, human_base):
+        status, content_type, body = _call_raw(base + "/llms.txt")
+        assert status == 200
+        assert "text/plain" in content_type
+        assert b"cluster-agent" in body

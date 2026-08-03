@@ -16,8 +16,11 @@ Three pieces:
   instance above and implements the frozen contract, on **two listeners**:
 
   - **Node entrance** (`:8788` by default) — mTLS, unchanged since Phase 2.
-    Every request needs a client certificate signed by the local CA below,
-    registered in the auth ledger.
+    Every route needs a client certificate signed by the local CA below,
+    registered in the auth ledger, **except** `GET /llms.txt` (see next
+    bullet), which the TLS context deliberately accepts connections
+    without one for (`CERT_OPTIONAL`) so an unenrolled node can still read
+    where its certificate is supposed to come from.
   - **Human entrance** (`:8789` by default, Phase 4) — server-only TLS, no
     client cert. Authenticated by a single static bearer token instead
     (see below). Serves the chat UI at `GET /` in addition to the same
@@ -47,10 +50,14 @@ Three pieces:
   | `CAGENT_TLS_SERVER_KEY` | `$CAGENT_CA_DIR/server_key.pem` | server TLS key, shared by both entrances |
   | `CAGENT_NCTL_TOML` | `<repo-root>/nctl.toml` | Nautobot connection config, reused as-is for the live DesiredNode validity check |
 
-  There is no plaintext/no-auth mode on either entrance — the node entrance
-  always requires mTLS, the human entrance always requires the bearer
-  token. (Implementer's choice per the plan; kept it this way so there is
-  exactly one identity story per entrance to reason about.)
+  There is no plaintext/no-auth mode for any route that touches
+  sessions/requests on either entrance — the node entrance always requires
+  mTLS for those, the human entrance always requires the bearer token.
+  (Implementer's choice per the plan; kept it this way so there is exactly
+  one identity story per entrance to reason about.) The sole exception is
+  `GET /llms.txt` on both entrances: a static, non-sensitive discovery doc,
+  unauthenticated by design (same spirit as `robots.txt`) so an agent
+  without credentials yet can still find out how to get them.
 
   **Human token setup** (once, on the command node):
 

@@ -38,11 +38,13 @@ def extract_node_identity(peercert: dict | None) -> tuple[str, str]:
     """Return (node_uuid, cert_serial_lowercase_hex) from a verified peer cert.
 
     Raises AuthError if no cert was presented or it carries no clusterintent
-    node URI SAN. In production this should be unreachable — the TLS
-    context requires and verifies a client cert before the handler ever
-    runs — but the check stays here rather than being assumed, since a
-    misconfigured `verify_mode` should fail loudly, not authenticate as
-    nothing.
+    node URI SAN. The node listener's TLS context is CERT_OPTIONAL, not
+    CERT_REQUIRED (main.py's `_build_node_ssl_context`) — so the
+    no-cert case is a real, reachable path in production (an unenrolled
+    node hitting any route other than `GET /llms.txt`), not just a
+    defense-in-depth check against a hypothetical misconfiguration. A
+    presented cert is still fully chain-verified by the TLS layer before
+    the handler ever runs; only "no cert at all" reaches this branch.
     """
     if not peercert:
         raise AuthError(401, "unauthorized", "no client certificate presented")

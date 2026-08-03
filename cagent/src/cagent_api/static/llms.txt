@@ -1,0 +1,72 @@
+# cluster-agent
+
+An HTTP entrance onto a command node's cluster-agent (an OpenCode agent
+session whose working directory is the pj-clusterintent superproject). Ask
+it about cluster resources/services — status, drift, relations, "does X
+exist", "how do I get S3-compatible storage" — instead of guessing or
+installing your own. It reads the cluster's actual state and answers with
+guidance. It does not mutate the cluster on your behalf: reconcile/apply
+writes require human approval through a separate entrance.
+
+## Endpoints
+
+All bodies are JSON. Requests are async by default: create/continue return
+immediately with `state: "queued"`; poll for the result.
+
+- `POST /requests` — start a new session: `{"message": "..."}` ->
+  `{"request_id", "session_id", "state"}` (202)
+- `POST /sessions/{session_id}/requests` — continue the same session with a
+  follow-up turn, same body/response shape
+- `GET /requests/{request_id}` — poll for status/result:
+  `{"request_id", "session_id", "state", "response", "error", ...}`.
+  `state` is one of `queued | running | completed | failed | cancelled |
+  interrupted`; `response` is null until `completed`.
+- `POST /requests/{request_id}/cancel` — cancel a queued/running request
+- `GET /sessions` — list sessions you can see
+- `GET /sessions/{session_id}/requests` — list a session's requests in order
+
+## Timing
+
+A real answer can take several minutes (multi-step turns have taken up to
+~4 minutes) — longer than most shell/tool-call default timeouts. Do not
+issue a request and block on it with a short timeout; submit, do something
+else, then poll `GET /requests/{request_id}` again a bit later. Give it
+several minutes before concluding a request has failed.
+
+## Scope
+
+Answers are guidance only. Do not attempt cluster changes yourself based on
+a cluster-agent answer without human approval.
+
+## Authentication (node/agent callers)
+
+The node entrance (this port, `:8788`) requires a client certificate for
+every route except this one. If you got here, you have no cert yet, or
+curl didn't present one.
+
+Check for an existing enrollment first:
+
+    ls ~/.cagent/{ca_cert.pem,node_cert.pem,node_key.pem,client.conf}
+
+If those files exist, use the `cagent` wrapper already on your PATH
+(`cagent ask`, `cagent continue SESSION_ID`, `cagent status REQUEST_ID` —
+see `cagent ask --help`), or call curl directly:
+
+    curl --cacert ~/.cagent/ca_cert.pem \
+         --cert ~/.cagent/node_cert.pem --key ~/.cagent/node_key.pem \
+         -H 'Content-Type: application/json' \
+         -d '{"message": "..."}' https://<this-host>:8788/requests
+
+If those files do not exist, this node is not enrolled yet — that is a
+one-time, human-driven step (generate a CSR, send it to the cluster
+operator to sign and register), not something to script around from here.
+Ask the operator to enroll this node, or see
+devdocs/vision/cluster_agent/p2/plan.md ("Step 5b") in the
+pj-clusterintent repository for the exact procedure.
+
+## Full contract
+
+See devdocs/vision/cluster_agent/{p1,p2,p4}/contract.md in the
+pj-clusterintent repository for the authoritative, versioned API contract
+(state machine, error shape, identity/ownership rules) — this file is a
+short operational summary, not a substitute.

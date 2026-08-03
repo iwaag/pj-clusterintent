@@ -32,9 +32,16 @@ DEFAULT_HUMAN_TOKEN_FILE = Path.home() / ".local" / "state" / "cagent" / "human_
 
 
 def _build_node_ssl_context(ca_cert: Path, server_cert: Path, server_key: Path) -> ssl.SSLContext:
+    """CERT_OPTIONAL, not CERT_REQUIRED: the TLS handshake itself must not
+    reject a certless client, so an unenrolled node can still reach the
+    one unauthenticated route (`GET /llms.txt`, a bootstrap doc pointing at
+    where its node certificate should live). Every other route is
+    unaffected — `CertAuthenticator` (auth.py) still 401s a missing/invalid
+    cert at the application layer, so nothing gets weaker access than
+    before, only /llms.txt gets reachable without one."""
     ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     ctx.load_cert_chain(str(server_cert), str(server_key))
-    ctx.verify_mode = ssl.CERT_REQUIRED
+    ctx.verify_mode = ssl.CERT_OPTIONAL
     ctx.load_verify_locations(str(ca_cert))
     return ctx
 
