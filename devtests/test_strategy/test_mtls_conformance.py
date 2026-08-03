@@ -25,9 +25,12 @@ from __future__ import annotations
 import datetime
 import http.client
 import json
+import os
 import ssl
+import subprocess
 import sys
 import threading
+import time
 from pathlib import Path
 
 import pytest
@@ -47,22 +50,51 @@ NODE_UUID = "27818c12-fe15-4c9f-83d0-7949523f6c33"
 OTHER_NODE_UUID = "d3a4b6f0-6b41-4e6a-9a4a-1b2c3d4e5f60"
 PRUNED_NODE_UUID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
 
+WRAPPER = ROOT / "ansible_agdev" / "roles" / "cagent_client" / "files" / "cagent"
+
 
 class _FakeOpenCode:
     """Minimal stand-in so this gate never depends on a real OpenCode
-    process — the conversation itself is out of scope here."""
+    process — the conversation itself is out of scope here. Tracks a
+    per-session message count so `worker.py`'s real `count >
+    baseline`-based completion detection actually fires (needed by the
+    Step 1 wrapper tests below, which wait for a real `completed`
+    transition, not just the immediate post-create `queued` state the
+    earlier connect/reject tests inspect)."""
+
+    def __init__(self) -> None:
+        self._sessions: dict[str, list[dict]] = {}
+        self._lock = threading.Lock()
 
     def create_session(self, title: str) -> str:
-        return "ses_conformance"
+        session_id = "ses_conformance"
+        with self._lock:
+            self._sessions.setdefault(session_id, [])
+        return session_id
 
     def prompt_async(self, session_id: str, text: str) -> None:
-        pass
+        def _complete() -> None:
+            time.sleep(0.2)
+            with self._lock:
+                self._sessions.setdefault(session_id, []).append(
+                    {"completed": True, "text": "ok", "error_name": None, "is_final_step": True}
+                )
+
+        threading.Thread(target=_complete, daemon=True).start()
 
     def count_assistant_messages(self, session_id: str) -> int:
-        return 1
+        with self._lock:
+            return len(self._sessions.get(session_id, []))
 
     def latest_assistant_message(self, session_id: str):
-        return AssistantMessage(completed=True, text="ok", error_name=None, is_final_step=True)
+        with self._lock:
+            turns = self._sessions.get(session_id, [])
+            if not turns:
+                return None
+            t = turns[-1]
+            return AssistantMessage(
+                completed=t["completed"], text=t["text"], error_name=t["error_name"], is_final_step=t["is_final_step"],
+            )
 
     def abort(self, session_id: str) -> bool:
         return True
@@ -138,6 +170,26 @@ class _Fixture:
 
     def register(self, signed, node_uuid: str):
         self.ledger.register(node_uuid, signed.serial_hex, "fp", signed.not_after.isoformat())
+
+    def write_client_conf(self, cert_path: Path, key_path: Path) -> Path:
+        conf_path = self.tmp_path / f"client_{cert_path.stem}.conf"
+        conf_path.write_text(
+            f"CAGENT_API_URL=https://127.0.0.1:{self.port}\n"
+            f"CAGENT_CA_CERT={self.tmp_path / 'ca.pem'}\n"
+            f"CAGENT_CLIENT_CERT={cert_path}\n"
+            f"CAGENT_CLIENT_KEY={key_path}\n"
+            "CAGENT_POLL_INTERVAL=1\n"
+            "CAGENT_POLL_MAX=30\n"
+        )
+        return conf_path
+
+    def run_wrapper(self, conf_path: Path, args: list[str], stdin_text: str = ""):
+        env = {"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "CAGENT_CONF": str(conf_path)}
+        if "TMPDIR" in os.environ:
+            env["TMPDIR"] = os.environ["TMPDIR"]
+        return subprocess.run(
+            [str(WRAPPER), *args], input=stdin_text, capture_output=True, text=True, env=env, timeout=30,
+        )
 
     def request(self, cert_path: Path, key_path: Path, method: str, path: str, body: dict | None = None):
         ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
@@ -263,3 +315,89 @@ def test_session_owned_by_another_uuid_is_rejected(fixture):
     assert payload["error"]["code"] == "forbidden"
     # Positive evidence: the session is still owned by the original UUID, not silently reassigned.
     assert fixture.store.list_sessions()[0].identity.uuid == NODE_UUID
+
+
+# --- p3/plan.md Step 1: drive the actual wrapper script, not curl, against
+# this same real-TLS/ledger/OpenCode fixture. Covers the wrapper's whole
+# job (TLS args, body-from-stdin, polling, error surfacing) with no
+# mock-only TLS and no live node.
+
+
+def test_wrapper_ask_with_wait_prints_answer_and_exits_zero(fixture):
+    signed, key_path, cert_path = fixture.sign_node_cert(NODE_UUID)
+    fixture.register(signed, NODE_UUID)
+    conf_path = fixture.write_client_conf(cert_path, key_path)
+
+    result = fixture.run_wrapper(conf_path, ["ask"], stdin_text="what storage exists?")
+
+    assert result.returncode == 0, result.stderr
+    assert "state=completed" in result.stdout
+    assert "ok" in result.stdout  # _FakeOpenCode.latest_assistant_message's text
+
+
+def test_wrapper_status_fetches_a_created_requests_state(fixture):
+    signed, key_path, cert_path = fixture.sign_node_cert(NODE_UUID)
+    fixture.register(signed, NODE_UUID)
+    conf_path = fixture.write_client_conf(cert_path, key_path)
+
+    created = fixture.run_wrapper(conf_path, ["ask", "--no-wait"], stdin_text="hi")
+    assert created.returncode == 0, created.stderr
+    request_id = json.loads(created.stdout)["request_id"]
+
+    result = fixture.run_wrapper(conf_path, ["status", request_id])
+
+    assert result.returncode == 0, result.stderr
+    assert f"request_id={request_id}" in result.stdout
+
+
+def test_wrapper_continue_reuses_the_session(fixture):
+    signed, key_path, cert_path = fixture.sign_node_cert(NODE_UUID)
+    fixture.register(signed, NODE_UUID)
+    conf_path = fixture.write_client_conf(cert_path, key_path)
+
+    first = fixture.run_wrapper(conf_path, ["ask"], stdin_text="first turn")
+    assert first.returncode == 0, first.stderr
+    session_id = first.stdout.splitlines()[0].split("session_id=")[1].split(" ")[0]
+
+    second = fixture.run_wrapper(conf_path, ["continue", session_id], stdin_text="second turn")
+
+    assert second.returncode == 0, second.stderr
+    assert f"session_id={session_id}" in second.stdout
+
+
+def test_serial_hex_matches_getpeercert_even_when_top_byte_needs_zero_padding(fixture):
+    """Regression: `ca._wrap` used to compute `serial_hex` with plain
+    `format(cert.serial_number, "x")`, which drops a would-be leading zero
+    nibble whenever the serial's most significant byte is < 0x10 (~1/16 of
+    random serials). OpenSSL's `getpeercert()["serialNumber"]` never drops
+    it (byte-aligned, even digit count), so `auth.CertAuthenticator`'s
+    exact-string ledger lookup would then reject an otherwise valid,
+    registered cert as "not registered" — found live during p3/plan.md
+    Step 1 as an intermittently failing test, confirmed to be a real
+    handshake-level mismatch, not test flakiness. Loops (bounded) until it
+    reproduces the odd-length case, then proves that cert authenticates."""
+    for _ in range(500):
+        signed, key_path, cert_path = fixture.sign_node_cert(NODE_UUID)
+        if len(format(signed.certificate.serial_number, "x")) % 2 == 1:
+            break
+    else:
+        pytest.fail("did not generate a serial needing zero-padding in 500 tries")
+
+    fixture.register(signed, NODE_UUID)
+
+    status, payload = fixture.request(cert_path, key_path, "POST", "/requests", {"message": "hi"})
+
+    assert status == 202, payload
+    assert payload["state"] == "queued"
+
+
+def test_wrapper_revoked_cert_call_fails_with_forbidden_envelope(fixture):
+    signed, key_path, cert_path = fixture.sign_node_cert(NODE_UUID)
+    fixture.register(signed, NODE_UUID)
+    fixture.ledger.revoke(signed.serial_hex)
+    conf_path = fixture.write_client_conf(cert_path, key_path)
+
+    result = fixture.run_wrapper(conf_path, ["ask", "--no-wait"], stdin_text="hi")
+
+    assert result.returncode != 0
+    assert "forbidden" in result.stderr

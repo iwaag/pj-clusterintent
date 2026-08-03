@@ -61,11 +61,32 @@ class SignedCert:
 def _wrap(cert: x509.Certificate) -> SignedCert:
     return SignedCert(
         certificate=cert,
-        serial_hex=format(cert.serial_number, "x"),
+        serial_hex=serial_number_to_hex(cert.serial_number),
         fingerprint_hex=public_key_fingerprint(cert.public_key()),
         not_before=cert.not_valid_before_utc,
         not_after=cert.not_valid_after_utc,
     )
+
+
+def serial_number_to_hex(serial_number: int) -> str:
+    """Hex-encode a certificate serial number the same way OpenSSL's
+    `getpeercert()["serialNumber"]` does: byte-aligned (even digit count),
+    left-padded with a zero nibble when the value's top byte is < 0x10.
+
+    Plain `format(n, "x")` disagrees with OpenSSL for ~1/16 of randomly
+    generated serials (whenever the most significant byte is < 0x10, DER's
+    byte-based hex string keeps a leading "0" that the minimal integer
+    hex form drops) — `auth.py`'s `entry = self._ledger.get(cert_serial)`
+    compares against the ledger's registered serial by exact string
+    equality, so a mismatch here makes an otherwise-valid, registered node
+    intermittently rejected as "not registered". Found live during
+    p3/plan.md Step 1 (an intermittently failing test), confirmed against a
+    real TLS handshake before this fix.
+    """
+    hex_str = format(serial_number, "x")
+    if len(hex_str) % 2:
+        hex_str = "0" + hex_str
+    return hex_str
 
 
 def public_key_fingerprint(public_key) -> str:

@@ -93,7 +93,7 @@ def cmd_sign_node(args: argparse.Namespace) -> None:
 def cmd_show_ca(args: argparse.Namespace) -> None:
     _, ca_cert = _load_ca(Path(args.ca_dir))
     print(f"subject={ca_cert.subject.rfc4514_string()}")
-    print(f"serial={format(ca_cert.serial_number, 'x')}")
+    print(f"serial={ca.serial_number_to_hex(ca_cert.serial_number)}")
     print(f"not_before={ca_cert.not_valid_before_utc.isoformat()}")
     print(f"not_after={ca_cert.not_valid_after_utc.isoformat()}")
 
