@@ -97,3 +97,18 @@ embedded retirement YAML is missing the `dry_run: true` envelope field
 completed real use, `last_verified` set) are not met. `agscratch1`/vmid 199
 is left live and undestroyed — see `failure1.md` for the exact state and
 required follow-up. Step 3 cannot proceed until a clean Step 2 exists.
+
+## Fix 1, Step 0 — Close the failed episode record
+
+Recovery of this blocked state is tracked under
+[`fix1/plan.md`](fix1/plan.md). Step 0 wrote the policy §4 self-report at
+`.local/evidence/workflow-episodes/20260803_retire-agscratch1/selfreport.md`,
+covering the `safe_stop` at `compute_instance_missing`, the
+`partially_completed`/`interrupted` scratch-fixture recovery attempt, and the
+two independent defects the episode surfaced (missing `dry_run: true`
+envelope field, host-scope widening of `--refresh-observation`). See
+[`fix1/report0.md`](fix1/report0.md) for the step report.
+
+The blocked conclusion above still stands: Phase 3 is not complete, and
+`agscratch1`/vmid 199 remains live and unresolved pending Fix 1's later
+steps.
