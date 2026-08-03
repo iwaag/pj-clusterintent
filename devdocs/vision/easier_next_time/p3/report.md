@@ -75,8 +75,25 @@ Step 0's.
 Step 1 is complete: static verification found the body self-contained and
 consistent with current `nctl`/README behavior. No live commands were run.
 
-## Steps 2-3 — not yet started
+## Step 2 — attempted, blocked
 
-Step 2 (real use, a different session, live, needs approval) and Step 3
-(verify/refresh/report) have not started. Per the plan's time-separation
-requirement (§7), Step 2 must happen in a session distinct from this one.
+Attempted later in this same session, at the user's explicit direction
+(deviating from policy §7's time-separation rule — recorded as a deliberate
+one-off exception, not a change to the rule). Full account in
+[`failure1.md`](failure1.md): a scratch guest (`agscratch1`, vmid 199,
+`aghub`) was created and declared retired, the skill correctly stopped at an
+unenumerated `manual_review` code (`compute_instance_missing`) rather than
+improvising past it, and two capable-model remediation attempts outside the
+skill's declared scope both failed — the second on an external Nautobot
+ingest-job timeout, not a skill or `nctl` defect. Work stopped there per the
+user's instruction rather than continuing against a degraded Nautobot.
+
+One real, confirmed skill-body defect was found and is **not yet fixed**
+(prohibition 4 — the Step 2 executor does not edit the skill mid-use): the
+embedded retirement YAML is missing the `dry_run: true` envelope field
+`nctl desired apply` requires.
+
+**Status: blocked**, per README_DEV.md §9. Phase 3's exit criteria (one
+completed real use, `last_verified` set) are not met. `agscratch1`/vmid 199
+is left live and undestroyed — see `failure1.md` for the exact state and
+required follow-up. Step 3 cannot proceed until a clean Step 2 exists.
