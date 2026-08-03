@@ -42,7 +42,7 @@ A retrospective records, per task:
 | field | values |
 |---|---|
 | `level` | 1–4, per §1 |
-| `human_guidance` | `none` / `approval_only` / `judgment_required` |
+| `human_guidance` | `none` / `approval_only` / `judgment_required` / `unknown` (retroactive audit, transcript unrecoverable — do not guess) |
 | `execution_mode` | e.g. `ssh`, `node_agent`, `runbook`, `nctl`, `ansible`, mixed |
 | `outcome` | `completed` / `partially_completed` / `failed` / `interrupted` / `safe_stop` |
 | `target_level` | 1–4 **+ reason** — mandatory, see §3 |
