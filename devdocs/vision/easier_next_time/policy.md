@@ -70,41 +70,48 @@ Rules:
 ## 4. Self-report
 
 At the end of a session that did non-trivial cluster work — always when
-something felt painful or like a second occurrence — the agent writes a short
-self-report to `.local/evidence/workflow-episodes/<YYYYMMDD>_<task-slug>/selfreport.md`:
+something felt painful or like a second occurrence — the agent creates a
+`WorkflowEpisode` (nintent) as its self-report:
 
-```markdown
-# Self-report: <task, one line>
-date: 2026-08-03
-tags: [painful | second-occurrence | routine | retroactive]
-
-## What was requested and what happened
-<2-4 lines; outcome per §2 vocabulary>
-
-## References
-- nctl operation IDs: <...>
-- Braindump / desired-state IDs touched: <...>
-- session: <transcript filename if known>
-
-## Improvised parts
-<what required free-form judgment, trial and error, or SSH improvisation>
-
-## Skills used
-<which skills were loaded; did each actually help; what was missing>
-
-## Second-occurrence feeling
-<anything that felt like "we did this before"; candidate for a runbook>
+```
+nctl workflow-episode create --title "<task, one line>" --raw-data '{
+  "report": {
+    "occurred_at": "2026-08-03",
+    "tags": ["painful"],
+    "outcome": "completed",
+    "summary": "<2-4 lines>",
+    "improvised_parts": "<what required free-form judgment, trial and error, or SSH improvisation>",
+    "skills_used": "<which skills were loaded; did each actually help; what was missing>",
+    "second_occurrence_feeling": "<anything that felt like \"we did this before\"; candidate for a runbook>"
+  },
+  "references": {
+    "nctl_operation_ids": ["<...>"],
+    "braindump_or_desired_ids": ["<...>"],
+    "session": "<transcript filename if known>"
+  }
+}'
 ```
 
-Reference `nctl` operation IDs; do not copy evidence bodies. Prefer slugs or
-names over raw UUIDs when referencing Braindump/desired-state objects and
-both are available — cheaper to cross-reference later. Only sessions tagged
-`painful` or `second-occurrence` are expected to be audited. A later review
-adds `review.md` beside the self-report with the §2 attributes and the
-promotion verdict.
+`tags` uses the same vocabulary as before (`painful` / `second-occurrence` /
+`routine` / `retroactive`); `outcome` uses the §2 vocabulary. The
+sub-structure above is convention, not schema — free-form JSON, adapt as
+needed.
 
-The episode directory — not the session — is the audit unit: one task may span
-sessions and one session may hold several tasks; make one directory per task.
+Reference `nctl` operation IDs in `references`; do not copy evidence bodies
+into `raw_data`. Prefer slugs or names over raw UUIDs when referencing
+Braindump/desired-state objects and both are available — cheaper to
+cross-reference later. Only episodes tagged `painful` or `second-occurrence`
+are expected to be audited. If `create` fails, report the failure in the
+session and move on — there is no offline draft mechanism to fall back to.
+
+A later review writes the §2 attributes and the promotion verdict into the
+episode via `nctl workflow-episode write <id> assessment --data '{...}'`,
+using the `workflow-improvement` agentdocs session type
+([`../../../agentdocs/workflow-improvement/README.md`](../../../agentdocs/workflow-improvement/README.md)).
+
+The `WorkflowEpisode` ID — not the session — is the audit unit: one task may
+span sessions and one session may hold several tasks; make one episode per
+task.
 
 ## 5. Runbook skills
 

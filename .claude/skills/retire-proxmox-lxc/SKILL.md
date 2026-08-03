@@ -16,8 +16,8 @@ the missing `dry_run: true` envelope field and the realized-compute
 prerequisite below). Used successfully on a real retirement (`agscratch1`,
 vmid 199, `aghub`) on 2026-08-03 against `nctl` `3329d93b`: exact destroy,
 `converged`, zero-action repeat plan, eligible prune, `pruned`. See
-`../../devdocs/vision/easier_next_time/p3/fix1/plan.md` Step 5/6 and
-`../../.local/evidence/workflow-episodes/20260803_retire-agscratch1-real-use/selfreport.md`.
+`../../devdocs/vision/easier_next_time/p3/fix1/plan.md` Step 5/6 and the
+2026-08-03 `agscratch1` retirement self-report (WorkflowEpisode).
 
 **Prerequisite — realized compute instance.** `GUEST`'s Proxmox realization
 must already be observed, ingested into Nautobot, and linked to
@@ -133,9 +133,9 @@ All three must hold for this skill's use to count as a completed retirement.
 
 ## manual_review branch table
 
-Both codes below were observed together in the one audited episode
-(`.local/evidence/workflow-episodes/20260803_retire-aghaos/audit.md`); root
-cause was the desired state not yet being in a realizable shape.
+Both codes below were observed together in the one audited episode (the
+2026-08-03 `aghaos` retirement audit, WorkflowEpisode); root cause was the
+desired state not yet being in a realizable shape.
 
 | code | severity seen | meaning | action |
 |---|---|---|---|

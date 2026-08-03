@@ -393,9 +393,12 @@ policy: [`devdocs/vision/easier_next_time/policy.md`](devdocs/vision/easier_next
 defines the execution-difficulty levels, the mandatory target-level record, and
 the runbook-skill conventions. After a session that did non-trivial cluster
 work — always when something was painful or felt like a second occurrence —
-write the short self-report described there to
-`.local/evidence/workflow-episodes/`. Do not build or edit runbooks for the
-task you are currently executing; record the pain and move on.
+create a WorkflowEpisode via `nctl workflow-episode create` as described
+there. Improvement sessions themselves are the `workflow-improvement`
+agentdocs session type
+([`agentdocs/workflow-improvement/README.md`](agentdocs/workflow-improvement/README.md)).
+Do not build or edit runbooks for the task you are currently executing;
+record the pain and move on.
 
 ## New models need a minimal read-only GUI
 
