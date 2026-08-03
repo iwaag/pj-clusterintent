@@ -134,3 +134,8 @@ You are meant to run on a cheap/local model too. Escalate to the user instead of
   `--status resolved` / `--status dismissed` / `--all` to see them.
 - `write` replaces the target namespace wholesale. Extending `resolution` or `assessment` across
   more than one write in the same session means read-modify-write, not append.
+- The GUI list/detail views require a Nautobot browser session login; an `Authorization: Token`
+  header (which works against the REST API) gets a 302 to the login page, not the page itself. An
+  agent cannot render or screenshot the GUI headlessly. Treat "survey the GUI" as a genuinely
+  human-in-the-loop step; an agent standing in for it can only inspect the equivalent data via
+  `nctl workflow-episode list/show --json`, which is not the same as verifying GUI presentation.
