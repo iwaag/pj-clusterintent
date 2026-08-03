@@ -109,6 +109,110 @@ two independent defects the episode surfaced (missing `dry_run: true`
 envelope field, host-scope widening of `--refresh-observation`). See
 [`fix1/report0.md`](fix1/report0.md) for the step report.
 
-The blocked conclusion above still stands: Phase 3 is not complete, and
-`agscratch1`/vmid 199 remains live and unresolved pending Fix 1's later
-steps.
+The blocked conclusion above still stood at that point: Phase 3 was not
+complete, and `agscratch1`/vmid 199 remained live and unresolved pending
+Fix 1's later steps.
+
+## Fix 1, Step 1 — Fix the batch example and strengthen the skill precondition
+
+Added `dry_run: true` as the first field of the canonical retirement
+document in both `nctl/README.md` §"Retiring one Proxmox LXC" and
+`.claude/skills/retire-proxmox-lxc/SKILL.md`; bumped the skill to
+`version: 2`; replaced the `existing_desired_node` prerequisite with
+`existing_realized_compute_instance` and added a prerequisite paragraph
+requiring realization to already be observed/ingested/linked in a prior
+session; added `compute_instance_missing` and any zero-destroy/link-only
+plan to the `manual_review` branch table as explicit precondition failures
+with no recovery commands. Static YAML/envelope checks confirmed both
+retirement examples now parse with exactly `dry_run`/`operations` and
+`dry_run: true`, and that the permitted-commands list and approval gates
+were otherwise unchanged. See [`fix1/report1.md`](fix1/report1.md).
+
+## Fix 1, Step 2 — Repair the host-scoped observation contract in nctl
+
+Root cause: `select_scoped_diffs()` admitted placement-specific observation
+diffs naming a different owning node merely because their service had any
+placement on the requested host, and `_with_forced_observation()` then
+merged the forced refresh into the resulting multi-target `observe_node`
+action. Fixed `select_scoped_diffs()` to match placement-specific diffs
+only to their exact owning node, and added defense in depth in
+`_with_forced_observation()`: a still-multi-target action now raises
+`ForcedObservationScopeError` (surfaced as
+`forced_observation_scope_violation`) instead of silently contacting extra
+hosts. Five focused tests added covering the exact failure shape, dedup,
+cluster-scope preservation, and the defense-in-depth path. Full nctl suite
+(1151 passed) and the Ansible conformance gate (3 passed) both green. nctl
+commit `3329d93`; superproject pointer bumped alongside
+[`fix1/report2.md`](fix1/report2.md).
+
+## Fix 1, Step 3 — Re-establish local Nautobot Job health
+
+Diagnosed a genuinely non-consuming local Celery worker (responsive to
+`celery inspect ping`, not pulling from its own `default` queue) holding
+two `run_job` tasks, including the exact stuck JobResult
+(`c104e2eb-8963-4f28-a5ed-f417f2c71a45`) from `failure1.md`. Restarted only
+`nautobot-nautobot-worker-1` via the documented compose project — no
+PostgreSQL/Redis/full-stack recreation. Both queued tasks drained and
+reached `SUCCESS` within seconds, proving the queue with terminal results
+before any retirement retry. See [`fix1/report3.md`](fix1/report3.md).
+
+## Fix 1, Step 4 — Recover `agscratch1` into an eligible pre-use fixture
+
+A fresh dry `nctl reconcile agscratch1 --json` already showed an exact
+`destroy_compute_instance` action (a byproduct of Step 3's drained ingest
+Job), so no new `--refresh-observation` was needed. Restored
+`agscratch1`'s desired lifecycle/presence to `active`/`present` (approved
+apply), which flipped the plan to a non-destructive
+`link_compute_realization` action; applied that (approved), after which a
+fresh dry reconcile showed zero actions/manual_review — a uniquely
+identified, realization-linked, pre-use fixture. No `pct`, direct REST
+bypass, or duplicate guest. See [`fix1/report4.md`](fix1/report4.md).
+
+## Fix 1, Step 5 — Real skill use in a new session
+
+New session; no skill edits occurred in it (prohibition 8). Invoked the
+revised skill with `GUEST=agscratch1`, `VMID=199`, `CONTROL_NODE=aghub`,
+followed exactly with no deviation:
+
+- dry/apply the two-upsert retirement batch (approval gate 1);
+- dry destructive reconcile (`01KZ41W0SWZENJNKK5BJKVTCQX`): empty
+  `manual_review`, exactly one `destroy_compute_instance` action;
+- checkpoint: slug/vmid/control-node all matched;
+- destructive apply (approval gate 2, `01KZ41WKMXS2DNC4M845XH1TJY`):
+  `destroyed: true, absent: true`, state `converged`; post-actuation
+  observation targeted only `["aghub"]`, a live confirmation of Step 2's
+  fix beyond its unit tests;
+- repeat dry reconcile (`01KZ41YG21KQNW731K3CVS0K35`): 0 actions;
+- dry prune (`01KZ41ZP2BH2EX6BCM9BX5FJM4`): `eligible`;
+- prune apply (approval gate 3, `01KZ420A7JRRESNPD3Z5WDJTQR`): state
+  `pruned`.
+
+All three machine-checkable success criteria held: `converged`, zero-action
+repeat plan, `pruned`. Self-report at
+`.local/evidence/workflow-episodes/20260803_retire-agscratch1-real-use/selfreport.md`
+compares this run against the Phase 2 `aghaos` audit (real per-gate review
+instead of a rubber stamp; `manual_review` interpretation stayed out of this
+measured session by design) and against the failed use (no free-form
+recovery remained inside the workflow; neither prior defect recurred). See
+[`fix1/report5.md`](fix1/report5.md).
+
+## Fix 1, Step 6 — Refresh metadata and finalize Phase 3
+
+Set the skill's `last_verified: 2026-08-03` and
+`verified_against.nctl: 3329d93bf3ebf38d284adedc6aa3653abd210cfc` (the SHA
+used in Step 5's real use). No version bump: the use required no
+behavioral edit. This report and the memory index were updated to close out
+the roadmap step.
+
+**Status: complete.** All of `fix1/plan.md`'s exit criteria are met: the
+failed attempt has a policy-compliant self-report and remains visible as a
+safe stop; both canonical retirement examples are valid batch envelopes; a
+regression suite proves host-scoped forced observation cannot widen beyond
+the requested host and both the nctl and Ansible-conformance gates pass;
+the local queue completed bounded Jobs with terminal results before
+retirement was retried; `agscratch1`/vmid 199 was safely retired and pruned
+with no duplicate scratch guest; one later-session skill use recorded the
+exact destroy action, scoped observation, `converged`, zero-action repeat
+plan, eligible prune, and `pruned`; and the skill's
+`last_verified`/`verified_against` values come from that use. Phase 3 of
+the Easier Next Time roadmap is complete.

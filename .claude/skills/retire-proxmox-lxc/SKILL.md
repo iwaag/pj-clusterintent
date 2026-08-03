@@ -6,17 +6,18 @@ execution_level: 3
 triggers: [proxmox_lxc_retirement, guest_retirement_request, decommission_lxc]
 risk: destructive_scoped
 prerequisites: [existing_realized_compute_instance]
-last_verified: null
-verified_against: null
+last_verified: 2026-08-03
+verified_against:
+  nctl: 3329d93bf3ebf38d284adedc6aa3653abd210cfc
 ---
 
-**Unverified.** Authored 2026-08-03, revised 2026-08-03 (Fix 1 Step 1: added
+**Verified.** Authored 2026-08-03, revised 2026-08-03 (Fix 1 Step 1: added
 the missing `dry_run: true` envelope field and the realized-compute
-prerequisite below), not yet used on a real retirement. Per policy §8.3,
-authoring alone never sets `last_verified` — that field stays `null` until a
-real use (see
-`../../devdocs/vision/easier_next_time/p3/fix1/plan.md` Step 5/6) fills it in
-with a date and the `nctl` SHA (`git -C nctl rev-parse HEAD`).
+prerequisite below). Used successfully on a real retirement (`agscratch1`,
+vmid 199, `aghub`) on 2026-08-03 against `nctl` `3329d93b`: exact destroy,
+`converged`, zero-action repeat plan, eligible prune, `pruned`. See
+`../../devdocs/vision/easier_next_time/p3/fix1/plan.md` Step 5/6 and
+`../../.local/evidence/workflow-episodes/20260803_retire-agscratch1-real-use/selfreport.md`.
 
 **Prerequisite — realized compute instance.** `GUEST`'s Proxmox realization
 must already be observed, ingested into Nautobot, and linked to
