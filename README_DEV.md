@@ -386,6 +386,17 @@ traceable statement that the intended action was planned, securely authorized,
 executed against the exact scope, observed through the supported path, and
 shown by fresh drift not to require repetition.
 
+## Easier Next Time: end sessions with a self-report
+
+Operational workflows are improved retrospectively under the Easier Next Time
+policy: [`devdocs/vision/easier_next_time/policy.md`](devdocs/vision/easier_next_time/policy.md)
+defines the execution-difficulty levels, the mandatory target-level record, and
+the runbook-skill conventions. After a session that did non-trivial cluster
+work — always when something was painful or felt like a second occurrence —
+write the short self-report described there to
+`.local/evidence/workflow-episodes/`. Do not build or edit runbooks for the
+task you are currently executing; record the pain and move on.
+
 ## New models need a minimal read-only GUI
 
 When a change adds a new nintent model or a new field a human would want to inspect, add a
