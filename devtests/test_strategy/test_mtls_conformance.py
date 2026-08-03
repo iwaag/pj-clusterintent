@@ -31,6 +31,7 @@ import subprocess
 import sys
 import threading
 import time
+import uuid
 from pathlib import Path
 
 import pytest
@@ -39,7 +40,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "cagent" / "src"))
 
 from cagent_api import ca  # noqa: E402
-from cagent_api.auth import CertAuthenticator  # noqa: E402
+from cagent_api.auth import CertAuthenticator, TokenAuthenticator  # noqa: E402
 from cagent_api.ledger import Ledger  # noqa: E402
 from cagent_api.opencode_client import AssistantMessage, OpenCodeError  # noqa: E402
 from cagent_api.server import build_server  # noqa: E402
@@ -49,6 +50,7 @@ from cagent_api.worker import Worker  # noqa: E402
 NODE_UUID = "27818c12-fe15-4c9f-83d0-7949523f6c33"
 OTHER_NODE_UUID = "d3a4b6f0-6b41-4e6a-9a4a-1b2c3d4e5f60"
 PRUNED_NODE_UUID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+HUMAN_TOKEN = "conformance-test-token"
 
 WRAPPER = ROOT / "ansible_agdev" / "roles" / "cagent_client" / "files" / "cagent"
 
@@ -67,7 +69,10 @@ class _FakeOpenCode:
         self._lock = threading.Lock()
 
     def create_session(self, title: str) -> str:
-        session_id = "ses_conformance"
+        # uuid4, not a per-instance counter: the fixture builds one
+        # _FakeOpenCode per listener (node + human), so a counter starting
+        # at 1 in each would still collide across listeners.
+        session_id = f"ses_conformance_{uuid.uuid4().hex[:8]}"
         with self._lock:
             self._sessions.setdefault(session_id, [])
         return session_id
@@ -152,9 +157,27 @@ class _Fixture:
         self._thread = threading.Thread(target=self.httpd.serve_forever, daemon=True)
         self._thread.start()
 
+        # Human listener (p4/contract.md): server-only TLS on the same leaf
+        # cert/key, no client cert required, bearer-token authenticated.
+        # Shares self.store/self.worker with the node listener — same
+        # wiring main.py uses in production, minus the process split.
+        human_ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        human_ctx.load_cert_chain(str(server_pem))
+        human_ctx.verify_mode = ssl.CERT_NONE
+        human_authenticate = TokenAuthenticator(HUMAN_TOKEN, human_name="operator")
+        self.human_httpd = build_server(
+            "127.0.0.1", 0, self.store, _FakeOpenCode(), self.worker, human_authenticate,
+            ssl_context=human_ctx, serve_ui=True,
+        )
+        self.human_port = self.human_httpd.socket.getsockname()[1]
+        self._human_thread = threading.Thread(target=self.human_httpd.serve_forever, daemon=True)
+        self._human_thread.start()
+
     def close(self) -> None:
         self.httpd.shutdown()
         self.httpd.server_close()
+        self.human_httpd.shutdown()
+        self.human_httpd.server_close()
 
     def sign_node_cert(self, node_uuid: str, not_before=None, not_after=None):
         key = ca.generate_key()
@@ -202,6 +225,42 @@ class _Fixture:
             conn.request(method, path, body=data, headers={"Content-Type": "application/json"})
             resp = conn.getresponse()
             return resp.status, json.loads(resp.read())
+        finally:
+            conn.close()
+
+    def request_node_without_client_cert(self, method: str, path: str):
+        """No client cert loaded at all — proves the node listener's
+        `CERT_REQUIRED` actually rejects a cert-less connection at the TLS
+        handshake, not just an untrusted one."""
+        ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        ctx.load_verify_locations(str(self.tmp_path / "ca.pem"))
+        ctx.check_hostname = False
+        conn = http.client.HTTPSConnection("127.0.0.1", self.port, context=ctx, timeout=5)
+        try:
+            conn.request(method, path)
+            conn.getresponse()
+        finally:
+            conn.close()
+
+    def human_request(self, token: str | None, method: str, path: str, body: dict | None = None):
+        """No client cert at all (server-only TLS) — proves the human
+        listener genuinely does not require one."""
+        ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        ctx.load_verify_locations(str(self.tmp_path / "ca.pem"))
+        ctx.check_hostname = False
+        conn = http.client.HTTPSConnection("127.0.0.1", self.human_port, context=ctx, timeout=5)
+        try:
+            data = json.dumps(body).encode() if body is not None else None
+            headers = {"Content-Type": "application/json"}
+            if token is not None:
+                headers["Authorization"] = f"Bearer {token}"
+            conn.request(method, path, body=data, headers=headers)
+            resp = conn.getresponse()
+            content_type = resp.getheader("Content-Type", "")
+            raw = resp.read()
+            if "application/json" in content_type:
+                return resp.status, json.loads(raw)
+            return resp.status, raw
         finally:
             conn.close()
 
@@ -401,3 +460,123 @@ def test_wrapper_revoked_cert_call_fails_with_forbidden_envelope(fixture):
 
     assert result.returncode != 0
     assert "forbidden" in result.stderr
+
+
+# --- p4/plan.md Step 3: the human listener under real TLS, alongside the
+# node listener in the same process, sharing the same store/worker — same
+# split main.py runs in production. Covers the README_DEV lesson-2 real-
+# stack requirement for the new surface, not just the fake-authenticate
+# unit tests in cagent/tests/test_server.py.
+
+
+def test_node_mtls_path_still_works_unchanged_with_human_listener_present(fixture):
+    """The human listener existing alongside the node listener must not
+    perturb the node path at all — same assertion as the very first test
+    in this file, re-run with both listeners up."""
+    signed, key_path, cert_path = fixture.sign_node_cert(NODE_UUID)
+    fixture.register(signed, NODE_UUID)
+
+    status, payload = fixture.request(cert_path, key_path, "POST", "/requests", {"message": "hi"})
+
+    assert status == 202
+    assert payload["state"] == "queued"
+
+
+def test_node_listener_refuses_a_certless_connection(fixture):
+    with pytest.raises(ssl.SSLError):
+        fixture.request_node_without_client_cert("POST", "/requests")
+
+
+def test_human_listener_accepts_the_good_token(fixture):
+    status, payload = fixture.human_request(HUMAN_TOKEN, "POST", "/requests", {"message": "hi"})
+    assert status == 202
+    assert payload["state"] == "queued"
+
+
+def test_human_listener_rejects_a_bad_token(fixture):
+    status, payload = fixture.human_request("wrong-token", "POST", "/requests", {"message": "hi"})
+    assert status == 401
+    assert payload["error"]["code"] == "unauthorized"
+
+
+def test_human_listener_rejects_an_absent_token(fixture):
+    status, payload = fixture.human_request(None, "POST", "/requests", {"message": "hi"})
+    assert status == 401
+    assert payload["error"]["code"] == "unauthorized"
+
+
+def test_human_listener_does_not_require_a_client_cert(fixture):
+    """The connection itself (no client cert offered) must succeed at the
+    TLS layer — the human_request helper never loads a client cert, so a
+    non-401 HTTP response here (vs. request_node_without_client_cert's
+    ssl.SSLError) is the proof."""
+    status, payload = fixture.human_request(HUMAN_TOKEN, "GET", "/sessions")
+    assert status == 200
+    assert payload == []
+
+
+def test_human_and_node_identities_land_in_evidence_in_contract_shapes(fixture):
+    signed, key_path, cert_path = fixture.sign_node_cert(NODE_UUID)
+    fixture.register(signed, NODE_UUID)
+    status, node_created = fixture.request(cert_path, key_path, "POST", "/requests", {"message": "hi"})
+    assert status == 202
+
+    status, human_created = fixture.human_request(HUMAN_TOKEN, "POST", "/requests", {"message": "hi"})
+    assert status == 202
+
+    status, node_payload = fixture.request(cert_path, key_path, "GET", f"/requests/{node_created['request_id']}")
+    assert node_payload["identity"] == {"class": "node", "uuid": NODE_UUID, "cert_serial": signed.serial_hex}
+
+    status, human_payload = fixture.human_request(HUMAN_TOKEN, "GET", f"/requests/{human_created['request_id']}")
+    assert human_payload["identity"] == {"class": "human", "name": "operator"}
+
+
+def test_human_can_read_a_node_created_request_but_not_continue_it(fixture):
+    signed, key_path, cert_path = fixture.sign_node_cert(NODE_UUID)
+    fixture.register(signed, NODE_UUID)
+    status, node_created = fixture.request(cert_path, key_path, "POST", "/requests", {"message": "hi"})
+    assert status == 202
+
+    status, payload = fixture.human_request(HUMAN_TOKEN, "GET", f"/requests/{node_created['request_id']}")
+    assert status == 200
+    assert payload["identity"]["class"] == "node"
+
+    status, payload = fixture.human_request(
+        HUMAN_TOKEN, "POST", f"/sessions/{node_created['session_id']}/requests", {"message": "intrude"}
+    )
+    assert status == 403
+    assert payload["error"]["code"] == "forbidden"
+
+
+def test_node_cannot_read_a_human_created_request(fixture):
+    status, human_created = fixture.human_request(HUMAN_TOKEN, "POST", "/requests", {"message": "hi"})
+    assert status == 202
+
+    signed, key_path, cert_path = fixture.sign_node_cert(NODE_UUID)
+    fixture.register(signed, NODE_UUID)
+    status, payload = fixture.request(cert_path, key_path, "GET", f"/requests/{human_created['request_id']}")
+    assert status == 403
+    assert payload["error"]["code"] == "forbidden"
+
+
+def test_human_lists_all_sessions_node_only_its_own(fixture):
+    signed, key_path, cert_path = fixture.sign_node_cert(NODE_UUID)
+    fixture.register(signed, NODE_UUID)
+    status, node_created = fixture.request(cert_path, key_path, "POST", "/requests", {"message": "hi"})
+    assert status == 202
+    status, human_created = fixture.human_request(HUMAN_TOKEN, "POST", "/requests", {"message": "hi"})
+    assert status == 202
+
+    status, node_sessions = fixture.request(cert_path, key_path, "GET", "/sessions")
+    assert {s["session_id"] for s in node_sessions} == {node_created["session_id"]}
+
+    status, human_sessions = fixture.human_request(HUMAN_TOKEN, "GET", "/sessions")
+    session_ids = {s["session_id"] for s in human_sessions}
+    assert node_created["session_id"] in session_ids
+    assert human_created["session_id"] in session_ids
+
+
+def test_human_listener_serves_the_chat_ui_at_root(fixture):
+    status, body = fixture.human_request(HUMAN_TOKEN, "GET", "/")
+    assert status == 200
+    assert b"cluster-agent" in body
