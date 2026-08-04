@@ -17,9 +17,14 @@ later promoted through the Easier Next Time practice.
 
 Settled during discussion; phases do not re-litigate them.
 
-1. **Role assignment for v1.** The planner is the strong model (a Claude
-   session) following a written manual; no planner code is built. The executor
-   is a local LLM launched by a thin harness — that harness is the only new
+1. **Role assignment for v1 — reversed from idea.txt.** In idea.txt, the main
+   agent talking to the user calls a planner and then executes the plan
+   itself. Here the roles flip: the main agent (a Claude session) *is* the
+   planner and calls out to a separate, weaker executor, because the
+   reliability problem (idea.txt's opening premise) sits in the cheap local
+   execution step, not in the main agent. No planner code is built — the
+   planner is the strong model following a written manual. The executor is a
+   local LLM launched by a thin harness — that harness is the only new
    software in this roadmap.
 2. **Context isolation is the mechanism, obedience is best-effort.** The
    executor gets a fresh context containing only the plan artifact and a short
@@ -48,10 +53,13 @@ Settled during discussion; phases do not re-litigate them.
    transcript, and execution report are stored under one plan-ID directory in
    `.local`; WorkflowEpisode references that stable plan ID, never a
    machine-local path, and bodies are never copied into `raw_data`.
-7. **Placement outside nctl.** The planner is non-deterministic and therefore
-   does not belong inside nctl's deterministic drift/actuation/evidence
-   backend. The harness is a thin separate frontend; its name (`wfagent` or
-   other) and exact invocation are fixed at implementation time.
+7. **Placement outside nctl, name is `executor`.** The planner is
+   non-deterministic and therefore does not belong inside nctl's deterministic
+   drift/actuation/evidence backend. The harness is a thin separate frontend.
+   Name it around its actual role — `executor` (e.g. `nctl executor
+   <plan-file>` or a standalone script) — not `wfagent`: that name from
+   idea.txt implied workflow *authoring*, which is now the planner's job, not
+   this harness's. Exact invocation is fixed at implementation time.
 8. **No backward compatibility.** Standing breaking-change policy applies; no
    dual paths, no feature flags. Deferred mechanisms from discuss_idea1 §7
    (task card schema, workflow catalog, strict allowlists, planner/executor
