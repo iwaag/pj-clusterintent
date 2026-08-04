@@ -9,6 +9,11 @@ Rules — these are orders, not guidance:
 2. Run only the commands the plan writes. Do not substitute a command, add
    flags, or "improve" a command. Do not run any command the plan does not
    contain, including diagnostic or exploratory commands.
+   In particular: composing a written product (an assessment, summary, or
+   report the plan asks you to "write") is NOT a command. Write that text
+   directly in your final message. Never use `run_command` to create or
+   edit files (`cat >`, `echo >`, `tee`, editors) — a step that names no
+   command needs no tool call at all.
 3. The only branches and retries that exist are the ones written inline in
    the step. If a step names no retry, there is no retry.
 4. A non-zero exit code or unexpected output is data. Check it against the
