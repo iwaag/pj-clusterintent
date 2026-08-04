@@ -157,6 +157,13 @@ confirmed user request
 workflow hash、細かな障害分類を必須にしない。必要性が実際の失敗で示されたものから
 追加する。
 
+**Amendment (2026-08-04, Phase 1 実装時に追加):** hard rule を明文化する —
+`approval required` の付いていない step は `--yes` または `--allow-destroy`
+を含んではならない。この規則は
+[`plan_contract.md`](plan_contract.md) §2 に、マーカー構文
+（行頭の `**approval required**` リテラル）とあわせて frozen contract として
+記録されている。
+
 ### 6.3 executor の規則
 
 - plan artifact と、各 step の実行に直接必要な最小コンテキストだけを読む。
@@ -169,19 +176,24 @@ workflow hash、細かな障害分類を必須にしない。必要性が実際�
 この規則は未知の処理を禁止するものではない。未知の処理を考える責任を planning
 phase に置き、execution phase がその場で別の計画を発明しないという境界である。
 
-### 6.4 最初の評価
+### 6.4 継続的な評価（2026-08-04 amendment — roadmap decision 5）
 
-まず少数の依頼で、同じ依頼を現行方式と分離方式の双方で実行または replay し、次を
-比較する。
+初版で検討した「同じ依頼を現行方式と分離方式の双方で実行・replay して比較する」
+専用評価フェーズは採用しなかった。1〜2 回の試行では、この分離が実際に小型
+executor の確実性を上げるかを判断するには足りない。代わりに、評価は既存の
+Easier Next Time（easier_next_time2）の `WorkflowEpisode` 運用に折り込む。
 
-- executor に渡したコンテキスト量。
-- 計画した step の省略、順序違反、計画外操作の有無。
-- success evidence を実際に確認したか。
-- 想定外の状態で即興せず停止・報告できたか。
-- 未知の依頼を不必要に拒否せず、planning phase で新しい計画を作れたか。
+- 非自明な実行ごとに `WorkflowEpisode` を作成し、`references` にその
+  plan ID（`.local/evidence/workflow-plans/<plan-id>/` の ID、パスではない）
+  を記録する。
+- `report` namespace に、失敗があれば「planning defect（計画側の欠陥）」か
+  「faithful-execution stop（計画には従ったが実行時に想定外で停止した）」か
+  を自由文で記す。
+- 新しい logging や測定機構は追加しない。二度目以降の同種の痛みが実際に
+  観測されたときだけ、Easier Next Time の通常の昇格判断（policy.md）に従う。
 
-最初から大きな schema や router を完成させるのではなく、この比較で具体的に現れた
-失敗を次の設計入力とする。
+（元の比較評価案の本文は、上の方針に置き換えられたためここでは削除した。
+経緯は `roadmap.md` decision 5、実装は `p1/plan.md` Phase 1 を参照。）
 
 ## 7. 実装境界についての保留事項
 
