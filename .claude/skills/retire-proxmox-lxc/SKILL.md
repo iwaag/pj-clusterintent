@@ -29,9 +29,9 @@ observe, or link one. If that link does not already exist, stop before
 Step 1 and return the task to a human or capable model to establish it
 first; do not fold that recovery into this skill's run.
 
-This skill wraps `README.md` §"Retiring one Proxmox LXC" and `nctl/README.md`
-§"Retiring one Proxmox LXC" for an executor — read those for background if
-something here is unclear, but everything required to execute is below.
+This skill wraps `README.md` §"Retiring one Proxmox LXC" and
+`nctl/docs/add-and-retire-proxmox-lxc.md` §"Retiring one Proxmox LXC" for an executor — read those
+for background if something here is unclear, but everything required to execute is below.
 
 ## Typed inputs
 
