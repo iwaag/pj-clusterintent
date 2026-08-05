@@ -109,6 +109,50 @@ services:
       nautobot:
         condition: service_healthy
 
+  minio:
+    image: minio/minio
+    restart: always
+    command: server /data --console-address ":9001"
+    # Host ports 9000/9001 are taken by portainer / the service_scripts MinIO,
+    # so this instance is published on 9100 (S3 API) and 9101 (console).
+    ports:
+      - "9100:9000"
+      - "9101:9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - minio_data:/data
+
+  minio-init:
+    image: minio/mc
+    restart: "no"
+    entrypoint: ["/bin/sh"]
+    command:
+      - -c
+      - |
+        until mc alias set local http://minio:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD"; do
+          sleep 2
+        done
+        set -e
+        mc mb --ignore-existing local/nctl-outbox
+        mc admin policy create local nctl-outbox-rw /init/nctl_outbox_policy.json
+        if ! mc admin user info local nctl >/dev/null 2>&1; then
+          mc admin user add local nctl "$$NCTL_MINIO_SECRET_KEY"
+        fi
+        mc admin policy attach local nctl-outbox-rw --user nctl || true
+        mc alias set nctluser http://minio:9000 nctl "$$NCTL_MINIO_SECRET_KEY"
+        mc ls nctluser/nctl-outbox
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      NCTL_MINIO_SECRET_KEY: ${NCTL_MINIO_SECRET_KEY}
+    volumes:
+      - ./nctl_outbox_policy.json:/init/nctl_outbox_policy.json:ro
+    depends_on:
+      - minio
+
 volumes:
   nautobot_static:
   nautobot_media:
+  minio_data:

@@ -5,7 +5,9 @@ session whose working directory is the pj-clusterintent superproject). Ask
 it about cluster resources/services — status, drift, relations, "does X
 exist", "how do I get S3-compatible storage" — instead of guessing or
 installing your own. It reads the cluster's actual state and answers with
-guidance. It does not mutate the cluster on your behalf: reconcile/apply
+guidance. It can also hand you data as a file: ask for e.g. "the cluster's
+desired/actual state as a downloadable file" and the reply will contain a
+time-limited download URL (fetch it before the stated expiry). It does not mutate the cluster on your behalf: reconcile/apply
 writes require human approval through a separate entrance.
 
 ## Endpoints

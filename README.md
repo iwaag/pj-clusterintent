@@ -71,6 +71,7 @@ uv run --project nctl nctl reconcile RETIRED_GUEST --allow-destroy
 uv run --project nctl nctl reconcile RETIRED_GUEST --allow-destroy --yes
 uv run --project nctl nctl ops list
 uv run --project nctl nctl ops show OPERATION_ID
+uv run --project nctl nctl upload PATH [PATH...] [--zip] [--ttl 30m]
 ```
 
 `nctl drift` is the structured desired-vs-actual source of truth. Bootstrap/production inventory
@@ -89,6 +90,10 @@ Current cluster convergence is a fresh `nctl drift` computation, not a persisted
 (with `--json` for structured agent/tool consumption) whenever status needs updating. Past or
 running operations are read through `nctl ops list`/`nctl ops show OPERATION_ID` over the durable
 on-disk evidence each `nctl reconcile` run writes.
+`nctl upload` turns arbitrary file(s) into one time-limited presigned download URL from the local
+MinIO outbox (devenv service; `[storage]` in `nctl.toml`). There is no state-specific export
+command — write state with the readers above into a file, then upload it. See
+[nctl/README.md](nctl/README.md).
 
 **`nctl reconcile --yes` is the routine path from drift to a freshly verified converged state** —
 drift, required ledger/Ansible actions, fresh nodeutils collection, verified Nautobot ingest, and a
