@@ -294,7 +294,16 @@ SECRET_KEY = os.getenv("NAUTOBOT_SECRET_KEY", "*)bgbpw)0oza)glt*h5n9b0-w^@i9#d)m
 
 # Options to pass to the Celery broker transport, for example when using Celery with Redis Sentinel.
 #
-# CELERY_BROKER_TRANSPORT_OPTIONS = {}
+# The broker path here is host.docker.internal (Docker Desktop NAT) to a Redis in another
+# compose project; host sleep silently kills those flows and a worker holding half-open
+# sockets blocks forever without logging, while its container healthcheck (fresh
+# connections) stays green. Keepalive + periodic connection health checks make the client
+# detect dead sockets and reconnect instead.
+CELERY_BROKER_TRANSPORT_OPTIONS = {
+    "socket_keepalive": True,
+    "health_check_interval": 25,
+    "retry_on_timeout": True,
+}
 
 # Default celery queue name that will be used by workers and tasks if no queue is specified
 # CELERY_TASK_DEFAULT_QUEUE = os.getenv("NAUTOBOT_CELERY_TASK_DEFAULT_QUEUE", "default")
