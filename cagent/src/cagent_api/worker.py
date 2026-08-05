@@ -11,6 +11,7 @@ satisfies the contract's weaker per-session serialization requirement.
 from __future__ import annotations
 
 import logging
+import os
 import queue
 import threading
 import time
@@ -23,8 +24,9 @@ logger = logging.getLogger("cagent_api.worker")
 POLL_INTERVAL_SECONDS = 1.0
 # OpenCode can retry a broken backend connection indefinitely without ever
 # settling a message (see p1/report2.md) — bound how long one turn can wedge
-# the single global queue.
-TURN_TIMEOUT_SECONDS = 300.0
+# the single global queue. Multi-command compositions (e.g. a state bundle)
+# can legitimately outlast the old fixed 300s, so the bound is configurable.
+TURN_TIMEOUT_SECONDS = float(os.environ.get("CAGENT_TURN_TIMEOUT_SECONDS", "300"))
 
 
 class Worker:

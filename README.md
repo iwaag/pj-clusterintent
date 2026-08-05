@@ -53,6 +53,18 @@ uv run --project nctl nctl desired apply -f .local/desired-state.yaml --yes
 The local document is input, not a backup and is not automatically synchronized
 with Nautobot. Use the PostgreSQL dumps in `.local/backups/` for recovery.
 
+`nctl desired export` is the reverse direction: it emits the complete current
+desired state as one canonical batch document (the same YAML shape `desired
+apply -f` accepts), deterministic byte-for-byte for unchanged state. It is a
+re-applyable, human-readable snapshot whose built-in acceptance check is that
+re-applying it previews zero changes; it complements, not replaces, the
+PostgreSQL dumps:
+
+```bash
+uv run --project nctl nctl desired export > snapshot.yaml
+uv run --project nctl nctl desired apply -f snapshot.yaml   # preview: all unchanged
+```
+
 ## Reconciliation CLI
 
 From the repository root after configuring `nctl.toml` and `NAUTOBOT_TOKEN`:
@@ -91,9 +103,10 @@ Current cluster convergence is a fresh `nctl drift` computation, not a persisted
 running operations are read through `nctl ops list`/`nctl ops show OPERATION_ID` over the durable
 on-disk evidence each `nctl reconcile` run writes.
 `nctl upload` turns arbitrary file(s) into one time-limited presigned download URL from the local
-MinIO outbox (devenv service; `[storage]` in `nctl.toml`). There is no state-specific export
-command — write state with the readers above into a file, then upload it. See
-[nctl/README.md](nctl/README.md).
+MinIO outbox (devenv service; `[storage]` in `nctl.toml`). For "the cluster state as a file",
+compose an `nctl.bundle.v1` state bundle — `nctl desired export` plus the `--json` readers above,
+a small manifest, one zip, one URL — following
+[nctl/docs/state-bundle.md](nctl/docs/state-bundle.md). See [nctl/README.md](nctl/README.md).
 
 **`nctl reconcile --yes` is the routine path from drift to a freshly verified converged state** —
 drift, required ledger/Ansible actions, fresh nodeutils collection, verified Nautobot ingest, and a

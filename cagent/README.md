@@ -41,6 +41,7 @@ Three pieces:
   | `CAGENT_HUMAN_PORT` | `8789` | human entrance (bearer token) listen port — Phase 4 |
   | `CAGENT_HUMAN_TOKEN_FILE` | `~/.local/state/cagent/human_token` | file holding the human bearer token, one line, mode `0600` — Phase 4. **The human listener refuses to start if this file is missing or empty**, same refuse-don't-fallback pattern as the OpenAI key below. |
   | `CAGENT_HUMAN_NAME` | `operator` | fixed operator label recorded in evidence for every human-authenticated request — Phase 4 |
+  | `CAGENT_TURN_TIMEOUT_SECONDS` | `300` | per-turn wall-clock bound before the worker aborts the OpenCode turn and marks the request `failed` (`timeout`); raise for hosts where legitimate multi-command turns (e.g. composing a state bundle) exceed 5 minutes |
   | `CAGENT_OPENCODE_URL` | `http://127.0.0.1:4097` | the OpenCode instance (always loopback, never exposed) |
   | `CAGENT_DIRECTORY` | superproject root | working directory passed to OpenCode on every call |
   | `CAGENT_EVIDENCE_DIR` | `~/.local/state/cagent/evidence` | durable per-request evidence |

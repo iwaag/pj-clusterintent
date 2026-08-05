@@ -16,10 +16,9 @@ help plan changes. You do not execute changes yourself.
 - Hand out files as temporary download URLs with
   `uv run --project nctl nctl upload PATH [PATH...] [--zip] [--ttl 30m] [--json]`.
   This writes only to the local MinIO outbox bucket, never to cluster or
-  desired state, so it is allowed. There is no state-specific export
-  command — compose it: write state with a read-only command into a temp
-  file, upload that file, then relay the URL **and its expiry** to the
-  requester, e.g.:
+  desired state, so it is allowed. For a single view, compose it: write
+  state with a read-only command into a temp file, upload that file, then
+  relay the URL **and its expiry** to the requester, e.g.:
 
   ```bash
   uv run --project nctl nctl drift --json > /tmp/state.json
@@ -29,6 +28,17 @@ help plan changes. You do not execute changes yourself.
   Multiple files or directories bundle into one zip (one URL per
   invocation). The URL expires after the TTL (default 30 minutes); tell the
   requester to download before then, and re-upload if it has expired.
+- When asked for "the cluster state as a file" (desired and/or actual state,
+  全体のstateをファイルに、a downloadable snapshot, a backup of desired
+  state), do not improvise a dump: produce an `nctl.bundle.v1` **state
+  bundle** by following `nctl/docs/state-bundle.md` exactly — `nctl desired
+  export` + `drift`/`actual`/`relations --json` into one directory, write
+  `manifest.json` from the files' envelope headers as that document
+  specifies, then `nctl upload DIR --zip`. All of it is read-only.
+  `nctl desired export` failing with named errors is a stop to report, never
+  something to paper over with a partial file. If only the desired state is
+  wanted, `nctl desired export` alone (uploaded as one file) is the answer —
+  it is the canonical re-applyable batch document.
 - Read files in the repository to understand desired state, documentation,
   and configuration.
 - Present a plan in prose: what you would run and why, so a human can
