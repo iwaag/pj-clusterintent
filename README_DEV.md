@@ -400,6 +400,15 @@ agentdocs session type
 Do not build or edit runbooks for the task you are currently executing;
 record the pain and move on.
 
+The cluster-agent (`cagent`, reached through the node/human entrance) answers
+guidance questions and does not itself end its OpenCode turn with this
+self-report — its scope is one request/response, not a session boundary, and
+it has no standing instruction to call `nctl workflow-episode create`. If you
+are the caller that dispatched work to `cagent` (directly, or indirectly
+through another agent) and the exchange was non-trivial, painful, or felt
+like a second occurrence, check whether a `WorkflowEpisode` was created for
+it and, if not, create one yourself from what you observed — the caller is
+responsible for the self-report `cagent` did not make on its own.
 ## New models need a minimal read-only GUI
 
 When a change adds a new nintent model or a new field a human would want to inspect, add a
