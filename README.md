@@ -53,6 +53,14 @@ uv run --project nctl nctl desired apply -f .local/desired-state.yaml --yes
 The local document is input, not a backup and is not automatically synchronized
 with Nautobot. Use the PostgreSQL dumps in `.local/backups/` for recovery.
 
+When the operator file has drifted from the database (the preview shows changes
+you did not intend), re-sync it in one command before editing — `--out` replaces
+the file atomically and only on a fully successful export:
+
+```bash
+uv run --project nctl nctl desired export -o .local/desired-state.yaml
+```
+
 `nctl desired export` is the reverse direction: it emits the complete current
 desired state as one canonical batch document (the same YAML shape `desired
 apply -f` accepts), deterministic byte-for-byte for unchanged state. It is a

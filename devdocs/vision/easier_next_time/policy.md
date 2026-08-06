@@ -58,14 +58,15 @@ record is the written answer to "what do we tolerate as non-deterministic".
 
 Rules:
 
-- Automate on the **second occurrence**. Speculative automation on the first
-  occurrence is prohibited.
+- Automate a reported pain promptly; do not wait for it to recur. (The earlier
+  "automate only on the second occurrence" rule was removed 2026-08-07 at the
+  operator's direction — it never paid for itself.)
 - Promotion priority ≈ frequency × failure impact × reasoning burden.
 - Recurring work that mutates state → aim for Level 4 (an nctl command with the
   existing plan/apply boundary). One-off, exploratory, or diagnostic work →
   staying at Level 1–2 is legitimate.
 - Until a small local-model executor exists, promotion evidence is "the runbook
-  was used successfully on a real second occurrence", not replay measurement.
+  was used successfully on a real occurrence", not replay measurement.
 
 ## 4. Self-report
 

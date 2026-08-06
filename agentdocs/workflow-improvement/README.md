@@ -115,8 +115,9 @@ copy-paste examples, not a fixture you rely on.
 
 You are meant to run on a cheap/local model too. Escalate to the user instead of guessing when:
 
-- It's unclear whether a given pain is a genuine second occurrence (policy §3: automate on the
-  second occurrence, not speculatively on the first) — ask rather than promote early.
+- The right shape of the fix is unclear (runbook vs nctl surface vs documentation) and picking
+  wrong would be expensive to undo — ask rather than guess. Do not defer a fix merely because the
+  pain looks like a first occurrence; that gating rule was removed from policy §3 on 2026-08-07.
 - The improvement would touch a shared/production-adjacent surface (nctl command semantics,
   policy.md itself) rather than a scoped skill — show the plan and get confirmation before editing.
 - The episode's `report`/`references` don't contain enough to understand what happened and the
