@@ -1,9 +1,8 @@
 # autotask_intent ex1 — `cron_registered` check kind
 
-Status: **implemented, not deployed** — code, tests, and braindump backing
-are complete; the live agstudio proof is pending exactly two operator-gated
-steps (nodeutils push, crontab registration), listed at the end. This
-report will be updated to `complete` after the live rounds run.
+Status: **complete** — code, tests, braindump backing, and the live
+agstudio proof (negative round → crontab registration → converged →
+no-repeat) all ran; exact evidence below.
 
 ## Why this exists (build-on-consumer)
 
@@ -78,23 +77,35 @@ list rides through ingest as before.
   missing/error distinction; cron proof never downgrades a richer running
   detection.
 
-## Live proof plan (pending, agstudio)
+## Live proof (agstudio, nodeutils pin `97d436b8`)
 
-Current real state: `~/mycron/heartbeat.sh` exists on agstudio (Step 4),
-crontab is **not** registered — the exact negative fixture the new check
-must expose.
+Starting state was the exact negative fixture the new check must expose:
+`~/mycron/heartbeat.sh` on disk (Step 4), crontab unregistered.
 
-1. Push `nodeutils` `97d436b` to GitHub (operator: nodeutils deploys by
-   clone-at-pin; pushes are the user's step by policy). Superproject
-   gitlink update rides in this ex1 commit.
-2. `nctl reconcile agstudio --refresh-observation` → expect
-   `heartbeat-cron` **drifting**, gap `service_missing`, checks
-   `[{file_exists: present}, {cron_registered: missing}]`, planner still
-   inventing no action (observe_only).
-3. Register (user-confirmed SSH):
-   `*/10 * * * * ~/mycron/heartbeat.sh >> ~/mycron/heartbeat.log 2>&1`
-4. Fresh reconcile → expect `converged`; repeat dry reconcile → `actions: []`.
+- **Negative round** (op `01KZC87DV1AAZYDCRR2PPNDH92`, fresh observation
+  after the operator pushed nodeutils `97d436b`): observed entry
+  `{state: missing, source: check:cron_registered+file_exists, checks:
+  [{file_exists, /Users/eiji/mycron/heartbeat.sh, present},
+  {cron_registered, /Users/eiji/mycron/heartbeat.sh, missing}]}` →
+  `heartbeat-cron` drifting, gap `service_missing`, planner invented no
+  action (observe_only stays `manual_intervention_required`). Existence
+  proof alone no longer converges — the exact false convergence braindump4
+  complains about is now visible drift.
+- **Registration** (user-approved SSH, `~/.ssh/ansible_key`): appended
+  `*/10 * * * * ~/mycron/heartbeat.sh >> ~/mycron/heartbeat.log 2>&1` to
+  the login user's crontab.
+- **Positive round** (op `01KZC8BN0DFKN0QVDPSMB0TKJB`, fresh observation):
+  observed entry identical shape, both checks `present`, `state: present`
+  → agstudio scope `converged` (drifting count 1 → 0).
+- **No repeat** (op `01KZC8CKP29PHW0ZQ3P3BWBV59`, dry reconcile):
+  `actions: []`.
+
+The `~`-relative crontab spelling was matched via the raw-needle path
+(hint path `~/mycron/heartbeat.sh`, crontab line `~`-relative, observed
+check path expanded) — the exact spelling pair the nodeutils tests pin.
 
 ## Self-report
 
-WorkflowEpisode: to be created when the live rounds close this episode.
+WorkflowEpisode `306cba41-1f06-4f8d-90bc-a4ba87bbf38e` (tags `routine`,
+outcome `completed`) referencing the three operations above and both
+braindump registrations.
