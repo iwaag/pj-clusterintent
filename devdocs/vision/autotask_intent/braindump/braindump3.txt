@@ -1,0 +1,3 @@
+agpcで10分おきに ~/mycron/heartbeat.log にタイムスタンプ行を追記していく定期タスクを動かしたい。
+実体は ~/mycron/heartbeat.sh という2行くらいのシェルスクリプトで、cronに登録して回すだけの想定。
+clusterintentとしてはこのタスクの中身までは見なくていい。スクリプトが指定パスにちゃんと置いてあること(存在証明)だけをdesired/actualで管理してくれれば十分。
