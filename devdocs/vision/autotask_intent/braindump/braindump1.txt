@@ -1,0 +1,11 @@
+クラスター上で定期的に実行されるタスクをbraindumpに書き込み、desired state/ actual stateとして反映させ、それが実際に実行されるようにしたい。
+例えば「AIエージェントxxxに指定ノードの指定フォルダabc/def/に１時間置きに最新ニュースのまとめをテキストで生成する」というタスクだ。
+実装自体は、普通に考えるとcodex cliとかclaude code cli、opencodeなどにプロンプトを与えるshスクリプトをcronに登録するだけでできそう。
+これからクラスター内に自動エージェントタスクを複数実験的に設置するつもりでいるので、これを可視化して管理しやすくしておくのは明確な需要がある。
+タスクの内容が自由度が高いので、desired state/actual stateに比較やreconcileをnctlで決定論的に行うのは難しそうな気もするが、それならそうで構わない。無理はしない。
+
+いま悩んでいるのは、prometheus/node-exporterみたいなスケジュール自動実行サービスをdesired serviceとして登録するのと実質は同じじゃないかということ。
+本当にスケジュールタスク単体で新たなdesire stateフィールドを作るのが適切かということだ。
+今のdesired service/desired service placementに少し手を加えるなどして代用した方がいいだろうか？
+
+設計上のアドバイスが欲しい。
