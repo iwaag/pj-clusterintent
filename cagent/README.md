@@ -12,6 +12,10 @@ Three pieces:
 
 - `opencode/` — a dedicated OpenCode instance, isolated from any node-agent
   instance. Loopback-only. Start with `./opencode/start.sh`.
+  Edits to `opencode/AGENTS.md` take effect only for sessions created after
+  restarting this OpenCode process — restart `./opencode/start.sh` after any
+  instructions change, before testing. `cagent-api` itself does not need a
+  restart (and `llms.txt` is re-read from disk per request).
 - `src/cagent_api/` — the HTTP API server that proxies to the OpenCode
   instance above and implements the frozen contract, on **two listeners**:
 

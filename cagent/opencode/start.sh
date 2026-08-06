@@ -7,6 +7,12 @@
 # (cagent/opencode/AGENTS.md). Working directory is the superproject root so
 # `uv run --project nctl nctl ...` resolves the same way it does for a human
 # session.
+#
+# Instructions are fixed at process start, not per session: sessions created
+# by an already-running instance keep the AGENTS.md loaded at startup, so
+# restart this script after editing AGENTS.md, before testing. See
+# devdocs/vision/file_output/report4.md (first-attempt timeout on stale
+# instructions).
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
