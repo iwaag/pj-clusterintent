@@ -1,0 +1,5 @@
+heartbeat-cronは今スクリプトの存在証明だけでconvergedになっているが、実際にはcronがインストールも登録もされておらず、タスクは動いていない。
+それで完了とするのは微妙で、実可動（ログが実際に伸びているか）までは見なくていいが、cronが使えて、対象のタスクがcrontabに登録されていることぐらいはチェックしてほしい。
+つまり存在証明だけでは元の意図（10分おきにheartbeatが刻まれる）に対して浅かったので、登録証明までをdesired/actualの管理範囲に含めたい。
+
+(メモ) これはStep 1でdeferredにしていたcron_registered check kindの「最初の消費者が現れた」ケースにあたる。build-on-consumerルールに従って建てる。作業記録はex1/report.md。
