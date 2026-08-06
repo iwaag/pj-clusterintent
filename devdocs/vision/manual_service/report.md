@@ -87,20 +87,28 @@ swarmui / comfyui は**完全手動管理サービス**と位置付ける。
 - 手動管理サービスを provider とする binding は疎通確認なしで宣言する
   （OFF 時に consumer 側で binding gap が出るのを避ける）。
 
-## 現状と暫定運用
+## 実装結果（2026-08-06 完了）
 
-- 未実装。実装完了まで、swarmui / comfyui の `service_missing` 表示は
-  「OFF の可能性が高い」と読み替える（Alignment Review にも明記済み）。
-- 本セッションで実施済みなのは Braindump の supersede と Alignment Review の
-  更新、および本報告書の作成のみ。desired state・実クラスタへの変更は無し。
+計画どおり全ステップを実施し、完了条件を満たした。
 
-## 次のステップ
+- コミット: nodeutils `47ad460`（install_path ヒント + テスト2件、45件全パス）、
+  nintent `bc2cb64`（management_mode + migration 0030 + batch/table）、
+  nctl `69808f8`（presence-only 評価 + ヒント生成 + snapshot/export 配線、
+  1261テスト全パス）、ansible_agdev `adb57c2`（swarmui/comfyui に
+  `install_path: ~/StabilityMatrix/Packages/...`）、superproject `ca8f537`（pin更新）。
+- 実際のインストール場所は SSH で実測確認: `/home/eiji/StabilityMatrix/Packages/{SwarmUI,ComfyUI}`。
+- Nautobot: nintent コミット SHA を build-arg にして rebuild、`build_info.json` で
+  反映確認、migration 0030 適用済み。
+- desired-state: 部分 upsert バッチ（update 2件のみを preview 確認後 `--yes`）で
+  `swarmui-agpc` / `comfyui-agpc` の placement を `management_mode: manual` に設定。
+- 観測リフレッシュ: `nctl reconcile agpc --refresh-observation --yes`
+  （operation `01KZA93A0MJYB8STM5DZ77DNXC`）。新 nodeutils が両サービスを
+  `state: installed, source: install_path` で観測。
 
-1. nodeutils: `install_path` ヒント実装 + テスト（`test_inventory_report.py` に前例あり）。
-2. nintent: `management_mode` migration + batch 対応 → push 依頼 → rebuild。
-3. nctl: drift 評価・classify 対応 + テスト。
-4. agpc の probe hints 更新 → `nctl reconcile agpc --refresh-observation` で観測更新。
-5. desired-state batch で swarmui / comfyui の placement を `management_mode: manual` に
-  設定（適用前に preview を提示し承認を得る）。
-6. 完了確認: swarmui / comfyui が OFF のまま `nctl drift` で converged になり、
-  インストール削除時のみ `service_missing` になること。
+完了確認: 両サービスとも OFF のまま `nctl drift` が **converged**（クラスタ全体
+19 converged / 0 drifting / error 0）。エンドポイントプローブは probe hints から
+消えたため疎通チェックは行われず、インストールが消えた場合のみ
+`service_missing` が復活する。reconcile 上も observe_only プロファイルのため
+actuation は一切計画されない（unsupported として明示される）。
+
+起動が必要なときは SSH / node-agent で手動起動する（従来どおり、nctl コマンド化なし）。
