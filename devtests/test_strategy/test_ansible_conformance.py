@@ -156,6 +156,44 @@ def test_real_create_lxc_playbook_uses_pinned_pct_argv_and_writes_result_locally
     assert json.loads(result.read_text()) == {"created": True, "started": True}
 
 
+def test_real_create_qemu_playbook_uses_pinned_qm_argv_and_writes_result_locally(tmp_path: Path):
+    """Tier A: run the real QEMU create playbook against a disposable qm boundary."""
+    playbook_binary = _binary("ansible-playbook")
+    source_playbook = Path(__file__).parents[2] / "ansible_agdev/playbooks/proxmox/create_qemu.yml"
+    assert source_playbook.exists()
+    inventory = tmp_path / "inventory.yml"
+    inventory.write_text("all:\n  hosts:\n    example-host:\n      ansible_connection: local\n      ansible_become: false\n")
+    calls = tmp_path / "qm.calls"
+    qm = tmp_path / "qm"
+    qm.write_text(
+        "#!/bin/sh\n"
+        f"printf '%s\\n' \"$*\" >> {calls}\n"
+        "if [ \"$1\" = status ]; then exit 2; fi\n"
+    )
+    qm.chmod(0o700)
+    result = tmp_path / "result.json"
+    parameters = {
+        "qm_binary": str(qm), "nctl_compute_become": False, "vmid": 209,
+        "template": "local:iso/ubuntu-24.04.2-live-server-amd64.iso",
+        "storage": "local-lvm", "bridge": "vmbr0",
+        "vcpus": 2, "memory_mb": 2048, "root_disk_gb": 32,
+        "hostname": "example-vm", "mac_address": "aa:bb:cc:dd:ee:29",
+        "result_path": str(result),
+    }
+
+    syntax = _run([playbook_binary, "-i", str(inventory), str(source_playbook), "--syntax-check"])
+    assert "syntax" not in syntax.stderr.lower()
+    applied = _run([playbook_binary, "-i", str(inventory), str(source_playbook), "--extra-vars", json.dumps(parameters)])
+
+    assert "example-host" in applied.stdout
+    assert calls.read_text().splitlines() == [
+        "status 209",
+        "create 209 --name example-vm --cores 2 --memory 2048 --scsihw virtio-scsi-pci --scsi0 local-lvm:32 --net0 virtio=aa:bb:cc:dd:ee:29,bridge=vmbr0 --ide2 local:iso/ubuntu-24.04.2-live-server-amd64.iso,media=cdrom --boot order=scsi0;ide2 --onboot 1",
+        "start 209",
+    ]
+    assert json.loads(result.read_text()) == {"created": True, "started": True}
+
+
 def test_real_destroy_lxc_playbook_uses_pinned_pct_argv_and_writes_result_locally(tmp_path: Path):
     """Tier A: real destroy playbook crosses only a disposable one-guest pct boundary."""
     playbook_binary = _binary("ansible-playbook")
