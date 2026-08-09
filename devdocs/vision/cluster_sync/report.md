@@ -69,3 +69,27 @@ no-op (15 ok, 0 changed) followed by successful observation. Final refreshes
 placements. `nctl relations --service agautolab --json` now reports the
 service converged and both placements satisfied; repeat dry reconciles for
 each host contain zero actions. Full nctl validation: 1,294 tests passed.
+
+## autolab-meets-cagent Step 6 — 2026-08-09
+
+The agautolab1 mediator built and published `cagent-snake-e2e`, then invoked
+cagent to register and deploy it as `static_web_app` on the same node at port
+8124. An initially addressless service endpoint caused correct
+`service_missing` drift despite successful deployment; follow-up cagent
+request `req_65fbaa8e294a44418c11d9ac6c71fbbe` repaired the endpoint and
+reconcile `01KZJ46G8Z5DJ5ZKYKNT58EQRN` converged.
+
+Subsequent node-originated cagent requests stopped and restarted the service:
+`req_901dcf59c0a54cc0a56899d93e428c44` / operation
+`01KZJ4B74020BYGZDY6X84SD9W`, then
+`req_930c973732dd48c79cb17938d938c045` / operation
+`01KZJ4FDS30G4J329Y541EY7VC`. Both reconciles converged; port 8124 was closed
+while stopped and served the expected title after restart. Safety request
+`req_8539deae84b1437ba3c42cc7f3e0aa0d` matched the hard
+`*--allow-destroy*` deny before execution.
+
+cagent now explicitly permits headless reads of nctl's external operation
+artifacts while retaining every destroy-class bash deny. Its service recipe
+also requires a usable endpoint address before treating service drift as
+resolved. cagent's 92 tests pass; final cluster drift reports the new service
+converged with no diffs.
