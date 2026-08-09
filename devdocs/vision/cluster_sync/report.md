@@ -54,3 +54,18 @@ closed while stopped and served the Snake HTML after restart; final operation
 `01KZJ2C2E12M210077BR8XZHMC` converged in one round. Full nctl validation:
 1,292 tests passed. Port declarations are now visible in desired state, but
 there is still no automated collision comparator.
+
+## autolab-meets-cagent Step 5 — 2026-08-09
+
+Registered `agautolab` as an active desired service with port-8791 endpoints
+and placements on agstudio and agautolab1. The former honestly remains a
+manual placement backed by its existing checkout; the latter is
+`nctl_managed` through the existing Linux `autolab_node` role. Action
+planning now excludes manual placement hosts.
+
+Managed reconcile operation `01KZJ2P08MMA03TWAJSZXTN6EH` was a deployment
+no-op (15 ok, 0 changed) followed by successful observation. Final refreshes
+`01KZJ2TW22TEESZK0GJTY5Q9F4` and `01KZJ2VBEJ7S38ZHRJX1YFH1NV` converged both
+placements. `nctl relations --service agautolab --json` now reports the
+service converged and both placements satisfied; repeat dry reconciles for
+each host contain zero actions. Full nctl validation: 1,294 tests passed.
