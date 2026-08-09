@@ -72,6 +72,14 @@ Three pieces:
   fetch. Where the price is genuinely unknown the agent is told to say
   unknown rather than guess.
 
+  **Backend model (Agent ≠ Model).** `CAGENT_OPENCODE_MODEL` selects the
+  model the cluster-agent runs on; `cagent/opencode/start.sh` renders it into
+  the committed `config.json.template` (default `openai/gpt-5.6-luna`) and
+  prints it at startup. Like `AGENTS.md`, the model is fixed at process
+  start — restart the script to change it. OpenCode reports no per-request
+  price back to cagent-api, so nothing about cost is recorded; that is what
+  `llms.txt` means when it says the price is unknown.
+
   **Human token setup** (once, on the command node):
 
   ```bash

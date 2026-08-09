@@ -41,11 +41,18 @@ if [[ -z "${OPENAI_API_KEY:-}" ]]; then
   fi
 fi
 
+# The backend model is configuration, not identity (devpolicy/policy.md,
+# Agent ≠ Model): CAGENT_OPENCODE_MODEL selects it, and the default below is
+# the only place the choice is written down. Switching it needs a restart of
+# this script — instructions and model are both fixed at process start.
+MODEL="${CAGENT_OPENCODE_MODEL:-openai/gpt-5.6-luna}"
+
 # Render the committed template with an absolute path to AGENTS.md — a
 # relative "AGENTS.md" resolves against the session's working directory,
 # not the config directory, and a missing instructions file makes OpenCode
 # hang a turn forever (no completion, no error). See p1/report2.md.
-sed "s#__AGENTS_PATH__#$SCRIPT_DIR/AGENTS.md#" \
+sed -e "s#__AGENTS_PATH__#$SCRIPT_DIR/AGENTS.md#" \
+    -e "s#__MODEL__#$MODEL#" \
   "$SCRIPT_DIR/config.json.template" > "$CONFIG_DIR/opencode/opencode.json"
 
 # opencode's tool-execution environment does not inherit the launching
@@ -56,5 +63,5 @@ export XDG_CONFIG_HOME="$CONFIG_DIR"
 export XDG_DATA_HOME="$DATA_DIR"
 
 cd "$REPO_ROOT"
-echo "cluster-agent OpenCode: config=$CONFIG_DIR data=$DATA_DIR port=$PORT" >&2
+echo "cluster-agent OpenCode: config=$CONFIG_DIR data=$DATA_DIR port=$PORT model=$MODEL" >&2
 exec opencode serve --hostname 127.0.0.1 --port "$PORT" --print-logs
