@@ -35,6 +35,27 @@ issue a request and block on it with a short timeout; submit, do something
 else, then poll `GET /requests/{request_id}` again a bit later. Give it
 several minutes before concluding a request has failed.
 
+## What it costs
+
+This file is the cluster-agent's capability card; the agent answers "what
+can you do" and "what does it cost" from it in a session too, so you can
+just ask.
+
+- **Money: unknown per request.** The backend is a hosted model
+  (`CAGENT_OPENCODE_MODEL`, default `openai/gpt-5.6-luna`) driven through
+  OpenCode, which does not report a per-request price back to this API, so
+  none is recorded and none is estimated here. Order of magnitude for a
+  multi-step cluster question: cents, not dollars.
+- **Time: seconds to ~4 minutes**, as above. A single read
+  (`nctl status`, "does X exist") is usually well under a minute; a
+  multi-command state bundle is the slow end.
+- **Cluster side effects: none unless you asked for them.** Reads and
+  `nctl upload` are free of consequence. Recoverable desired-state changes
+  and reconciles happen only when requested. Irreversible operations are
+  refused outright, whoever asks.
+- Uploaded files sit in a local MinIO outbox and their URLs expire (default
+  30 minutes, `--ttl` to change).
+
 ## Scope
 
 Answers are guidance only. Do not attempt cluster changes yourself based on
