@@ -111,8 +111,9 @@ All are loopback/LAN/VPN dev processes with no process supervision
 configured (see p1/plan.md Step 2 — "documented manual start command" is
 the chosen option, unchanged through Phase 4).
 
-Not built into `nctl` — see `README_DEV.md`'s note that `nctl serve` was
-built once, went unused, and was deleted.
+Not built into `nctl` — `nctl serve` was built once, went unused, and was
+removed together with both nctl dashboards (see
+[`devdocs/big/braindump/roadmap.md`](../devdocs/big/braindump/roadmap.md)).
 
 ## OpenAI model backend
 

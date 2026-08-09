@@ -4,6 +4,25 @@ These tests are narrow normative-boundary checks. They use only synthetic data a
 loopback processes/files; they must not read `.local/secrets`, `nctl.toml`, a live inventory, or a
 managed SSH store.
 
+The repository-wide gate list is the
+[test strategy command matrix](../../README_DEV.md#test-strategy-command-matrix) in the root
+developer guide.
+
+## Test tiers and admission
+
+- **Tier A — transition, mutation, trust, authority, or safety boundary:** assert positive
+  evidence that the action, preflight, write, observation, denial, or durable evidence path ran.
+- **Tier B — deterministic rule:** use readable parameter tables or focused cases for a distinct
+  validation, normalization, parser, or rendering failure mode.
+- **Tier C — presentation:** retain smoke-level coverage unless a UI/API surface owns mutation
+  authority.
+
+Before adding a test, record its distinct failure mode, tier, why a different layer is not the
+clearer owner, the fixture replacing an external boundary, and the positive evidence proving the
+path ran. During review, consolidate input-only variants, reject unverified external-tool mocks,
+require exact scope and no-repeat assertions for mutations, and update the command matrix for
+every new environment prerequisite.
+
 ## Nautobot exact-local-source runtime gate
 
 Run this gate from the superproject root. It stages the checked-out `nintent`, `nauto`, `nctl`,

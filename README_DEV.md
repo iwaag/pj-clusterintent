@@ -1,49 +1,22 @@
-# Developer Guide and Lessons Learned
+# Developer Guide
 
-This document records development rules learned from the `fix_sshkey` through
-`fix_sshkey4` initiatives. It is not only a history of that incident. These
-rules apply to any change that crosses nintent, nctl, generated inventories,
-Ansible/OpenSSH, nodeutils, nauto, and Nautobot.
+Practical reference for day-to-day work across nintent, nctl, generated inventories,
+Ansible/OpenSSH, nodeutils, nauto, and Nautobot: the commands you actually run, the environment
+classes, and the vocabulary for reporting results. Incident-derived lessons and review-time
+checklists live under [`devdocs/lessons/`](devdocs/lessons/) — read them when designing or
+reviewing, not as standing constraints.
 
 ## Test strategy command matrix
 
-### Tiers and admission
+Run each command from its stated working directory. Evidence is summarized in the relevant
+phase report and may be retained privately under `.local/test-strategy/`; never put
+credentials, raw keys, or private payloads there. Cross-component completion requires the
+affected ordinary suites and all applicable required Tier A/conformance gates below.
 
-- **Tier A — transition, mutation, trust, authority, or safety boundary:** assert positive evidence that the action, preflight, write, observation, denial, or durable evidence path ran.
-- **Tier B — deterministic rule:** use readable parameter tables or focused cases for a distinct validation, normalization, parser, or rendering failure mode.
-- **Tier C — presentation:** retain smoke-level coverage unless a UI/API surface owns mutation authority.
-
-Before adding a test, record its distinct failure mode, tier, why a different layer is not the clearer owner, the fixture replacing an external boundary, and the positive evidence proving the path ran. During review, consolidate input-only variants, reject unverified external-tool mocks, require exact scope and no-repeat assertions for mutations, and update this matrix for every new environment prerequisite.
-
-### Environment classes
-
-Use the persistent local Nautobot/PostgreSQL/Redis stack described in `.local/localenv_memo.md` as a reusable scratch prerequisite. Named databases, temporary files, loopback processes, keys, inventories, and synthetic rows are test-owned disposable state and must be cleaned by their gate. Physical nodes, Proxmox, external services, and production data are production/external targets: ordinary tests never contact or mutate them.
-
-## Minimal dry-run policy
-
-Dry-run is an operator-facing **plan**, not a second implementation of every
-operation. Keep it only at the boundaries where a user needs to review a
-pending desired-state write, reconciliation action set, destructive operation,
-or trust-store change. A plan must be read-only and report the target and
-proposed actions.
-
-The apply path is the authority for correctness: it may re-read state and
-reject a stale plan, then verifies its result through the normal observation
-and drift loop. Do not add a lower-level dry-run merely because a command
-mutates. In particular, external-tool check modes (such as Ansible `--check`)
-and Job-local dry-run switches are optional diagnostics, not a requirement for
-ordinary operation. Prefer one `nctl` plan/apply boundary over duplicated
-dry-run/apply branches below it.
-
-This is an experimental environment. Keep explicit confirmation for external
-or destructive targets, but otherwise choose the simplest design that makes
-the intended state transition and its result observable.
-
-### Commands
-
-Run each command from its stated working directory. Evidence is summarized in the relevant phase report and may be retained privately under `.local/test-strategy/`; never put credentials, raw keys, or private payloads there. Cross-component completion requires the affected ordinary suites and all applicable required Tier A/conformance gates below.
-
-Run Ansible ad-hoc commands and playbooks from `ansible_agdev/` (or set `ANSIBLE_CONFIG=ansible_agdev/ansible.cfg`). Its `ansible.cfg` supplies the approved SSH key, vault, and default inventory settings; an inventory path alone does not load that configuration.
+Run Ansible ad-hoc commands and playbooks from `ansible_agdev/` (or set
+`ANSIBLE_CONFIG=ansible_agdev/ansible.cfg`). Its `ansible.cfg` supplies the approved SSH key,
+vault, and default inventory settings; an inventory path alone does not load that
+configuration.
 
 | gate | working directory | command | tier owned | prerequisites / expected skips | evidence and cleanup | required |
 |---|---|---|---|---|---|---|
@@ -62,11 +35,27 @@ Run Ansible ad-hoc commands and playbooks from `ansible_agdev/` (or set `ANSIBLE
 | measurement | superproject root | `./devtests/test_strategy/measure_test_strategy.py --runtime` | reproducibility audit | above local tools and runtime gate | JSON output retained privately; runtime stage cleans | required for roadmap milestones |
 | production/external acceptance | explicitly approved target directory | separately approved command only | external acceptance | explicit user approval, exact target, rollback | approved evidence and cleanup plan | never ordinary; out of scope by default |
 
-Component documents link here rather than duplicating this matrix.
+Component documents link here rather than duplicating this matrix. Test tier definitions
+(A/B/C) and admission criteria for new tests are in
+[`devtests/test_strategy/README.md`](devtests/test_strategy/README.md).
 
-## The system is a control loop, not a collection of isolated commands
+## Environment classes
 
-A typical reconciliation path is:
+1. **Production or external target:** physical cluster nodes, Proxmox resources, external
+   services, and data not explicitly designated as disposable. Requires approval, exact scope,
+   rollback, and live evidence. Ordinary tests never contact or mutate these.
+2. **Persistent local scratch environment:** the local Nautobot, PostgreSQL, Redis, and
+   development containers documented in `.local/localenv_memo.md`. Migrate, restart, rebuild,
+   populate, or repair freely; reuse across runs.
+3. **Test-owned disposable state:** named test databases, synthetic rows, temporary trust
+   stores, files, and processes. Isolated by name, transaction, or fixture scope; cleaned by
+   their gate.
+
+Prefer the smallest boundary that prevents cross-test interference: focused tests while
+iterating, the affected component suite next, clean/repository-wide runs only for migrations,
+integration boundaries, and milestone verification.
+
+## The system is a control loop
 
 ```text
 structured desired state
@@ -81,386 +70,78 @@ structured desired state
   -> bounded convergence decision
 ```
 
-A change is not complete merely because each component works in isolation. It
-is complete only when the relevant path through this loop is exercised and the
-expected state transition is observed.
+A change is complete only when the relevant path through this loop is exercised and the
+expected state transition is observed — not when each component works in isolation. For
+cross-component changes, walk the checklist in
+[`devdocs/lessons/cross_component_dod.md`](devdocs/lessons/cross_component_dod.md) before
+declaring completion.
 
-## Current development phase permits coordinated breaking changes
+## Current phase: coordinated breaking changes
 
-This project is currently in a breaking-change phase. When an authoritative
-model, API, configuration key, output schema, or ownership boundary changes,
-update all in-scope producers and consumers to the final contract and remove
-the superseded implementation in the same coordinated rollout.
+When an authoritative model, API, configuration key, output schema, or ownership boundary
+changes, update all in-scope producers and consumers to the final contract and remove the
+superseded implementation in the same rollout. Do not leave compatibility-only artifacts (dual
+readers/writers, shadow fields, deprecated aliases, fallback routes, old configuration keys).
+If live data cannot be translated without inventing intent or losing evidence, stop and request
+an operator decision.
 
-Do not leave compatibility-only artifacts such as dual readers or writers,
-shadow fields or tables, deprecated aliases, fallback routes, old configuration
-keys, legacy serializers, or permanent version branches. A maintenance window
-and a matched-version deployment are preferable to carrying an obsolete
-contract forward.
+## Dry-run policy
 
-Database migrations that safely transform confirmed existing data, normal
-Django migration history, rollback instructions, and historical reports are
-not compatibility artifacts. If live data cannot be translated without
-inventing intent or losing evidence, stop and request an operator decision
-instead of preserving both old and new ownership models indefinitely.
+Dry-run is an operator-facing **plan**, not a second implementation of every operation. Keep it
+only at the boundaries where a user reviews a pending desired-state write, reconciliation
+action set, destructive operation, or trust-store change; a plan is read-only and reports the
+target and proposed actions. The apply path is the authority for correctness. Prefer one `nctl`
+plan/apply boundary over duplicated dry-run/apply branches below it; external-tool check modes
+(e.g. Ansible `--check`) are optional diagnostics.
 
-## What happened in the SSH/dnsmasq incident
-
-The original live failure was straightforward: bootstrap connected to
-`agdnsmasq.local`, while the regenerated production inventory connected to
-`192.168.0.2`. OpenSSH did not know that both routes represented the same
-logical node, so strict host-key verification correctly rejected the production
-connection.
-
-The first fix introduced the correct central design: route identity may change,
-but trust identity is the stable DesiredNode UUID expressed through
-`HostKeyAlias`. It also introduced a dedicated managed known_hosts store,
-explicit verified enrollment, and strict inventory options.
-
-That first implementation was nevertheless declared complete too early. Its
-live replay did not actually plan or execute an SSH-requiring dnsmasq action.
-The absence of a host-key error was treated as success even though the target
-path had not run and the recorded production `ssh_preflight` was empty.
-
-Later reviews and live attempts exposed three different classes of work:
-
-1. **SSH contract defects:** non-default-port lookup semantics, cwd-dependent
-   paths, stale generation snapshots, unsafe route fallback, incomplete
-   inventory validation, and missing structured failure handling.
-2. **A pre-existing convergence defect:** dnsmasq drift considered daemon state
-   but not the contents of the nctl-managed records file. A desired DNS change
-   could therefore remain undeployed while the service appeared converged.
-3. **Hardening and proof gaps:** malformed store lines could be hidden, a
-   post-mutation error could lose round evidence, the deployment destination and
-   host scope had multiple owners, project metadata was not reproducible, and a
-   required multi-round end-to-end test had been substituted with narrower
-   tests.
-
-The numbered `fix_sshkey*` directories therefore do not represent four rewrites
-of one SSH bug. They represent one root SSH correction, missed boundary
-conditions, a separate convergence capability needed to prove the correction,
-and a final correctness/verification audit. Even so, much of the repetition
-could have been avoided by applying the completion rules below from the start.
-
-Historical details are preserved in:
-
-- [`devdocs/small/fix_sshkey/`](devdocs/small/fix_sshkey/)
-- [`devdocs/small/fix_sshkey2/`](devdocs/small/fix_sshkey2/)
-- [`devdocs/small/fix_sshkey3/`](devdocs/small/fix_sshkey3/)
-- [`devdocs/small/fix_sshkey4/`](devdocs/small/fix_sshkey4/)
-
-`fix_sshkey4` is the authoritative completion baseline. Earlier reports remain
-useful historical evidence but must not be read as the final contract where a
-later report explicitly supersedes them.
-
-## Core lessons
-
-### 1. No error is not proof that the target path ran
-
-An acceptance check must assert positive evidence for the intended behavior.
-For an SSH-gated service change, this includes at least:
-
-- the expected drift code was present;
-- the expected action was planned;
-- the expected action was executed;
-- SSH preflight was non-empty and named the expected host;
-- the production generation, route, port, and trust alias were recorded;
-- Ansible ran against exactly the planned host set;
-- the target was observed after actuation; and
-- the next drift computation showed convergence without repeating the action.
-
-If an action was not planned, the test did not exercise that action. A green
-command exit, an unchanged host, or the absence of an SSH error does not change
-that fact.
-
-The same rule applies to a gate itself. A test label that resolves to nothing
-makes Django exit `0` after running zero cases, so a gate wrapper must state and
-check its collected case count rather than forward that exit status. A gate that
-cannot name how many cases it ran has proved nothing.
-
-A shared test database is also part of the gate's contract. When a run is
-interrupted or fails during database setup, the wrapper must drop the test-owned
-database instead of preserving it, because a half-built schema makes every later
-reuse run stop on an already-existing column — at a different column each time,
-which reads like a migration defect rather than abandoned setup state.
-
-### 2. Tests can preserve a wrong shared assumption
-
-The original implementation and its tests agreed on an incorrect non-default-
-port known_hosts representation. Tests proved consistency with the assumption,
-not correctness against OpenSSH.
-
-For externally defined behavior, verify the assumption against the normative
-implementation or documentation and add at least one test using the real tool.
-This is especially important for OpenSSH option precedence, Ansible variable
-precedence and templating, inventory parsing, filesystem path resolution, and
-Nautobot API/Job behavior.
-
-### 3. A generated artifact and its validation must share one generation
-
-Never generate an inventory from one snapshot and validate a route, port, node
-identity, or policy from an older snapshot. The render result should carry an
-explicit generation context, and downstream preflight must consume targets
-resolved from the artifact that was actually installed.
-
-Missing membership in the installed generation is an error. Do not silently
-fall back to a bootstrap route or another convenient source.
-
-### 4. Every operational value needs one owner
-
-Values such as the dnsmasq destination path, SSH alias, managed known_hosts
-path, and scoped host set must be resolved once and passed explicitly through
-all consumers. Duplicated literals and independently reconstructed host lists
-will eventually diverge.
-
-In particular, a host-scoped reconcile must use the same exact host set for:
-
-```text
-planning -> SSH scan -> inventory validation -> Ansible --limit
-         -> action result -> post-actuation observation
-```
-
-Direct administrative commands may intentionally target a whole inventory
-group, but that broader behavior must be explicit and separate from a scoped
-reconcile action.
-
-### 5. Convergence must measure the state that the action changes
-
-Process health is not configuration convergence. If an action deploys a managed
-file, drift must compare deterministic desired bytes or a digest with an
-observation of that exact deployed path. A running daemon with stale content is
-still drifting.
-
-Desired artifacts must also be deterministic. Volatile timestamps, operation
-IDs, or ordering must not change their bytes when the semantic inputs are
-unchanged.
-
-### 6. Fail closed, but also fail truthfully
-
-Security-sensitive input must not be silently ignored. A missing managed SSH
-store is different from a corrupt or unreadable store, and both are different
-from an unenrolled host, an unreachable route, and a mismatched offered key.
-Each condition needs a structured error with the correct remediation.
-
-Fail-closed behavior alone is not sufficient if it misreports corruption as a
-normal enrollment problem or lets an exception escape the public operation
-boundary.
-
-### 7. Preserve evidence after side effects
-
-Once a round starts, and especially once a mutation succeeds, later failures
-must not erase the round, completed actions, preflight results, generation
-identity, or progress flag. Refresh final drift when possible; if that refresh
-also fails, report that failure without rewriting history as though no action
-occurred.
-
-Operation evidence must contain public fingerprints and identifiers, not raw
-key blobs, private keys, credentials, or managed file contents.
-
-### 8. Use layered tests, including one real control-loop test
-
-Unit and component tests remain valuable, but every cross-component feature
-needs at least one test that follows the real planner and executor through the
-state transition it claims to support.
-
-For content reconciliation, the minimum automated scenario is:
-
-```text
-content mismatch
-  -> real drift classification and planning
-  -> deployment action
-  -> simulated observation/ingest of the deployed digest
-  -> fresh drift
-  -> matching digest
-  -> no repeated deployment action
-```
-
-Add focused variants for malformed state, missing evidence, stale or wrong path
-identity, multiple hosts, scoped execution, and post-actuation failure. Not
-every variant must reproduce an entire live cluster, but every contract must be
-covered at the highest practical layer.
-
-### 9. Completion language is part of correctness
-
-Do not mark a plan or report complete when a required acceptance check was
-omitted, substituted, or never triggered. Use precise states:
+## Completion vocabulary
 
 - **complete**: all stated exit criteria were exercised and passed;
 - **partially complete**: useful work landed, but named criteria remain;
-- **implemented, not deployed**: code and local tests pass, live rollout is
-  pending;
-- **blocked**: an external condition, unresolved target, irreversible risk, or
-  required user decision actually prevents further safe progress; and
+- **implemented, not deployed**: code and local tests pass, live rollout is pending;
+- **blocked**: an external condition, unresolved target, irreversible risk, or required user
+  decision actually prevents further safe progress (never a recoverable local
+  test-environment defect — repair the scratch resource and continue); and
 - **superseded**: a later report replaces an earlier completion claim.
 
-Do not use `blocked` for a recoverable local test-environment defect, stale
-fixture, cleanup failure with an exact target, or procedural deviation that can
-be recorded and corrected. Repair or recreate only the affected scratch
-resource and continue. When a safe production/cluster fixture cannot be
-created, record the limitation and stop. Do not reinterpret narrower unit
-tests as the live proof that the plan required.
+Empty evidence is an unexercised path, not a pass. A safe stop is reported as a safe stop, not
+converted into a completion claim.
 
-### 10. Classify the environment before applying safety rules
+## Rules of thumb
 
-Use three distinct environment classes:
-
-1. **Production or external target:** physical cluster nodes, Proxmox resources,
-   external services, and data not explicitly designated as disposable. Keep
-   approval, exact scope, rollback, and live-evidence requirements.
-2. **Persistent local scratch environment:** the local Nautobot, PostgreSQL,
-   Redis, and development containers documented in `.local/localenv_memo.md`.
-   They may be migrated, restarted, rebuilt, populated with test data, or
-   repaired without treating ordinary breakage as a live incident. Reuse them
-   across runs.
-3. **Test-owned disposable state:** named test databases, synthetic rows,
-   temporary trust stores, files, and processes. Isolate these by name,
-   transaction, or fixture scope. Recreate them only when their lifecycle is
-   under test, their state is incompatible, or a final clean-run requires it.
-
-Isolation does not mean rebuilding an entire environment for every command.
-Prefer the smallest boundary that prevents cross-test interference. During
-iteration run focused tests, then the affected component suite. Reserve clean
-environment and repository-wide runs for migration changes, integration
-boundaries, and milestone/final verification.
-
-### 11. Live safety boundaries are intentional
-
-Do not weaken strict SSH verification, stop a real service, fabricate actual
-state, or broaden a desired-state mutation merely to make an acceptance test
-run. Use disposable OpenSSH fixtures and reversible desired-state changes.
-Require explicit approval before production/external mutations, and record
-cleanup separately from the successful forward path. Local scratch mutations
-do not require the same approval unless they can reach those external targets.
-
-A safe stop can be the correct result. It should be described as a safe stop,
-not converted into a completion claim.
-
-## Required definition of done for cross-component changes
-
-Before declaring a reconciliation, inventory, SSH, observation, or actuation
-change complete, verify and record all applicable items below.
-
-### Contract and ownership
-
-- [ ] The desired state transition and observable acceptance target are stated.
-- [ ] Every route, identity, path, generation, and host-set value has one owner.
-- [ ] External-tool assumptions were checked against normative behavior.
-- [ ] Security policy cannot be overridden through an adjacent variable or
-      arbitrary inventory field.
-
-### Automated verification
-
-- [ ] Focused unit and error-path tests pass.
-- [ ] A real planner/executor multi-round test proves the intended transition.
-- [ ] The test asserts that the intended action and preflight actually ran.
-- [ ] Non-default ports, relative/canonical paths, malformed input, stale
-      snapshots, multi-host scope, and post-mutation failures were considered.
-- [ ] Repository-standard commands are reproducible from their documented
-      working directories and leave every worktree clean.
-
-### Production/external or framework-backed verification
-
-- [ ] The initial state and reversible fixture are recorded.
-- [ ] The dry plan names the exact expected action and target set.
-- [ ] Apply uses the same generation and exact target set.
-- [ ] Post-actuation observation records the exact state the action changed.
-- [ ] Fresh drift proves convergence and no repeated action.
-- [ ] Negative boundaries use disposable state and do not weaken policy.
-- [ ] Production/external cleanup restores the original desired, actual,
-      service, and trust-store state as applicable. Scratch verification cleans
-      only fixture-owned state; declared persistent test resources may remain.
-
-### Reporting
-
-- [ ] Results distinguish the feature under test from unrelated cluster drift.
-- [ ] Empty evidence is treated as an unexercised path, not a pass.
-- [ ] Every omitted or substituted check is visible and prevents an unqualified
-      `complete` status.
-- [ ] Reports contain no tokens, credentials, raw SSH key blobs, or private
-      user prose.
-
-## Final principle
-
-The strongest completion evidence is not the number of passing tests. It is a
-traceable statement that the intended action was planned, securely authorized,
-executed against the exact scope, observed through the supported path, and
-shown by fresh drift not to require repetition.
+- A new nintent model (or new human-relevant field) gets a minimal read-only list/detail view
+  following the existing `Desired*` pattern in the same change or a prompt follow-up — never
+  API/CLI-only.
+- The VM platform is intentionally Proxmox-only. Before adding another compute provider, read
+  [`devdocs/vision/vm/future_provider_advice.md`](devdocs/vision/vm/future_provider_advice.md).
+- Service-specific observation knowledge stays out of nodeutils orchestration — see the design
+  rule in [`nodeutils/README.md`](nodeutils/README.md).
 
 ## Easier Next Time: end sessions with a self-report
 
-Operational workflows are improved retrospectively under the Easier Next Time
-policy: [`devdocs/vision/easier_next_time/policy.md`](devdocs/vision/easier_next_time/policy.md)
-defines the execution-difficulty levels, the mandatory target-level record, and
-the runbook-skill conventions. After a session that did non-trivial cluster
-work — always when something was painful or felt like a second occurrence —
-create a WorkflowEpisode via `nctl workflow-episode create` as described
-there. Improvement sessions themselves are the `workflow-improvement`
-agentdocs session type
+Operational workflows are improved retrospectively under the Easier Next Time policy:
+[`devdocs/vision/easier_next_time/policy.md`](devdocs/vision/easier_next_time/policy.md)
+defines the execution-difficulty levels, the mandatory target-level record, and the
+runbook-skill conventions. After a session that did non-trivial cluster work — always when
+something was painful or felt like a second occurrence — create a WorkflowEpisode via
+`nctl workflow-episode create` as described there. Improvement sessions themselves are the
+`workflow-improvement` agentdocs session type
 ([`agentdocs/workflow-improvement/README.md`](agentdocs/workflow-improvement/README.md)).
-Do not build or edit runbooks for the task you are currently executing;
-record the pain and move on.
+Do not build or edit runbooks for the task you are currently executing; record the pain and
+move on.
 
-The cluster-agent (`cagent`, reached through the node/human entrance) answers
-guidance questions and does not itself end its OpenCode turn with this
-self-report — its scope is one request/response, not a session boundary, and
-it has no standing instruction to call `nctl workflow-episode create`. If you
-are the caller that dispatched work to `cagent` (directly, or indirectly
-through another agent) and the exchange was non-trivial, painful, or felt
-like a second occurrence, check whether a `WorkflowEpisode` was created for
-it and, if not, create one yourself from what you observed — the caller is
-responsible for the self-report `cagent` did not make on its own.
-## New models need a minimal read-only GUI
+The cluster-agent (`cagent`) answers guidance questions and does not itself end its OpenCode
+turn with this self-report — its scope is one request/response, not a session boundary. If you
+are the caller that dispatched work to `cagent` (directly or indirectly) and the exchange was
+non-trivial, painful, or felt like a second occurrence, check whether a `WorkflowEpisode` was
+created for it and, if not, create one yourself from what you observed.
 
-When a change adds a new nintent model or a new field a human would want to inspect, add a
-minimal read-only list/detail view for it (list view, detail view, table, filterset, template,
-nav entry — no add/edit/delete) in the same change or a prompt follow-up, following the existing
-`Desired*` view pattern. Do not let a model go live as API/CLI-only with no way for a human to
-casually check it in the Nautobot UI; that gap is easy to miss and easy to leave unnoticed for
-multiple phases (as happened with `DesiredWorkspace`).
+## Further reading
 
-## Advice for adding a future compute provider
-
-The VM-platform roadmap intentionally implements Proxmox only. Do not add AWS,
-Azure, or a nominally generic provider to nintent until there is a concrete
-cluster use case that can be followed from desired state through fresh actual
-observation and reconciliation.
-
-When another provider is needed:
-
-1. Start from one real resource to create or reconcile. Record the provider's
-   stable identity, fresh actual-state source, minimum desired choices, and safe
-   actuator before changing the shared models.
-2. Reuse an existing common field only when its semantics and units genuinely
-   match. Keep provider concepts such as an AWS instance type or Azure resource
-   group in a strict, versioned provider schema rather than forcing them into a
-   misleading Proxmox-shaped abstraction.
-3. Add only fields with a named drift, planning, actuation, or safe-identification
-   consumer. Do not mirror the provider API, SDK, or every configuration option
-   into nintent.
-4. Treat a field as common only after at least two implemented providers show
-   the same intent semantics. Similar spelling is not sufficient.
-5. Keep credentials and executable connection details outside nintent. Desired
-   state should refer to a stable non-secret platform identity that nctl or
-   Ansible configuration resolves to the approved adapter and secret.
-6. Build the actual-state adapter and freshness contract before claiming
-   convergence. Provider inventory cached without an observation time must not
-   be treated as current.
-7. Preserve provider-specific safety rules. Create, resize, stop, replace, move,
-   and delete are separate capabilities and need separate plans, evidence, and
-   tests; support for one must not imply support for the others.
-8. Extend mixed-provider tests so one provider's unavailable credential,
-   malformed payload, or bad target remains correctly scoped and does not block
-   unrelated platforms or nodes.
-
-Prefer a small shared platform/instance envelope plus a closed provider-specific
-schema over either extreme: duplicated end-to-end provider models or one
-unrestricted generic JSON bag.
-
-## Keep service-specific observation knowledge outside collector orchestration
-
-Keep nodeutils collection flow generic and place service-specific probe paths or
-evaluation rules in a separate, closed registry/module. At the current scale a
-static registry is sufficient; do not add dynamic plugin loading preemptively.
-If the service catalog grows, move probe specifications into validated deployment
-profile observation metadata, have nctl render them into probe hints, and keep
-nodeutils responsible only for bounded execution and common result normalization.
+- [`devdocs/lessons/reconciliation_lessons.md`](devdocs/lessons/reconciliation_lessons.md) —
+  incident-derived lessons (informative case studies, not standing rules), including the
+  SSH/dnsmasq incident background.
+- [`devdocs/lessons/cross_component_dod.md`](devdocs/lessons/cross_component_dod.md) —
+  completion checklist for cross-component changes.
+- [`devdocs/small/fix_sshkey4/`](devdocs/small/fix_sshkey4/) — authoritative completion
+  baseline for the SSH trust design.

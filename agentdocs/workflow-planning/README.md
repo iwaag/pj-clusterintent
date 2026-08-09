@@ -83,8 +83,9 @@ Full syntax and the hard rule live in the contract (§2) — this section is
 the planning-side checklist for applying it:
 
 1. For every step, ask: does this touch the production/external class
-   (README_DEV §10.1 — physical nodes, Proxmox, external services, anything
-   not disposable), or does its command include `--yes`, `--allow-destroy`,
+   (README_DEV "Environment classes" class 1 — physical nodes, Proxmox,
+   external services, anything not disposable), or does its command include
+   `--yes`, `--allow-destroy`,
    or a direct SSH/Ansible mutation?
 2. If yes to either, the step gets the exact marker line `**approval
    required**` directly under its heading, before its command.
@@ -92,8 +93,8 @@ the planning-side checklist for applying it:
    `--allow-destroy` — if you find yourself about to write one of those
    flags on an unmarked step, that is a signal the step is misclassified,
    not that the rule has an exception. Add the marker instead.
-4. The persistent local scratch environment (README_DEV §10.2,
-   `.local/localenv_memo.md`) does not need the marker for its own ordinary
+4. The persistent local scratch environment (README_DEV "Environment
+   classes" class 2, `.local/localenv_memo.md`) does not need the marker for its own ordinary
    migrate/restart/rebuild/repopulate operations — those are not the
    policy-gated class the marker exists for.
 

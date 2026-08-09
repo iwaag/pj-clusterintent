@@ -51,7 +51,7 @@ if they earn their place — v1 deliberately rejects a fat schema
 ## 2. The approval-mark rule
 
 Some steps touch policy-gated ground: the production/external class
-(README_DEV §10), or an `nctl` flag that actually mutates state —
+(README_DEV "Environment classes"), or an `nctl` flag that actually mutates state —
 `reconcile --yes`, `reconcile --allow-destroy`, `prune --yes`, `desired apply
 --yes`, or a direct SSH/Ansible mutation outside `nctl`. Mark exactly these
 steps.
