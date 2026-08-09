@@ -47,11 +47,13 @@ detailed discussion.
 Only these three prohibitions. Everything else is at the implementer's
 discretion.
 
-1. **No cluster mutation directly triggered by a node-originated request.**
-   Initial responses are limited to reads (status/drift/relations/guidance)
-   and plan presentation. Desired-state writes and `reconcile --yes` go
-   through human approval. Before being a security requirement, this is the
-   execution boundary against prompt injection.
+1. **No irreversible cluster mutation directly triggered by a request.**
+   As of 2026-08-09, the original no-write rule is relaxed for this
+   experimental cluster: cagent may perform recoverable desired-state writes
+   and `reconcile --yes`, while destroy-class operations remain human-only
+   and tool-denied. See the `autolab-meets-cagent` episode plan and reports in
+   the developer-documentation repository. The accepted injection boundary is
+   now "cannot destroy", not "cannot write".
 2. **Never expose OpenCode directly to the VPN/LAN.** The external entrance
    is always the API only.
 3. **No secrets (tokens, private keys) in Git, in binaries, or in request

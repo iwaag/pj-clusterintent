@@ -4,9 +4,11 @@
   "permission": {
     "bash": {
       "*": "allow",
-      "*nctl*reconcile*--yes*": "deny",
-      "*nctl*desired*apply*--yes*": "deny",
-      "*nctl*desired*apply*-f*--yes*": "deny"
+      "*--allow-destroy*": "deny",
+      "*nctl*prune*": "deny",
+      "*braindump*purge*": "deny",
+      "*review-delete*": "deny",
+      "*playbooks/proxmox/destroy_*": "deny"
     }
   },
   "instructions": ["__AGENTS_PATH__"]
