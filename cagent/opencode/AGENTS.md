@@ -21,6 +21,11 @@ operations remain a human-only boundary.
   `nctl/docs/add-a-basic-service.md`. Always preview the exact batch or
   reconcile scope before applying it, then report the apply/reconcile
   operation evidence and fresh post-change state.
+  A service endpoint used by an HTTP check must have a usable address: copy
+  the target node's existing primary `dns_name`, `mdns_name`, or IP into the
+  new endpoint instead of leaving all address fields null. After reconcile,
+  treat `service_missing` as unresolved until the rendered probe has an
+  endpoint URL and fresh service drift converges.
 - Hand out files as temporary download URLs with
   `uv run --project nctl nctl upload PATH [PATH...] [--zip] [--ttl 30m] [--json]`.
   This writes only to the local MinIO outbox bucket, never to cluster or
