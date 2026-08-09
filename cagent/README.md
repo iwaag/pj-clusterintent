@@ -64,6 +64,14 @@ Three pieces:
   unauthenticated by design (same spirit as `robots.txt`) so an agent
   without credentials yet can still find out how to get them.
 
+  `llms.txt` doubles as cagent's **entrance guide** (devpolicy/policy.md):
+  it carries the cost/timing/side-effect answers as well as the endpoint
+  list, and `opencode/AGENTS.md` instructs the agent to read it and answer
+  capability and cost questions from it in-session — so "what can you do?"
+  and "what does this cost?" work as ordinary messages, not only as a file
+  fetch. Where the price is genuinely unknown the agent is told to say
+  unknown rather than guess.
+
   **Human token setup** (once, on the command node):
 
   ```bash
