@@ -25,3 +25,16 @@ successfully committed a 43-operation all-unchanged desired-state re-apply.
 Request `req_3962255e3059434091a04bf3c62f19b8` attempted a non-mutating
 `--allow-destroy` dry plan and matched the hard deny before execution. Fresh
 desired and PostgreSQL backups were taken first; cagent's 92 tests pass.
+
+## autolab-meets-cagent Step 3 — 2026-08-09
+
+The `autolab_node` role now copies the existing human-entrance bearer token
+from controller-local state to node-local state at mode 0600 and installs an
+async `autolab-cagent` submit/get/wait/ask wrapper. The role now deploys
+agautolab from the actual command-node Gitea source; its static inventory is
+retained as an independent maintenance path.
+
+The playbook completed on agautolab1 with 16 ok, 5 changed, and zero
+failures. A wrapper invocation originating there completed request
+`req_a78e92295fe6438aa772e4944704eddc`, whose fresh drift response reported
+the node and compute scopes converged and production composition included.
