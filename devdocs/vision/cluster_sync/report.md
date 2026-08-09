@@ -38,3 +38,19 @@ The playbook completed on agautolab1 with 16 ok, 5 changed, and zero
 failures. A wrapper invocation originating there completed request
 `req_a78e92295fe6438aa772e4944704eddc`, whose fresh drift response reported
 the node and compute scopes converged and production composition included.
+
+## autolab-meets-cagent Step 4 — 2026-08-09
+
+Added the `static_web_app` production profile and a thin cross-platform
+Ansible role that clones command-node Gitea content and controls a per-instance
+Python static server. Production composition can now aggregate multiple
+placements of the same profile on one host, and profile reconciliation can
+derive `started`/`stopped` from placement config and evaluate HTTP checks.
+
+The `snake-web` service was declared on agstudio with an explicit HTTP
+endpoint on port 8123. Reconcile operation `01KZJ2821RRFNST2MPH0WPKH7W`
+started it and converged. A desired-state stop/start cycle proved the port
+closed while stopped and served the Snake HTML after restart; final operation
+`01KZJ2C2E12M210077BR8XZHMC` converged in one round. Full nctl validation:
+1,292 tests passed. Port declarations are now visible in desired state, but
+there is still no automated collision comparator.
