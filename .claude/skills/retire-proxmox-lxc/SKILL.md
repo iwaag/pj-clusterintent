@@ -1,33 +1,33 @@
 ---
 name: retire-proxmox-lxc
 description: Retire one Proxmox LXC guest (declare retired/absent, destroy via nctl reconcile --allow-destroy, then nctl prune) with an enumerated manual_review branch table.
-version: 2
+version: 3
 execution_level: 3
 triggers: [proxmox_lxc_retirement, guest_retirement_request, decommission_lxc]
 risk: destructive_scoped
-prerequisites: [existing_realized_compute_instance]
-last_verified: 2026-08-03
+prerequisites: []
+last_verified: 2026-08-10
 verified_against:
-  nctl: 3329d93bf3ebf38d284adedc6aa3653abd210cfc
+  nctl: 7782d72 (+ no_guest_vm fix, working tree at verification)
 ---
 
-**Verified.** Authored 2026-08-03, revised 2026-08-03 (Fix 1 Step 1: added
-the missing `dry_run: true` envelope field and the realized-compute
-prerequisite below). Used successfully on a real retirement (`agscratch1`,
-vmid 199, `aghub`) on 2026-08-03 against `nctl` `3329d93b`: exact destroy,
-`converged`, zero-action repeat plan, eligible prune, `pruned`. See
-`../../devdocs/vision/easier_next_time/p3/fix1/plan.md` Step 5/6 and the
-2026-08-03 `agscratch1` retirement self-report (WorkflowEpisode).
+**Verified.** Authored 2026-08-03, revised 2026-08-03 (Fix 1 Step 1) and
+2026-08-10 (no_guest_vm: the "realized compute instance in a prior session"
+prerequisite is gone — an unlinked or orphaned guest is now recoverable with
+supported commands, see "Unrealized guest recovery" below). Used successfully
+on a real retirement (`agscratch1`, vmid 199, `aghub`) on 2026-08-03 against
+`nctl` `3329d93b`, and on the orphan-recovery retirement (`agdoomed2`, vmid
+112, `aghub`) on 2026-08-10. See
+`../../devdocs/vision/easier_next_time/p3/fix1/plan.md` Step 5/6 and
+`../../devdocs/vision/fix/no_guest_vm/report.md`.
 
-**Prerequisite — realized compute instance.** `GUEST`'s Proxmox realization
-must already be observed, ingested into Nautobot, and linked to
-`DesiredComputeInstance.realized_vm` in a **prior session**, before this
-skill's Step 1 begins. A guest that was only just created (or never had its
-control node's platform observation ingested) is not yet a valid input —
-this skill retires an existing realized guest, it does not create,
-observe, or link one. If that link does not already exist, stop before
-Step 1 and return the task to a human or capable model to establish it
-first; do not fold that recovery into this skill's run.
+**Unrealized guest recovery.** A guest whose Proxmox realization is not yet
+(or no longer) in Actual State — including one created by a reconcile that
+died mid-observation — no longer stops this skill. `nctl reconcile GUEST`
+plans the evidence refresh on the platform's **control node** automatically,
+and `nctl reconcile CONTROL_NODE --refresh-observation --yes` forces the same
+hypervisor-side collection explicitly. Run one of those, then retry the dry
+reconcile from step 5. The guest itself never has to answer SSH.
 
 This skill wraps `README.md` §"Retiring one Proxmox LXC" and
 `nctl/docs/add-and-retire-proxmox-lxc.md` §"Retiring one Proxmox LXC" for an executor — read those
@@ -51,6 +51,8 @@ uv run --project nctl nctl desired apply -f FILE --yes --json
 uv run --project nctl nctl reconcile GUEST --allow-destroy --json
 uv run --project nctl nctl reconcile GUEST --allow-destroy --yes --json
 uv run --project nctl nctl reconcile GUEST --json
+uv run --project nctl nctl reconcile GUEST --yes --json
+uv run --project nctl nctl reconcile CONTROL_NODE --refresh-observation --yes --json
 uv run --project nctl nctl prune GUEST --json
 uv run --project nctl nctl prune GUEST --yes --json
 ```
@@ -89,6 +91,10 @@ permitted by this skill.
    - If `data.manual_review` is non-empty, go to the **manual_review branch
      table** below and do not proceed past it without a resolution it names.
    - If empty, with exactly one `destroy_compute_instance` action, continue.
+     A `link_compute_realization` action for the same guest alongside the
+     destroy is expected when the guest's ledger link was missing (matched by
+     vmid/name): the link is planned first so prune can later collect the
+     VirtualMachine record. It is not a deviation; still exactly one destroy.
 
 6. **Checkpoint — fill in before proceeding, from the fresh `plan.json` you
    just produced in step 5 (do not reuse an earlier plan's numbers):**
@@ -141,8 +147,8 @@ desired state not yet being in a realizable shape.
 |---|---|---|---|
 | `no_realized_object` | error | the node's `actual_state_policy` is `required` but no realized device or VM is linked yet | **stop.** The guest's realized link isn't established; do not force a destroy against an unlinked node. Return to a human/capable model to establish the link or confirm the guest truly has no realized object, then retry from step 5. |
 | `actual_node_not_linked` | warning | the only actual candidate is a `virtualization.virtualmachine`, but `DesiredNode`-level realization only accepts `dcim.device` — VM realization belongs to `DesiredComputeInstance.realized_vm`, not this node link | Alongside `no_realized_object`, informational — no separate action beyond resolving `no_realized_object`. If this code appears **alone** (no `no_realized_object`), **stop** — this is the node/compute realization split that `nctl_core/reconcile/classify.py` deliberately keeps as manual review; do not link the VM candidate as the node's realized object. |
-| `compute_instance_missing` | error | no VM candidate exists in the matched Cluster for `DesiredComputeInstance` — the realized-compute prerequisite above was not actually met | **precondition failure — stop.** This is not a wait-and-retry condition and not a defect in the skill. Return to a human or capable model to establish the realized-compute link in a separate session (this skill does not create, observe, or link a VM). Do not retry the dry reconcile expecting it to resolve on its own; do not add a direct `pct`/REST link as a workaround. |
-| plan with only a `link_compute_realization`-shaped action, or any plan with **zero** `destroy_compute_instance` actions | n/a | the realized-compute prerequisite was not met, so there is nothing yet to destroy | **precondition failure — stop.** Same handling as `compute_instance_missing`: return to a human or capable model outside this skill's run rather than proceeding. |
+| `compute_instance_missing` | error | no VM candidate exists in the matched Cluster for `DesiredComputeInstance` — Actual State has not (or no longer) observed the guest; hypervisor-side evidence is stale or the guest was orphaned mid-creation | **run the unrealized-guest recovery** (see above): `nctl reconcile GUEST --yes` (plans the control-node evidence refresh automatically) or `nctl reconcile CONTROL_NODE --refresh-observation --yes`, then retry from step 5. If the refreshed drift still reports `compute_instance_missing`, the guest genuinely does not exist on the hypervisor — proceed to `nctl prune GUEST` (steps 10-12) instead of a destroy; there is nothing to destroy. Never add a direct `pct`/REST link as a workaround. |
+| plan with only a `link_compute_realization`-shaped or `observe_node`-shaped action, or any plan with **zero** `destroy_compute_instance` actions | n/a | the guest's realization evidence is not yet current, so nothing is pinned to destroy this round | **not a failure** — execute the planned round (`--yes`; an `observe_node:compute-evidence` action is a read-only hypervisor collection), then retry the dry reconcile from step 5. If repeated rounds never produce a destroy action and drift still names the guest, stop and return to a human with the operation evidence. |
 
 **Any other `manual_review` code**, or either of the first two codes
 appearing in a combination not listed above: **stop**
@@ -173,8 +179,8 @@ bug in the skill, it is the skill doing its job.
 ## Stop conditions
 
 - Any typed input (`GUEST`, `VMID`, `CONTROL_NODE`) unknown at the start.
-- The realized-compute prerequisite is not already met (`compute_instance_missing`,
-  a link-only plan, or any plan with zero `destroy_compute_instance` actions).
+- The unrealized-guest recovery was run and repeated rounds still produce
+  neither a `destroy_compute_instance` action nor a prune-eligible state.
 - A `manual_review` code, or combination, not resolved by the branch table.
 - A step 6 checkpoint mismatch.
 - Reconcile does not reach `converged`, or the repeat dry plan (step 9) is

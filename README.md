@@ -151,3 +151,8 @@ resource only. After that converged state has been reviewed, the separate
 `nctl prune RETIRED_GUEST` dry plan and `nctl prune RETIRED_GUEST --yes` can
 remove that guest's retained Actual and Desired ledger records. Pruning never
 contacts infrastructure and retains Braindumps and prior operation evidence.
+A guest missing from Actual State (e.g. its creating reconcile died
+mid-observation) needs no manual hypervisor access: `nctl reconcile GUEST`
+routes the evidence refresh to the platform's control node, after which the
+normal destroy/prune flow applies (see
+[nctl/docs/add-and-retire-proxmox-lxc.md](nctl/docs/add-and-retire-proxmox-lxc.md)).
