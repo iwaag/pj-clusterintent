@@ -9,7 +9,22 @@
       "*nctl*prune*": "deny",
       "*braindump*purge*": "deny",
       "*review-delete*": "deny",
-      "*playbooks/proxmox/destroy_*": "deny"
+      "*playbooks/proxmox/destroy_*": "deny",
+      "*destroy_lxc*": "deny",
+      "*destroy_qemu*": "deny",
+      "*pct destroy*": "deny",
+      "*pct  destroy*": "deny",
+      "*qm destroy*": "deny",
+      "*qm  destroy*": "deny",
+      "*pvesh delete*": "deny",
+      "*pvesh  delete*": "deny",
+      "*vgremove*": "deny",
+      "*lvremove*": "deny",
+      "*zpool destroy*": "deny",
+      "*wipefs*": "deny",
+      "*sgdisk*": "deny",
+      "*mkfs*": "deny",
+      "*dd if=*of=/dev/*": "deny"
     }
   },
   "instructions": ["__AGENTS_PATH__"]

@@ -1,5 +1,8 @@
-First, be sure to...
-- read README.md at workspace root folder
-- read .local/localenv_memo.md if any
-When you are asked to perform specific task in this workspace, read
-agentdocs/[task_name]/README.md
+Manuals for this workspace's session types:
+
+- `brainforge/README.md` — Braindumps, Alignment Reviews, desired state via `nctl`.
+- `workflow-planning/README.md` — turning a confirmed request into a plan artifact.
+- `workflow-improvement/README.md` — improving policy/skills/nctl from a selected `WorkflowEpisode`.
+
+Workspace context: `README.md` at the workspace root, and
+`.local/localenv_memo.md` for this machine's local environment.

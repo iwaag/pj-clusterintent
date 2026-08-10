@@ -7,8 +7,9 @@ exist", "how do I get S3-compatible storage" — instead of guessing or
 installing your own. It reads the cluster's actual state and answers with
 guidance. It can also hand you data as a file: ask for e.g. "the cluster's
 desired/actual state as a downloadable file" and the reply will contain a
-time-limited download URL (fetch it before the stated expiry). It does not mutate the cluster on your behalf: reconcile/apply
-writes require human approval through a separate entrance.
+time-limited download URL (fetch it before the stated expiry). Recoverable
+desired-state changes and reconciles it can carry out when asked; destroy-class
+operations are denied to it at the tool-permission layer and stay with a human.
 
 ## Endpoints
 
@@ -58,8 +59,11 @@ just ask.
 
 ## Scope
 
-Answers are guidance only. Do not attempt cluster changes yourself based on
-a cluster-agent answer without human approval.
+What it can act on is this cluster's desired state and reconciliation, through
+`nctl`. Destroy-class commands (`--allow-destroy`, `nctl prune`, braindump
+purge/review-delete, the Proxmox destroy playbooks) are denied to it at the
+tool-permission layer, so an irreversible operation comes back as a refusal
+with its reason, whoever asks and however the request is framed.
 
 ## Authentication (node/agent callers)
 
