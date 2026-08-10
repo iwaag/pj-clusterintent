@@ -36,9 +36,11 @@ Run from the repository root.
 
 - Destroy-class commands are denied at the tool-permission layer: guest
   destruction (`nctl reconcile --allow-destroy`, `nctl prune`, the Proxmox
-  destroy playbooks, `pct`/`qm destroy`, `pvesh delete`), record deletion
-  (braindump purge, review-delete), and storage erasure (`mkfs`, `wipefs`,
-  `sgdisk`, `vgremove`/`lvremove`, `zpool destroy`). The denial comes back
-  with its reason.
+  destroy playbooks, `pct`/`qm destroy`, `pvesh delete`) and storage erasure
+  (`mkfs`, `wipefs`, `sgdisk`, `vgremove`/`lvremove`, `zpool destroy`). The
+  denial comes back with its reason.
+- File writes (`edit`, `write`, `apply_patch`) are refused outside `.local/`
+  and the temp directories. `nctl desired apply -f -` reads stdin, and
+  `nctl upload` takes paths under `.local/`.
 - Tokens, private keys and API keys do not go into responses, request
   evidence, or Git-tracked files.

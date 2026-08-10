@@ -86,6 +86,7 @@ class Worker:
 
         try:
             baseline = self._opencode.count_assistant_messages(session_id)
+            baseline_cost = self._opencode.session_cost(session_id)
             self._opencode.prompt_async(session_id, request.message)
         except OpenCodeError as exc:
             self._store.update_request(
@@ -98,12 +99,12 @@ class Worker:
         deadline = time.monotonic() + TURN_TIMEOUT_SECONDS
         while True:
             if self._is_cancel_requested(request_id):
-                self._abort_and_mark_cancelled(request_id, session_id)
+                self._abort_and_mark_cancelled(request_id, session_id, baseline_cost)
                 return
 
             if time.monotonic() > deadline:
                 self._abort_and_mark_failed(
-                    request_id, session_id, "turn did not complete within timeout"
+                    request_id, session_id, "turn did not complete within timeout", baseline_cost
                 )
                 return
 
@@ -112,17 +113,21 @@ class Worker:
                 if count > baseline:
                     msg = self._opencode.latest_assistant_message(session_id)
                     if msg is not None and msg.completed and msg.is_final_step:
+                        cost = self._turn_cost(session_id, baseline_cost)
                         if msg.error_name == "MessageAbortedError":
-                            self._store.update_request(request_id, state="cancelled")
+                            self._store.update_request(
+                                request_id, state="cancelled", cost_usd=cost
+                            )
                         elif msg.error_name:
                             self._store.update_request(
                                 request_id,
                                 state="failed",
                                 error={"code": "opencode_error", "message": msg.error_name},
+                                cost_usd=cost,
                             )
                         else:
                             self._store.update_request(
-                                request_id, state="completed", response=msg.text
+                                request_id, state="completed", response=msg.text, cost_usd=cost
                             )
                         return
             except OpenCodeError as exc:
@@ -135,18 +140,44 @@ class Worker:
 
             time.sleep(POLL_INTERVAL_SECONDS)
 
-    def _abort_and_mark_cancelled(self, request_id: str, session_id: str) -> None:
+    def _turn_cost(self, session_id: str, baseline: float | None) -> float | None:
+        """USD this turn added to the session, or None if either end is unknown.
+
+        Read at the moment the request reaches a terminal state. On the
+        cancel/timeout paths OpenCode may still be finishing the turn, so
+        the figure there is a floor, not a total.
+        """
+        if baseline is None:
+            return None
+        try:
+            current = self._opencode.session_cost(session_id)
+        except OpenCodeError:
+            return None
+        if current is None:
+            return None
+        return max(0.0, current - baseline)
+
+    def _abort_and_mark_cancelled(
+        self, request_id: str, session_id: str, baseline_cost: float | None = None
+    ) -> None:
         try:
             self._opencode.abort(session_id)
         except OpenCodeError:
             logger.warning("worker: abort call failed for %s, marking cancelled anyway", request_id)
-        self._store.update_request(request_id, state="cancelled")
+        self._store.update_request(
+            request_id, state="cancelled", cost_usd=self._turn_cost(session_id, baseline_cost)
+        )
 
-    def _abort_and_mark_failed(self, request_id: str, session_id: str, message: str) -> None:
+    def _abort_and_mark_failed(
+        self, request_id: str, session_id: str, message: str, baseline_cost: float | None = None
+    ) -> None:
         try:
             self._opencode.abort(session_id)
         except OpenCodeError:
             pass
         self._store.update_request(
-            request_id, state="failed", error={"code": "timeout", "message": message}
+            request_id,
+            state="failed",
+            error={"code": "timeout", "message": message},
+            cost_usd=self._turn_cost(session_id, baseline_cost),
         )

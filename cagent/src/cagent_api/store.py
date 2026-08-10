@@ -68,6 +68,11 @@ class Request:
     updated_at: float = field(default_factory=time.time)
     response: str | None = None
     error: dict | None = None
+    # USD this turn cost, as the OpenCode session's own accounting reports it
+    # (the per-turn delta of `GET /session/{id}`.cost). `None` means not
+    # measured — a turn that never reached the backend, or a pre-existing
+    # evidence record written before cost was recorded at all.
+    cost_usd: float | None = None
 
     def as_dict(self) -> dict:
         return {
@@ -79,6 +84,7 @@ class Request:
             "updated_at": self.updated_at,
             "response": self.response,
             "error": self.error,
+            "cost_usd": self.cost_usd,
         }
 
 
@@ -174,6 +180,8 @@ class Store:
                     detail["response"] = request.response
                 if request.error is not None:
                     detail["error"] = request.error
+                if request.cost_usd is not None:
+                    detail["cost_usd"] = request.cost_usd
                 self._evidence.append_event(request_id, request.state, detail)
             return request
 
@@ -242,6 +250,7 @@ def scan_and_load(evidence: EvidenceWriter) -> tuple[Store, list[str]]:
             updated_at=latest["ts"] if latest else record["created_at"],
             response=detail.get("response"),
             error=detail.get("error"),
+            cost_usd=detail.get("cost_usd"),
         )
         store._requests[request_id] = request
         by_session.setdefault(request.session_id, []).append(request)

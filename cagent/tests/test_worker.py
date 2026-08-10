@@ -46,6 +46,55 @@ def test_full_turn_completes():
     assert final.error is None
 
 
+def test_completed_turn_records_only_its_own_cost():
+    """`cost_usd` is the delta this turn added to the session, not the
+    session total — a second turn in the same session must not re-report
+    what the first one already cost."""
+    store = Store()
+    opencode = FakeOpenCodeClient()
+    w = Worker(store, opencode)
+    w.start()
+
+    identity = Identity("node", "agpc-uuid", "agpc-serial")
+    session_id = opencode.create_session("t")
+
+    first = store.create_session_and_request(session_id, identity, "hello")
+    w.enqueue(first.request_id)
+    wait_for_state(store, first.request_id, "running")
+    opencode.costs[session_id] = 0.004
+    opencode.complete_latest_turn(session_id, text="hi")
+    wait_for_state(store, first.request_id, "completed")
+    assert store.get_request(first.request_id).cost_usd == pytest.approx(0.004)
+
+    second = store.continue_session(session_id, identity, "and again")
+    w.enqueue(second.request_id)
+    wait_for_state(store, second.request_id, "running")
+    opencode.costs[session_id] = 0.011
+    opencode.complete_latest_turn(session_id, text="again")
+    wait_for_state(store, second.request_id, "completed")
+    assert store.get_request(second.request_id).cost_usd == pytest.approx(0.007)
+
+
+def test_cancelled_turn_still_reports_what_it_cost():
+    """An interrupted request is not a free request (turn1 F2)."""
+    store = Store()
+    opencode = FakeOpenCodeClient()
+    w = Worker(store, opencode)
+    w.start()
+
+    identity = Identity("node", "agpc-uuid", "agpc-serial")
+    session_id = opencode.create_session("t")
+    request = store.create_session_and_request(session_id, identity, "hello")
+    w.enqueue(request.request_id)
+    wait_for_state(store, request.request_id, "running")
+
+    opencode.costs[session_id] = 0.0031
+    w.request_cancel(request.request_id)
+    wait_for_state(store, request.request_id, "cancelled")
+
+    assert store.get_request(request.request_id).cost_usd == pytest.approx(0.0031)
+
+
 def test_multi_step_turn_does_not_complete_early():
     """A real multi-step tool-calling turn produces several assistant
     messages, only the last of which is the true end (OpenCode's

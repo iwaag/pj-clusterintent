@@ -59,11 +59,18 @@ class FakeOpenCodeClient:
         self.abort_calls: list[str] = []
         self.raise_on_prompt = False
         self.raise_on_poll = False
+        # session_id -> cumulative USD, mirroring OpenCode's `GET /session/{id}`.cost.
+        self.costs: dict[str, float] = {}
 
     def create_session(self, title: str) -> str:
         session_id = f"ses_fake{next(self._session_ids)}"
         self._sessions[session_id] = []
+        self.costs[session_id] = 0.0
         return session_id
+
+    def session_cost(self, session_id: str) -> float | None:
+        with self.lock:
+            return self.costs.get(session_id)
 
     def prompt_async(self, session_id: str, text: str) -> None:
         self.prompt_calls.append((session_id, text))

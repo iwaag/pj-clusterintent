@@ -21,10 +21,16 @@ immediately with `state: "queued"`; poll for the result.
 - `POST /sessions/{session_id}/requests` — continue the same session with a
   follow-up turn, same body/response shape
 - `GET /requests/{request_id}` — poll for status/result:
-  `{"request_id", "session_id", "state", "response", "error", ...}`.
-  `state` is one of `queued | running | completed | failed | cancelled |
-  interrupted`; `response` is null until `completed`.
-- `POST /requests/{request_id}/cancel` — cancel a queued/running request
+  `{"request_id", "session_id", "state", "response", "error", "cost_usd",
+  ...}`. `state` is one of `queued | running | completed | failed |
+  cancelled | interrupted`; `response` is null until `completed`;
+  `cost_usd` is what this turn cost (see "What it costs").
+- `POST /requests/{request_id}/cancel` — cancel a queued/running request.
+  **This is the only way to stop a run.** The worker outlives the caller:
+  closing the client, killing curl, or abandoning the poll leaves the turn
+  running to completion on the node, where it can still take actions and
+  still costs money. Two turn1 requests believed cancelled did exactly
+  that — one of them created an LXC guest.
 - `GET /sessions` — list sessions you can see
 - `GET /sessions/{session_id}/requests` — list a session's requests in order
 
@@ -42,11 +48,16 @@ This file is the cluster-agent's capability card; the agent answers "what
 can you do" and "what does it cost" from it in a session too, so you can
 just ask.
 
-- **Money: unknown per request.** The backend is a hosted model
-  (`CAGENT_OPENCODE_MODEL`, default `openai/gpt-5.6-luna`) driven through
-  OpenCode, which does not report a per-request price back to this API, so
-  none is recorded and none is estimated here. Order of magnitude for a
-  multi-step cluster question: cents, not dollars.
+- **Money: reported per request.** `GET /requests/{request_id}` returns
+  `cost_usd` — what this turn added to its OpenCode session, from OpenCode's
+  own accounting. `null` means not measured (the turn never reached the
+  backend, or the record predates this field); on the cancel and timeout
+  paths it is a floor, not a total, because the turn may still be running.
+  Measured 2026-08-10 over 7 sessions on `openai/gpt-5.6-luna`: $0.0025 for
+  a capability question, ~$0.005 for a plain read, $0.042 for a multi-step
+  composition, $0.062 for a guest creation; median ~$0.005. Cents, not
+  dollars. The backend model is `CAGENT_OPENCODE_MODEL` (default
+  `openai/gpt-5.6-luna`) and those figures move with it.
 - **Time: seconds to ~4 minutes**, as above. A single read
   (`nctl status`, "does X exist") is usually well under a minute; a
   multi-command state bundle is the slow end.
@@ -60,10 +71,16 @@ just ask.
 ## Scope
 
 What it can act on is this cluster's desired state and reconciliation, through
-`nctl`. Destroy-class commands (`--allow-destroy`, `nctl prune`, braindump
-purge/review-delete, the Proxmox destroy playbooks) are denied to it at the
-tool-permission layer, so an irreversible operation comes back as a refusal
-with its reason, whoever asks and however the request is framed.
+`nctl`. Destroy-class commands (`--allow-destroy`, `nctl prune`, the Proxmox
+destroy playbooks, `pct`/`qm destroy`, `pvesh delete`, storage erasure) are
+denied to it at the tool-permission layer, so an irreversible operation comes
+back as a refusal with its reason, whoever asks and however the request is
+framed. That layer matches command strings, not identities: it is a narrow
+list, not a capability boundary — see
+devdocs/episodes/unshackle_agent/clusterintent/turn2/report.md.
+
+It also cannot write files outside `.local/` and the temp directories, so it
+answers questions about the repository rather than editing it.
 
 ## Authentication (node/agent callers)
 

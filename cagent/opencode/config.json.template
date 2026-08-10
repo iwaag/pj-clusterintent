@@ -3,12 +3,18 @@
   "model": "__MODEL__",
   "permission": {
     "external_directory": "allow",
+    "edit": {
+      "*": "deny",
+      "**/.local/**": "allow",
+      ".local/**": "allow",
+      "/tmp/**": "allow",
+      "/private/tmp/**": "allow",
+      "/var/folders/**": "allow"
+    },
     "bash": {
       "*": "allow",
       "*--allow-destroy*": "deny",
       "*nctl*prune*": "deny",
-      "*braindump*purge*": "deny",
-      "*review-delete*": "deny",
       "*playbooks/proxmox/destroy_*": "deny",
       "*destroy_lxc*": "deny",
       "*destroy_qemu*": "deny",

@@ -66,6 +66,19 @@ class OpenCodeClient:
             body={"parts": [{"type": "text", "text": text}]},
         )
 
+    def session_cost(self, session_id: str) -> float | None:
+        """Cumulative USD OpenCode has charged this session so far.
+
+        `GET /session/{id}` carries a real `cost` figure — the same number
+        `session.cost` holds in OpenCode's sqlite. Returns None when the
+        field is missing so a caller can tell "not measured" from "$0".
+        """
+        result = self._request("GET", f"/session/{session_id}")
+        if not isinstance(result, dict):
+            return None
+        cost = result.get("cost")
+        return float(cost) if isinstance(cost, (int, float)) else None
+
     def list_messages(self, session_id: str) -> list[dict]:
         return self._request("GET", f"/session/{session_id}/message") or []
 
