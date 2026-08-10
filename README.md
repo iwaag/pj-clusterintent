@@ -1,5 +1,8 @@
 # pj-clusterintent
 
+Exprimental development phase.
+Varieties of dangerous agentic workflows without auth.
+
 An experimental system for declaring the desired state of a PC cluster and letting AI and Ansible converge the actual state toward it. This repository is a collection of submodules.
 
 ## Concept
