@@ -2,6 +2,9 @@
 
 Dedicated always-on PostgreSQL and Redis for the local scratch Nautobot.
 
+The explicit Compose project/container names avoid ambiguous nodeutils service
+matching (`redis` must not be mistaken for the surrounding Nautobot stack).
+
 `../.env` must define `NAUTOBOT_POSTGRES_DATA_DIR`. It may point at the
 existing PostgreSQL data directory; keeping the machine-specific absolute path
 in the ignored env file avoids embedding it in this Compose definition.
