@@ -29,7 +29,7 @@ services:
     build:
       context: ../..
       dockerfile: devenv/nautobot/Dockerfile
-    restart: always
+    restart: unless-stopped
     ports:
       - "8000:8080"
     environment:
@@ -67,7 +67,7 @@ services:
     build:
       context: ../..
       dockerfile: devenv/nautobot/Dockerfile
-    restart: always
+    restart: unless-stopped
     entrypoint: nautobot-server
     command: celery worker -l INFO --events
     environment:
@@ -91,7 +91,7 @@ services:
     build:
       context: ../..
       dockerfile: devenv/nautobot/Dockerfile
-    restart: always
+    restart: unless-stopped
     entrypoint: nautobot-server
     command: celery beat -l INFO
     environment:
@@ -111,7 +111,7 @@ services:
 
   minio:
     image: minio/minio
-    restart: always
+    restart: unless-stopped
     command: server /data --console-address ":9001"
     # Host ports 9000/9001 are taken by portainer / the service_scripts MinIO,
     # so this instance is published on 9100 (S3 API) and 9101 (console).
