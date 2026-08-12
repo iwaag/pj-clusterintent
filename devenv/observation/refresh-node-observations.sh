@@ -5,7 +5,7 @@ set -u
 project_root="${0:A:h:h:h}"
 state_dir="$project_root/.local/observation-refresh"
 lock_dir="$state_dir/lock"
-default_hosts=(agautolab1 agdnsmasq aghub agpc agstudio)
+default_hosts=(agautolab1 agbach agdnsmasq aghub agpc agstudio)
 hosts=("${@:-${default_hosts[@]}}")
 
 mkdir -p "$state_dir"
