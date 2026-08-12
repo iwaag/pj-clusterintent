@@ -8,7 +8,7 @@ for the roadmap and the frozen contracts this implements
 change over the previous: Phase 2 dropped the Phase 1 identity-header stub,
 Phase 4 reworked the identity shape to be class-tagged).
 
-Three pieces:
+Four pieces:
 
 - `opencode/` — a dedicated OpenCode instance, isolated from any node-agent
   instance. Loopback-only. Start with `./opencode/start.sh`.
@@ -16,8 +16,27 @@ Three pieces:
   restarting this OpenCode process — restart `./opencode/start.sh` after any
   instructions change, before testing. `cagent-api` itself does not need a
   restart (and `llms.txt` is re-read from disk per request).
+- `window/` — the **unauthenticated window**: its own OpenCode instance
+  (`:4098`, `./window/start.sh`), its own instructions (`window/AGENTS.md`),
+  its own capability card (`window/GUIDE.md`, re-read per request), and its
+  own deny-by-default permission set
+  (`window/opencode-window.json.template`): read-only `nctl` plus
+  `window/incident.py`, no writes anywhere. `window/incident.py` records one
+  defect report as one file under `.local/cagent/incidents/`:
+
+  ```bash
+  uv run cagent/window/incident.py -i "you said node X was up; it is not" \
+    --reporter "zulip:8" --source zulip-dm --ref "zulip message 41"
+  uv run cagent/window/incident.py --list
+  ```
+
+  Added in `devdocs/episodes/better_communication/zulip_cagent_receive`, which
+  is also where the empirical permission-denial evidence lives. The window is
+  deliberately weaker than the entrances below; a request for a cluster change
+  comes back as a refusal pointing at them.
+
 - `src/cagent_api/` — the HTTP API server that proxies to the OpenCode
-  instance above and implements the frozen contract, on **two listeners**:
+  instances above and implements the frozen contract, on **three listeners**:
 
   - **Node entrance** (`:8788` by default) — mTLS, unchanged since Phase 2.
     Every route needs a client certificate signed by the local CA below,
@@ -29,6 +48,14 @@ Three pieces:
     client cert. Authenticated by a single static bearer token instead
     (see below). Serves the chat UI at `GET /` in addition to the same
     `/requests`/`/sessions/...` routes the node entrance has.
+  - **Window entrance** (`:8790` by default) — **no authentication and no
+    TLS**. `POST /window {"text": "..."}` is the only way in (there is no
+    `/requests` POST, no `/sessions`, no UI there — it is a single
+    entrance), plus `GET /guide`, `GET /healthz`, and `GET /requests/{id}`
+    to poll the answer. It runs on the `window/` OpenCode instance, so what
+    an anonymous caller can cause is bounded by that permission set rather
+    than by an identity check. Its requests share the same store and
+    evidence as the other two.
 
   Run with:
 
@@ -46,6 +73,9 @@ Three pieces:
   | `CAGENT_HUMAN_TOKEN_FILE` | `~/.local/state/cagent/human_token` | file holding the human bearer token, one line, mode `0600` — Phase 4. **The human listener refuses to start if this file is missing or empty**, same refuse-don't-fallback pattern as the OpenAI key below. |
   | `CAGENT_HUMAN_NAME` | `operator` | fixed operator label recorded in evidence for every human-authenticated request — Phase 4 |
   | `CAGENT_TURN_TIMEOUT_SECONDS` | `300` | per-turn wall-clock bound before the worker aborts the OpenCode turn and marks the request `failed` (`timeout`); raise for hosts where legitimate multi-command turns (e.g. composing a state bundle) exceed 5 minutes |
+  | `CAGENT_WINDOW_PORT` | `8790` | window entrance (unauthenticated, plain HTTP) listen port |
+  | `CAGENT_WINDOW_OPENCODE_URL` | `http://127.0.0.1:4098` | the window's own OpenCode instance |
+  | `CAGENT_WINDOW_GUIDE` | `<repo-root>/cagent/window/GUIDE.md` | file served at `GET /guide`, re-read per request |
   | `CAGENT_OPENCODE_URL` | `http://127.0.0.1:4097` | the OpenCode instance (always loopback, never exposed) |
   | `CAGENT_DIRECTORY` | superproject root | working directory passed to OpenCode on every call |
   | `CAGENT_EVIDENCE_DIR` | `~/.local/state/cagent/evidence` | durable per-request evidence |
@@ -76,9 +106,12 @@ Three pieces:
   model the cluster-agent runs on; `cagent/opencode/start.sh` renders it into
   the committed `config.json.template` (default `openai/gpt-5.6-luna`) and
   prints it at startup. Like `AGENTS.md`, the model is fixed at process
-  start — restart the script to change it. OpenCode reports no per-request
-  price back to cagent-api, so nothing about cost is recorded; that is what
-  `llms.txt` means when it says the price is unknown.
+  start — restart the script to change it. The window's own backend is
+  `CAGENT_WINDOW_MODEL` (falling back to `CAGENT_OPENCODE_MODEL`, then the
+  same default), so the two doors can run on different models. Whichever
+  model actually served a turn is recorded per request: `GET /requests/{id}`
+  carries `backend` (`{harness, provider, model}`), read from the assistant
+  message rather than from configuration, next to `cost_usd`.
 
   **Human token setup** (once, on the command node):
 
@@ -119,13 +152,18 @@ Three pieces:
 
   A node then calls the API with `curl --cacert ca_cert.pem --cert node_cert.pem --key node_key.pem ...`.
 
-Start order: `./opencode/start.sh` first, then `cagent-ca`/`cagent-ledger`
-setup and the human token file (once each), then `cagent-api` — which
-brings up both entrances in one process (the human listener runs on its
-own background thread; `cagent-api` logs both listening URLs at startup).
-All are loopback/LAN/VPN dev processes with no process supervision
-configured (see p1/plan.md Step 2 — "documented manual start command" is
-the chosen option, unchanged through Phase 4).
+Start order: `./opencode/start.sh` and `./window/start.sh` first (both must
+be up before their listeners take traffic), then `cagent-ca`/`cagent-ledger`
+setup and the human token file (once each), then `cagent-api` — which brings
+up all three entrances in one process (the human and window listeners run on
+their own background threads; `cagent-api` logs all three listening URLs at
+startup). Optionally `service/zulip_listener.py`, the Cagent bot's chat
+entrance, which turns a Zulip DM into one `POST /window`
+(credentials `.local/zulip/cagent.env`, `CAGENT_ZULIP_LOG_ONLY=1` to watch
+without spending a turn).
+
+On agstudio these run under launchd rather than by hand; the templates and
+labels are in [`devenv/launchd/`](../devenv/launchd/README.md).
 
 Not built into `nctl` — `nctl serve` was built once, went unused, and was
 removed together with both nctl dashboards (see

@@ -11,6 +11,24 @@ time-limited download URL (fetch it before the stated expiry). Recoverable
 desired-state changes and reconciles it can carry out when asked; destroy-class
 operations are denied to it at the tool-permission layer and stay with a human.
 
+## There is also a window (no credentials needed)
+
+Besides this authenticated entrance, the same cluster-agent answers on an
+**unauthenticated window**, port `:8790` by default: `POST /window
+{"text": "..."}`, `GET /guide`, `GET /healthz`, and the same
+`GET /requests/{id}` polling. The Cagent bot in Zulip is that door too — a
+direct message to it becomes one window request.
+
+Use the window when you have no certificate and no token, when you only need
+to read, and — above all — **to report that one of the cluster-agent's
+answers was wrong**. "You told me node X was up, it is not" makes the window
+record the report as a file and reply with where it went; it does not try to
+repair anything in that turn. Ask it "what has been reported lately" to see
+recent ones. Its own capability card is `GET /guide` on that port.
+
+The window can only read (`nctl status`/`drift`/`relations`/`actual`/`ops`)
+and record incidents. Cluster changes stay on this entrance.
+
 ## Endpoints
 
 All bodies are JSON. Requests are async by default: create/continue return
@@ -24,7 +42,8 @@ immediately with `state: "queued"`; poll for the result.
   `{"request_id", "session_id", "state", "response", "error", "cost_usd",
   ...}`. `state` is one of `queued | running | completed | failed |
   cancelled | interrupted`; `response` is null until `completed`;
-  `cost_usd` is what this turn cost (see "What it costs").
+  `cost_usd` is what this turn cost (see "What it costs") and `backend` names
+  the harness/provider/model that served it.
 - `POST /requests/{request_id}/cancel` — cancel a queued/running request.
   **This is the only way to stop a run.** The worker outlives the caller:
   closing the client, killing curl, or abandoning the poll leaves the turn

@@ -8,7 +8,9 @@ Replace `__PROJECTS_ROOT__` with the parent directory containing
 The active agstudio installation uses these labels:
 
 - `com.clusterintent.cagent-opencode`
+- `com.clusterintent.cagent-window-opencode`
 - `com.clusterintent.cagent-api`
+- `com.clusterintent.cagent-zulip`
 - `com.agdev.agforge`
 - `com.agdev.agautolab-gateway`
 
