@@ -4,7 +4,9 @@ version = "0.0.1"
 description = "cluster-agent API: loopback HTTP server proxying a dedicated OpenCode instance (pj-clusterintent, devdocs/vision/cluster_agent)"
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = []
+# The one dependency: the shared Zulip chat entrance (`agag.zulip`). The
+# rest of cagent stays stdlib-only.
+dependencies = ["pyagag"]
 
 [project.scripts]
 cagent-api = "cagent_api.main:main"
@@ -17,6 +19,9 @@ dev = [
     "cryptography>=50.0.0",
     "pytest>=8.0",
 ]
+
+[tool.uv.sources]
+pyagag = { git = "https://github.com/iwaag/pyagag.git", branch = "main" }
 
 [build-system]
 requires = ["hatchling"]
