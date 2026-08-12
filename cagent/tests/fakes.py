@@ -61,6 +61,8 @@ class FakeOpenCodeClient:
         self.raise_on_poll = False
         # session_id -> cumulative USD, mirroring OpenCode's `GET /session/{id}`.cost.
         self.costs: dict[str, float] = {}
+        self.provider_id = "openai"
+        self.model_id = "gpt-5.6-luna"
 
     def create_session(self, title: str) -> str:
         session_id = f"ses_fake{next(self._session_ids)}"
@@ -98,6 +100,10 @@ class FakeOpenCodeClient:
                 text=t["text"],
                 error_name=t["error_name"],
                 is_final_step=t["is_final_step"],
+                # Real OpenCode messages name what served them; the worker
+                # copies that into the run record (Agent ≠ Model).
+                provider_id=self.provider_id,
+                model_id=self.model_id,
             )
 
     def abort(self, session_id: str) -> bool:

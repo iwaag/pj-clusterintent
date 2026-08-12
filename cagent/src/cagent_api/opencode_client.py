@@ -24,6 +24,16 @@ class AssistantMessage:
     text: str
     error_name: str | None
     is_final_step: bool
+    # What OpenCode says served this message, not what configuration asked
+    # for. `None` when the message carries no provider/model at all.
+    provider_id: str | None = None
+    model_id: str | None = None
+
+    def backend(self) -> dict | None:
+        """`{harness, provider, model}` for the run record, or None."""
+        if not self.provider_id and not self.model_id:
+            return None
+        return {"harness": "opencode", "provider": self.provider_id, "model": self.model_id}
 
 
 class OpenCodeClient:
@@ -114,6 +124,8 @@ class OpenCodeClient:
                 text=text,
                 error_name=error.get("name") if error else None,
                 is_final_step=bool(error) or info.get("finish") != "tool-calls",
+                provider_id=info.get("providerID"),
+                model_id=info.get("modelID"),
             )
         return None
 

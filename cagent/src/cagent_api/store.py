@@ -37,7 +37,12 @@ class Identity:
     human identity carries only `name` (a fixed operator label, not
     per-token — see contract's single-operator assumption). `owner_key()` is
     the value session/request ownership comparisons use, so callers never
-    compare `uuid` directly (which is `None` for humans)."""
+    compare `uuid` directly (which is `None` for humans).
+
+    The window entrance adds a third class, `window`: unauthenticated, so
+    there is nothing to distinguish one caller from another and every window
+    request shares one owner — which is exactly enough to keep window
+    requests readable from the window and invisible to nodes."""
 
     identity_class: str
     uuid: str | None = None
@@ -45,16 +50,17 @@ class Identity:
     name: str | None = None
 
     def as_dict(self) -> dict:
-        if self.identity_class == "human":
-            return {"class": "human", "name": self.name}
-        return {"class": "node", "uuid": self.uuid, "cert_serial": self.cert_serial}
+        if self.identity_class == "node":
+            return {"class": "node", "uuid": self.uuid, "cert_serial": self.cert_serial}
+        return {"class": self.identity_class, "name": self.name}
 
     def owner_key(self) -> str:
         """Every human-authenticated request is the same owner (single
-        operator, p4/contract.md); nodes are keyed by DesiredNode UUID."""
-        if self.identity_class == "human":
-            return "human"
-        return f"node:{self.uuid}"
+        operator, p4/contract.md), as is every window request (no identity at
+        all); nodes are keyed by DesiredNode UUID."""
+        if self.identity_class == "node":
+            return f"node:{self.uuid}"
+        return self.identity_class
 
 
 @dataclass
@@ -73,6 +79,11 @@ class Request:
     # measured — a turn that never reached the backend, or a pre-existing
     # evidence record written before cost was recorded at all.
     cost_usd: float | None = None
+    # Which backend actually served the turn — `{harness, provider, model}`,
+    # read from the assistant message rather than from configuration
+    # (devpolicy: Agent ≠ Model, every agentic run records its backend).
+    # `None` means the turn never produced an assistant message.
+    backend: dict | None = None
 
     def as_dict(self) -> dict:
         return {
@@ -85,6 +96,7 @@ class Request:
             "response": self.response,
             "error": self.error,
             "cost_usd": self.cost_usd,
+            "backend": self.backend,
         }
 
 
@@ -182,6 +194,8 @@ class Store:
                     detail["error"] = request.error
                 if request.cost_usd is not None:
                     detail["cost_usd"] = request.cost_usd
+                if request.backend is not None:
+                    detail["backend"] = request.backend
                 self._evidence.append_event(request_id, request.state, detail)
             return request
 
@@ -201,9 +215,10 @@ def _identity_from_record(d: dict) -> Identity:
     """Tolerant of both the Phase 2 shape (`{class, uuid, cert_serial}`,
     always `class: "node"`) and the Phase 4 class-tagged shape on disk —
     old evidence is read as history, not migrated (p4/contract.md)."""
-    if d.get("class") == "human":
-        return Identity(identity_class="human", name=d.get("name"))
-    return Identity(identity_class=d.get("class", "node"), uuid=d.get("uuid"), cert_serial=d.get("cert_serial"))
+    identity_class = d.get("class", "node")
+    if identity_class == "node":
+        return Identity(identity_class="node", uuid=d.get("uuid"), cert_serial=d.get("cert_serial"))
+    return Identity(identity_class=identity_class, name=d.get("name"))
 
 
 def scan_and_load(evidence: EvidenceWriter) -> tuple[Store, list[str]]:
@@ -251,6 +266,7 @@ def scan_and_load(evidence: EvidenceWriter) -> tuple[Store, list[str]]:
             response=detail.get("response"),
             error=detail.get("error"),
             cost_usd=detail.get("cost_usd"),
+            backend=detail.get("backend"),
         )
         store._requests[request_id] = request
         by_session.setdefault(request.session_id, []).append(request)

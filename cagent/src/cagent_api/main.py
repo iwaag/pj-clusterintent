@@ -14,7 +14,7 @@ import ssl
 import threading
 from pathlib import Path
 
-from .auth import CertAuthenticator, TokenAuthenticator
+from .auth import CertAuthenticator, NoAuthenticator, TokenAuthenticator
 from .evidence import EvidenceWriter
 from .ledger import Ledger
 from .node_resolver import NautobotNodeResolver
@@ -29,6 +29,7 @@ DEFAULT_LEDGER_PATH = Path.home() / ".local" / "state" / "cagent" / "ledger" / "
 DEFAULT_CA_DIR = REPO_ROOT / ".local" / "cagent-ca"
 DEFAULT_NCTL_TOML = REPO_ROOT / "nctl.toml"
 DEFAULT_HUMAN_TOKEN_FILE = Path.home() / ".local" / "state" / "cagent" / "human_token"
+DEFAULT_WINDOW_GUIDE = REPO_ROOT / "cagent" / "window" / "GUIDE.md"
 
 
 def _build_node_ssl_context(ca_cert: Path, server_cert: Path, server_key: Path) -> ssl.SSLContext:
@@ -80,6 +81,9 @@ def main() -> None:
     human_port = int(os.environ.get("CAGENT_HUMAN_PORT", "8789"))
     human_token_file = Path(os.environ.get("CAGENT_HUMAN_TOKEN_FILE", str(DEFAULT_HUMAN_TOKEN_FILE)))
     human_name = os.environ.get("CAGENT_HUMAN_NAME", "operator")
+    window_port = int(os.environ.get("CAGENT_WINDOW_PORT", "8790"))
+    window_opencode_url = os.environ.get("CAGENT_WINDOW_OPENCODE_URL", "http://127.0.0.1:4098")
+    window_guide = Path(os.environ.get("CAGENT_WINDOW_GUIDE", str(DEFAULT_WINDOW_GUIDE)))
     opencode_url = os.environ.get("CAGENT_OPENCODE_URL", "http://127.0.0.1:4097")
     directory = os.environ.get("CAGENT_DIRECTORY", str(REPO_ROOT))
     evidence_dir = Path(os.environ.get("CAGENT_EVIDENCE_DIR", str(DEFAULT_EVIDENCE_DIR)))
@@ -118,10 +122,30 @@ def main() -> None:
     human_thread = threading.Thread(target=human_httpd.serve_forever, daemon=True)
     human_thread.start()
 
+    # Window entrance: no authentication and no TLS. There is no credential
+    # to protect in transit and the guide is meant to be fetchable with a
+    # bare curl; what keeps this door safe is its OpenCode instance's
+    # permission set (cagent/window/opencode-window.json.template), not an
+    # identity check. It gets its own OpenCode client and its own worker
+    # thread — a shared worker would run window turns on the authenticated
+    # instance's permissions — but the same store and evidence, so a window
+    # answer leaves the same run record as any other request.
+    window_opencode = OpenCodeClient(base_url=window_opencode_url, directory=directory)
+    window_worker = Worker(store, window_opencode)
+    window_worker.start()
+    window_httpd = build_server(
+        host, window_port, store, window_opencode, window_worker, NoAuthenticator(),
+        guide_path=window_guide,
+    )
+    window_thread = threading.Thread(target=window_httpd.serve_forever, daemon=True)
+    window_thread.start()
+
     log.info(
-        "cluster-agent API listening on https://%s:%s (node entrance, mTLS required) and "
-        "https://%s:%s (human entrance, bearer token) — opencode=%s, directory=%s, evidence=%s, ledger=%s",
-        host, port, host, human_port, opencode_url, directory, evidence_dir, ledger_path,
+        "cluster-agent API listening on https://%s:%s (node entrance, mTLS required), "
+        "https://%s:%s (human entrance, bearer token) and http://%s:%s (window entrance, "
+        "unauthenticated, opencode=%s) — opencode=%s, directory=%s, evidence=%s, ledger=%s",
+        host, port, host, human_port, host, window_port, window_opencode_url,
+        opencode_url, directory, evidence_dir, ledger_path,
     )
     httpd.serve_forever()
 

@@ -44,6 +44,10 @@ def test_full_turn_completes():
     final = store.get_request(request.request_id)
     assert final.response == "hi there"
     assert final.error is None
+    # Agent ≠ Model: the run record names what actually served the turn.
+    assert final.backend == {
+        "harness": "opencode", "provider": "openai", "model": "gpt-5.6-luna",
+    }
 
 
 def test_completed_turn_records_only_its_own_cost():

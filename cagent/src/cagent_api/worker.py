@@ -114,9 +114,10 @@ class Worker:
                     msg = self._opencode.latest_assistant_message(session_id)
                     if msg is not None and msg.completed and msg.is_final_step:
                         cost = self._turn_cost(session_id, baseline_cost)
+                        backend = msg.backend()
                         if msg.error_name == "MessageAbortedError":
                             self._store.update_request(
-                                request_id, state="cancelled", cost_usd=cost
+                                request_id, state="cancelled", cost_usd=cost, backend=backend
                             )
                         elif msg.error_name:
                             self._store.update_request(
@@ -124,10 +125,12 @@ class Worker:
                                 state="failed",
                                 error={"code": "opencode_error", "message": msg.error_name},
                                 cost_usd=cost,
+                                backend=backend,
                             )
                         else:
                             self._store.update_request(
-                                request_id, state="completed", response=msg.text, cost_usd=cost
+                                request_id, state="completed", response=msg.text,
+                                cost_usd=cost, backend=backend,
                             )
                         return
             except OpenCodeError as exc:

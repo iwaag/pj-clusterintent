@@ -105,3 +105,20 @@ class TokenAuthenticator:
         if not hmac.compare_digest(provided, self._token):
             raise AuthError(401, "unauthorized", "invalid token")
         return Identity(identity_class="human", name=self._human_name)
+
+
+class NoAuthenticator:
+    """The window entrance: no credential of any kind, by design.
+
+    The window is deliberately weaker than the authenticated entrances — its
+    OpenCode instance can run read-only `nctl` and the incident script and
+    nothing else — and that permission set, not an identity check, is what
+    makes an anonymous door acceptable. Everything it accepts is recorded in
+    evidence under one shared `window` identity, so there is a run record per
+    answer even though there is no caller to name."""
+
+    def __init__(self, name: str = "window") -> None:
+        self._name = name
+
+    def __call__(self, handler) -> Identity:
+        return Identity(identity_class="window", name=self._name)

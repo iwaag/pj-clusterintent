@@ -20,6 +20,9 @@ _ROUTE_REQUEST_CANCEL = re.compile(r"^/requests/(?P<request_id>[^/]+)/cancel$")
 _ROUTE_SESSIONS_LIST = re.compile(r"^/sessions$")
 _ROUTE_UI_ROOT = re.compile(r"^/$")
 _ROUTE_LLMS_TXT = re.compile(r"^/llms\.txt$")
+_ROUTE_WINDOW = re.compile(r"^/window$")
+_ROUTE_GUIDE = re.compile(r"^/guide$")
+_ROUTE_HEALTHZ = re.compile(r"^/healthz$")
 
 _CHAT_HTML_PATH = Path(__file__).parent / "static" / "chat.html"
 _LLMS_TXT_PATH = Path(__file__).parent / "static" / "llms.txt"
@@ -45,7 +48,14 @@ class ApiError(Exception):
         self.request_id = request_id
 
 
-def make_handler(store: Store, opencode: OpenCodeClient, worker: Worker, authenticate, serve_ui: bool = False):
+def make_handler(
+    store: Store,
+    opencode: OpenCodeClient,
+    worker: Worker,
+    authenticate,
+    serve_ui: bool = False,
+    guide_path: Path | None = None,
+):
     """`authenticate(handler) -> Identity` is the mTLS identity/connect-time-check
     seam (p2/contract.md): production wires `auth.CertAuthenticator`
     (reads `handler.connection.getpeercert()`, checks the ledger and
@@ -55,7 +65,16 @@ def make_handler(store: Store, opencode: OpenCodeClient, worker: Worker, authent
     `serve_ui` gates `GET /` (the chat HTML, unauthenticated — the page
     itself carries no data, only the fetch calls it makes need the token).
     `main.py` passes `True` only for the human listener build_server() call
-    (p4/contract.md: 'UI routes exist only on the human listener')."""
+    (p4/contract.md: 'UI routes exist only on the human listener').
+
+    `guide_path` turns this into the **window listener**, a different door
+    rather than a variation of the same one: `POST /window {"text": ...}` is
+    the only way in, `GET /guide` serves that file raw and re-read per
+    request, `GET /healthz` answers a liveness check, and `GET
+    /requests/{id}` polls the result. The `/requests` POST, `/sessions` and
+    UI routes are *not* mounted there — the window is a single entrance
+    (devpolicy/terms.md), and a second door onto the same worker would only
+    be an unlabelled copy of the first."""
 
     class Handler(BaseHTTPRequestHandler):
         server_version = "cagent-api/0.0.1"
@@ -112,6 +131,11 @@ def make_handler(store: Store, opencode: OpenCodeClient, worker: Worker, authent
         def _dispatch_post(self) -> None:
             path = self.path.split("?", 1)[0]
 
+            if guide_path is not None:
+                if _ROUTE_WINDOW.match(path):
+                    return self._create_window_request()
+                raise ApiError(404, "not_found", f"no such route: POST {path}")
+
             if _ROUTE_REQUESTS.match(path):
                 return self._create_request()
 
@@ -127,6 +151,16 @@ def make_handler(store: Store, opencode: OpenCodeClient, worker: Worker, authent
 
         def _dispatch_get(self) -> None:
             path = self.path.split("?", 1)[0]
+
+            if guide_path is not None:
+                if _ROUTE_GUIDE.match(path):
+                    return self._serve_guide()
+                if _ROUTE_HEALTHZ.match(path):
+                    return self._write_json(200, {"ok": True})
+                m = _ROUTE_REQUEST_GET.match(path)
+                if m:
+                    return self._get_request(m.group("request_id"))
+                raise ApiError(404, "not_found", f"no such route: GET {path}")
 
             if _ROUTE_LLMS_TXT.match(path):
                 return self._serve_llms_txt()
@@ -166,13 +200,34 @@ def make_handler(store: Store, opencode: OpenCodeClient, worker: Worker, authent
             self.end_headers()
             self.wfile.write(body)
 
+        def _serve_guide(self) -> None:
+            """The window's capability card, re-read from disk per request so
+            editing it changes the next answer without a restart."""
+            body = guide_path.read_bytes()
+            self.send_response(200)
+            self.send_header("Content-Type", "text/plain; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def _create_window_request(self) -> None:
+            """`POST /window {"text": ...}` — the window's own body shape, the
+            same one the other agents' windows use, rather than `message`."""
+            body = self._body()
+            text = body.get("text")
+            if not isinstance(text, str) or not text.strip():
+                raise ApiError(400, "bad_request", "'text' is required and must be a non-empty string")
+            self._start_request(text)
+
         def _create_request(self) -> None:
-            identity = self._identity()
             body = self._body()
             message = body.get("message")
             if not isinstance(message, str) or not message:
                 raise ApiError(400, "bad_request", "'message' is required and must be a non-empty string")
+            self._start_request(message)
 
+        def _start_request(self, message: str) -> None:
+            identity = self._identity()
             title = message[:60]
             try:
                 session_id = opencode.create_session(title)
@@ -273,8 +328,11 @@ def build_server(
     authenticate,
     ssl_context=None,
     serve_ui: bool = False,
+    guide_path: Path | None = None,
 ) -> ThreadingHTTPServer:
-    handler_cls = make_handler(store, opencode, worker, authenticate, serve_ui=serve_ui)
+    handler_cls = make_handler(
+        store, opencode, worker, authenticate, serve_ui=serve_ui, guide_path=guide_path
+    )
     httpd = ThreadingHTTPServer((host, port), handler_cls)
     if ssl_context is not None:
         httpd.socket = ssl_context.wrap_socket(httpd.socket, server_side=True)
