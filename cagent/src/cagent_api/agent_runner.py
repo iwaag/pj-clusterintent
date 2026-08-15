@@ -342,7 +342,7 @@ def window_tools() -> tuple[agcode.Tool, ...]:
 
 def resolve(role: str, config_path: Path, overlay_path: Path) -> ResolvedAgent:
     config, overlay = load_config(config_path, overlay_path if overlay_path.exists() else None)
-    return resolve_role(config, overlay, role, project_name="cagent")
+    return resolve_role(config, overlay, role)
 
 
 class AgentRunner:
