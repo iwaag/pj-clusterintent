@@ -27,10 +27,7 @@ because that is what claude_code is. Its per-door grant is spelled in
 
 from __future__ import annotations
 
-import json
 import re
-import shlex
-import subprocess
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
@@ -40,6 +37,7 @@ from agag.agent_config import AgentConfigError, ResolvedAgent, load_config, reso
 from agag.harness import run_harness
 
 from . import incident
+from .readonly_nctl import NCTL_SPEC, nctl_readonly
 
 # Replay caps. A cagent session is a chat, not a codebase: eight turns is more
 # context than any observed answer has needed. The character cap is a backstop
@@ -75,22 +73,9 @@ DESTROY_PATTERNS = (
 )
 _DD_TO_DEVICE = re.compile(r"\bdd\b.*\bif=.*\bof=/dev/")
 
-# The read-only nctl surface the window may reach. Selected here, in Python,
-# rather than as a shell glob list: `("ops", "list")` matches by tuple, so
-# there is no quoting trick, no `;`, and no second command to smuggle in.
-# Each entry is (subcommand words, how many positional arguments follow).
-WINDOW_NCTL_SUBCOMMANDS = (
-    (("status",), 0),
-    (("drift",), 0),
-    (("relations",), 0),
-    (("actual",), 0),
-    (("ops", "list"), 0),
-    (("ops", "show"), 1),  # the operation id
-)
-# Flags that take no value, and flags that take exactly one.
-WINDOW_NCTL_SWITCHES = {"--json", "--detail"}
-WINDOW_NCTL_OPTIONS = {"--host", "--limit", "--after-seq"}
-NCTL_TIMEOUT_SECONDS = 120.0
+# The read-only nctl surface the front door may reach lives in
+# `readonly_nctl.py`, shared with the `cagent` CLI so the surface is defined
+# once for both consumers.
 
 CLAUDE_READONLY_TOOLS = "Read,Glob,Grep"
 CLAUDE_WORKING_TOOLS = "Read,Write,Edit,Glob,Grep,TodoWrite,Bash"
@@ -184,86 +169,6 @@ GUARDED_RUN_SPEC = {
         "type": "object",
         "properties": {"command": {"type": "string", "description": "Shell command line to execute."}},
         "required": ["command"],
-    },
-}
-
-
-def nctl_readonly(base: Path, args: str = "") -> str:
-    """Run one read-only `nctl` subcommand. The window's whole cluster reach.
-
-    `args` is the part after `nctl`. Every token is accounted for here — the
-    subcommand, its declared number of positional arguments, and flags from
-    two small sets — so a trailing word cannot ride along. No shell is
-    involved at any point, which is why quoting, `;` and `&&` are not the
-    concern they were for a bash glob list: they arrive as ordinary argv
-    entries, and an unaccounted-for entry is a refusal.
-    """
-    try:
-        parts = shlex.split(args)
-    except ValueError as error:
-        return f"refused: could not parse arguments ({error})"
-    available = ", ".join(" ".join(words) for words, _ in WINDOW_NCTL_SUBCOMMANDS)
-    match = next(
-        ((words, extra) for words, extra in WINDOW_NCTL_SUBCOMMANDS
-         if parts[: len(words)] == list(words)),
-        None,
-    )
-    if match is None:
-        return f"refused: {args!r} is not one of the available subcommands ({available})"
-    words, allowed_positionals = match
-    rest, positionals = parts[len(words):], 0
-    index = 0
-    while index < len(rest):
-        token = rest[index]
-        name, sep, _ = token.partition("=")
-        if name in WINDOW_NCTL_SWITCHES and not sep:
-            index += 1
-        elif name in WINDOW_NCTL_OPTIONS:
-            index += 1 if sep else 2  # --flag=value, or --flag value
-        elif token.startswith("-"):
-            return (
-                f"refused: {token!r} is not an available option "
-                f"({', '.join(sorted(WINDOW_NCTL_SWITCHES | WINDOW_NCTL_OPTIONS))})"
-            )
-        else:
-            positionals += 1
-            if positionals > allowed_positionals:
-                return (
-                    f"refused: {token!r} is an extra argument to "
-                    f"{' '.join(words)!r}. Available: {available}"
-                )
-            index += 1
-    argv = ["uv", "run", "--project", "nctl", "nctl", *parts]
-    try:
-        proc = subprocess.run(
-            argv, cwd=base, capture_output=True, text=True, timeout=NCTL_TIMEOUT_SECONDS
-        )
-    except subprocess.TimeoutExpired:
-        return f"nctl {args} timed out after {NCTL_TIMEOUT_SECONDS}s"
-    except OSError as error:
-        return f"could not run nctl: {error}"
-    return json.dumps(
-        {"exit_code": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr}
-    )
-
-
-NCTL_SPEC = {
-    "name": "nctl",
-    "description": (
-        "Run one read-only nctl command against this cluster. Available: "
-        "status, drift, relations, actual, 'ops list', 'ops show <id>'. "
-        "Options: --json, --detail, --host NAME, --limit N, --after-seq N. "
-        "Nothing that changes the cluster is available here."
-    ),
-    "input_schema": {
-        "type": "object",
-        "properties": {
-            "args": {
-                "type": "string",
-                "description": "The part after 'nctl', e.g. 'drift --json' or 'ops show 01KX...'.",
-            }
-        },
-        "required": ["args"],
     },
 }
 

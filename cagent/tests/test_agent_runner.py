@@ -118,56 +118,8 @@ def test_ordinary_commands_still_run(tmp_path):
     assert "marker.txt" in result["stdout"]
 
 
-# --- the window's nctl tool -------------------------------------------------
-
-
-@pytest.mark.parametrize(
-    "args",
-    [
-        "reconcile --yes",
-        "desired apply -f x.yaml",
-        "prune",
-        "lifecycle agpc retired",
-        "apply dnsmasq",
-        "status; rm -rf /",
-        "drift && reconcile",
-        "drift; reconcile --yes",
-        "ops show 01KX extra",
-        "status --output json",
-        "",
-    ],
-)
-def test_the_window_nctl_tool_refuses_anything_that_is_not_read_only(tmp_path, args):
-    result = agent_runner.nctl_readonly(tmp_path, args)
-    assert result.startswith("refused:")
-
-
-def test_the_window_nctl_tool_names_what_is_available(tmp_path):
-    result = agent_runner.nctl_readonly(tmp_path, "reconcile")
-    for available in ("status", "drift", "relations", "actual", "ops list", "ops show"):
-        assert available in result
-
-
-def test_an_unavailable_option_is_refused_even_on_an_available_subcommand(tmp_path):
-    assert agent_runner.nctl_readonly(tmp_path, "drift --yes").startswith("refused:")
-    assert agent_runner.nctl_readonly(tmp_path, "drift --output x").startswith("refused:")
-
-
-def test_read_only_subcommands_are_accepted(monkeypatch, tmp_path):
-    """Accepted means "reaches the argv", checked without running nctl."""
-    seen = []
-
-    class Done:
-        returncode, stdout, stderr = 0, "{}", ""
-
-    monkeypatch.setattr(
-        agent_runner.subprocess, "run", lambda argv, **kw: seen.append(argv) or Done()
-    )
-    for args in ("status", "drift --json", "drift --host agpc", "relations",
-                 "actual --json --detail", "ops list --limit 5", "ops show 01KX"):
-        assert not agent_runner.nctl_readonly(tmp_path, args).startswith("refused:")
-    assert seen[0] == ["uv", "run", "--project", "nctl", "nctl", "status"]
-    assert seen[-1] == ["uv", "run", "--project", "nctl", "nctl", "ops", "show", "01KX"]
+# The window's nctl tool moved to `readonly_nctl.py`, shared with the
+# `cagent` CLI; its refusal tests moved with it (test_readonly_nctl.py).
 
 
 # --- instructions and identity ----------------------------------------------
