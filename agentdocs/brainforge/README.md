@@ -21,8 +21,10 @@ prose, not an input to actuation.
 - **SSH** — strong privileges, custom handling, error analysis.
 - **Ansible** — deterministic setup/provisioning/config, actuated via
   `nctl reconcile`.
-- **node-agent** (`nctl agent`) — node-local, non-deterministic processing
-  inside the host environment.
+- **agent doors** — non-deterministic processing through an agent's own
+  conversational entrance (cagent's window/human doors, an autolab node's
+  gateway). `nctl agent`, the SSH-tunnelled node-local variant, was removed
+  with the node-agent service it reached.
 
 ## Commands (`nctl braindump --help`, `nctl --help` for full options)
 

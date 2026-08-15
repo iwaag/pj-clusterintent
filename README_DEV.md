@@ -130,7 +130,7 @@ something was painful or felt like a second occurrence — create a WorkflowEpis
 Do not build or edit runbooks for the task you are currently executing; record the pain and
 move on.
 
-The cluster-agent (`cagent`) answers guidance questions and does not itself end its OpenCode
+The cluster-agent (`cagent`) answers guidance questions and does not itself end its agent
 turn with this self-report — its scope is one request/response, not a session boundary. If you
 are the caller that dispatched work to `cagent` (directly or indirectly) and the exchange was
 non-trivial, painful, or felt like a second occurrence, check whether a `WorkflowEpisode` was
