@@ -166,7 +166,7 @@ def test_the_committed_config_resolves_all_three_doors(tmp_path):
         'schema = "ag.agent-config.v1"\n\n[local.provider.ollama]\n'
         'base_url = "http://ollama.example:11434"\n'
     )
-    for role in ("node", "human", "window"):
+    for role in ("node", "human", "front"):
         runner = build_runner(
             role, config_path=CONFIG, overlay_path=overlay, working_dir=tmp_path,
             instructions_path=tmp_path / "a.md", turn_timeout=1,
@@ -176,11 +176,13 @@ def test_the_committed_config_resolves_all_three_doors(tmp_path):
         assert runner.identity()["model"] == "ollama/qwen3.6:35b-a3b-coding-nvfp4"
 
 
-def test_only_the_window_role_gets_the_window_tools(tmp_path):
+def test_only_the_front_role_gets_the_window_tools(tmp_path):
+    """`front` is the renamed window role; the `/window` route keeps serving
+    the strictly-smaller tool set through it."""
     overlay = tmp_path / "agents.local.toml"
     kwargs = dict(config_path=CONFIG, overlay_path=overlay, working_dir=tmp_path,
                   instructions_path=tmp_path / "a.md", turn_timeout=1)
-    window = build_runner("window", **kwargs)
+    window = build_runner("front", **kwargs)
     human = build_runner("human", **kwargs)
     assert "run" not in [t.name for t in window.tools]
     assert "run" in [t.name for t in human.tools]

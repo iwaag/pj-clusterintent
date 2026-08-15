@@ -128,7 +128,7 @@ def main() -> None:
     try:
         node_runner = runner_for("node", AGENT_INSTRUCTIONS)
         human_runner = runner_for("human", AGENT_INSTRUCTIONS)
-        window_runner = runner_for("window", WINDOW_INSTRUCTIONS)
+        window_runner = runner_for("front", WINDOW_INSTRUCTIONS)
     except AgentConfigError as error:
         raise SystemExit(f"agent configuration is unusable: {error}") from error
 

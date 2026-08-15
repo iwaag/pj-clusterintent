@@ -36,8 +36,17 @@ requires = []
 profile = "local"
 requires = []
 
-# The unauthenticated door. Its tool set is strictly smaller — see
-# `agent_runner.window_tools()`.
-[roles.window]
+# The conversational front: the unauthenticated `/window` route and the
+# cagent- topic flow. Its in-process tool set is strictly smaller — see
+# `agent_runner.window_tools()`; in the topic flow it writes handoff files
+# and never touches nctl.
+[roles.front]
+profile = "local"
+requires = []
+
+# The topic flow's cluster reader: runs the read-only `cagent` CLI to gather
+# what the front's `required_info.md` asks for. Out-of-process only
+# (`role_run.py`); no HTTP door resolves this role.
+[roles.operator]
 profile = "local"
 requires = []

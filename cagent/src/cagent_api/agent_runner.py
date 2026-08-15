@@ -367,7 +367,9 @@ def build_runner(
 ) -> AgentRunner:
     """Resolve `role` and give it the tool set its door is entitled to."""
     agent = resolve(role, config_path, overlay_path)
-    is_window = role == "window"
+    # `front` is the renamed window *role*; the `/window` route it serves
+    # keeps its name and its strictly-smaller tool set.
+    is_window = role == "front"
     return AgentRunner(
         agent,
         working_dir=working_dir,
