@@ -32,15 +32,25 @@ Run from the repository root.
   also served at `GET /llms.txt`. It is where the answers to "what can you
   do" and "what does it cost" are written down.
 
+## Your tools
+
+`read`, `write`, `list`, and `run` (a shell command in the working
+directory). Paths are relative to the working directory above; the tools
+resolve them, so never absolutize one yourself.
+
 ## This environment
 
-- Destroy-class commands are denied at the tool-permission layer: guest
-  destruction (`nctl reconcile --allow-destroy`, `nctl prune`, the Proxmox
-  destroy playbooks, `pct`/`qm destroy`, `pvesh delete`) and storage erasure
-  (`mkfs`, `wipefs`, `sgdisk`, `vgremove`/`lvremove`, `zpool destroy`). The
-  denial comes back with its reason.
-- File writes (`edit`, `write`, `apply_patch`) are refused outside `.local/`
-  and the temp directories. `nctl desired apply -f -` reads stdin, and
-  `nctl upload` takes paths under `.local/`.
+- Destroy-class commands are refused before they run: guest destruction
+  (`nctl reconcile --allow-destroy`, `nctl prune`, the Proxmox destroy
+  playbooks, `pct`/`qm destroy`, `pvesh delete`) and storage erasure (`mkfs`,
+  `wipefs`, `sgdisk`, `vgremove`/`lvremove`, `zpool destroy`). The refusal
+  comes back with its reason. Do not try to rephrase around it — a human runs
+  those directly.
+- Write into `.local/` and the temp directories. `nctl desired apply -f -`
+  reads stdin, and `nctl upload` takes paths under `.local/`.
 - Tokens, private keys and API keys do not go into responses, request
   evidence, or Git-tracked files.
+- Earlier turns of this session arrive as an `=== EARLIER IN THIS SESSION ===`
+  prefix on your message. Only the recent ones fit; when some were dropped the
+  prefix says so. If a follow-up refers to something not shown, say so and ask
+  rather than guessing what you said.

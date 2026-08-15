@@ -12,6 +12,15 @@
     <string>cagent-api</string>
   </array>
   <key>WorkingDirectory</key><string>__PROJECTS_ROOT__/pj-clusterintent</string>
+  <!-- launchd hands a job a minimal PATH. The agent runs in this process now,
+       so its `run` and `nctl` tools inherit exactly this — without Homebrew
+       and ~/.local/bin on it, `uv` is not found and every nctl command fails.
+       The retired opencode start scripts set the same PATH for the same
+       reason; this is where it lives now. -->
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key><string>/opt/homebrew/bin:__HOME__/.local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+  </dict>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>
   <key>ThrottleInterval</key><integer>10</integer>

@@ -1,6 +1,6 @@
 """The window listener: one unauthenticated door, and nothing else on it.
 
-Same style as test_server.py — the fakes replace the OpenCode boundary, and
+Same style as test_server.py — the fakes replace the agent backend, and
 `NoAuthenticator` is the real production authenticator here because "no
 credential" is the actual contract, not a test seam.
 """
@@ -15,21 +15,15 @@ import urllib.request
 
 import pytest
 
-from cagent_api import worker as worker_module
 from cagent_api.auth import NoAuthenticator
 from cagent_api.server import build_server
 from cagent_api.store import Store
 from cagent_api.worker import Worker
 
-from .fakes import FakeAuthenticator, FakeOpenCodeClient
+from .fakes import FakeAuthenticator, FakeRunner
 
 JSON = {"Content-Type": "application/json"}
 NODE_HEADERS = {"X-Test-Node-Uuid": "agpc-uuid", "Content-Type": "application/json"}
-
-
-@pytest.fixture(autouse=True)
-def fast_polling(monkeypatch):
-    monkeypatch.setattr(worker_module, "POLL_INTERVAL_SECONDS", 0.01)
 
 
 @pytest.fixture()
@@ -42,18 +36,23 @@ def guide(tmp_path):
 @pytest.fixture()
 def running_window(guide):
     """Node listener + window listener sharing one store, each with its own
-    OpenCode client and worker — the production wiring in main.py."""
+    runner and worker — the production wiring in main.py. Separate runners is
+    the whole safety story: the window's offers a strictly smaller tool set."""
     store = Store()
-    node_opencode = FakeOpenCodeClient()
-    node_worker = Worker(store, node_opencode)
+    node_runner = FakeRunner()
+    node_runner.hold()
+    node_worker = Worker(store, node_runner)
     node_worker.start()
-    window_opencode = FakeOpenCodeClient()
-    window_worker = Worker(store, window_opencode)
+    window_runner = FakeRunner({"harness": "agcode", "provider": "ollama",
+                                "model": "ollama/test-model", "role": "window",
+                                "profile": "local"})
+    window_runner.hold()
+    window_worker = Worker(store, window_runner)
     window_worker.start()
 
-    node_httpd = build_server("127.0.0.1", 0, store, node_opencode, node_worker, FakeAuthenticator())
+    node_httpd = build_server("127.0.0.1", 0, store, node_runner, node_worker, FakeAuthenticator())
     window_httpd = build_server(
-        "127.0.0.1", 0, store, window_opencode, window_worker, NoAuthenticator(),
+        "127.0.0.1", 0, store, window_runner, window_worker, NoAuthenticator(),
         guide_path=guide,
     )
     for httpd in (node_httpd, window_httpd):
@@ -62,8 +61,8 @@ def running_window(guide):
         yield (
             f"http://127.0.0.1:{window_httpd.server_address[1]}",
             f"http://127.0.0.1:{node_httpd.server_address[1]}",
-            window_opencode,
-            node_opencode,
+            window_runner,
+            node_runner,
         )
     finally:
         for httpd in (node_httpd, window_httpd):
@@ -92,8 +91,8 @@ def _wait_for(window, request_id, state, timeout=2.0):
     return payload
 
 
-def test_a_message_needs_no_credential_and_reaches_the_window_opencode(running_window):
-    window, _, window_opencode, node_opencode = running_window
+def test_a_message_needs_no_credential_and_reaches_the_window_runner(running_window):
+    window, _, window_runner, node_runner = running_window
     status, payload = _call(window + "/window", "POST", {"text": "is agpc up?"}, JSON)
     assert status == 202
     assert payload["state"] == "queued"
@@ -101,12 +100,14 @@ def test_a_message_needs_no_credential_and_reaches_the_window_opencode(running_w
     running = _wait_for(window, payload["request_id"], "running")
     assert running["identity"] == {"class": "window", "name": "window"}
 
-    window_opencode.complete_latest_turn(payload["session_id"], text="it is up")
+    window_runner.finish("it is up")
     completed = _wait_for(window, payload["request_id"], "completed")
     assert completed["response"] == "it is up"
-    # The window's turn must not have gone to the authenticated instance.
-    assert [text for _, text in window_opencode.prompt_calls] == ["is agpc up?"]
-    assert node_opencode.prompt_calls == []
+    # The window's turn must not have gone to the authenticated runner.
+    assert window_runner.tasks == ["is agpc up?"]
+    assert node_runner.tasks == []
+    # And the record names the window role, not the node one.
+    assert completed["backend"]["role"] == "window"
 
 
 def test_the_window_rejects_an_empty_or_missing_text(running_window):

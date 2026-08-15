@@ -4,16 +4,12 @@ import time
 
 import pytest
 
-from cagent_api import worker as worker_module
 from cagent_api.store import Identity, Store
 from cagent_api.worker import Worker
 
-from .fakes import FakeOpenCodeClient
+from .fakes import FakeRunner
 
-
-@pytest.fixture(autouse=True)
-def fast_polling(monkeypatch):
-    monkeypatch.setattr(worker_module, "POLL_INTERVAL_SECONDS", 0.01)
+IDENTITY = Identity("node", "agpc-uuid", "agpc-serial")
 
 
 def wait_for_state(store: Store, request_id: str, state: str, timeout: float = 2.0) -> None:
@@ -26,214 +22,154 @@ def wait_for_state(store: Store, request_id: str, state: str, timeout: float = 2
                           f"{store.get_request(request_id).state!r}")
 
 
-def test_full_turn_completes():
+def started(runner: FakeRunner, held: bool = False):
+    """A store, a started worker, and one queued request."""
     store = Store()
-    opencode = FakeOpenCodeClient()
-    w = Worker(store, opencode)
-    w.start()
+    worker = Worker(store, runner)
+    worker.start()
+    if held:
+        runner.hold()
+    session = runner.new_session_id()
+    request = store.create_session_and_request(session, IDENTITY, "hello")
+    worker.enqueue(request.request_id)
+    return store, worker, session, request
 
-    identity = Identity("node", "agpc-uuid", "agpc-serial")
-    session_id = opencode.create_session("t")
-    request = store.create_session_and_request(session_id, identity, "hello")
-    w.enqueue(request.request_id)
 
-    wait_for_state(store, request.request_id, "running")
-    opencode.complete_latest_turn(session_id, text="hi there")
+def test_full_turn_completes():
+    runner = FakeRunner()
+    store, _, _, request = started(runner)
+
     wait_for_state(store, request.request_id, "completed")
-
     final = store.get_request(request.request_id)
     assert final.response == "hi there"
     assert final.error is None
-    # Agent ≠ Model: the run record names what actually served the turn.
+    # Agent ≠ Model: the run record names what actually served the turn,
+    # including the role and profile that selected it.
     assert final.backend == {
-        "harness": "opencode", "provider": "openai", "model": "gpt-5.6-luna",
+        "harness": "agcode", "provider": "ollama", "model": "ollama/test-model",
+        "role": "node", "profile": "local",
     }
 
 
-def test_completed_turn_records_only_its_own_cost():
-    """`cost_usd` is the delta this turn added to the session, not the
-    session total — a second turn in the same session must not re-report
-    what the first one already cost."""
-    store = Store()
-    opencode = FakeOpenCodeClient()
-    w = Worker(store, opencode)
-    w.start()
+def test_agcode_turn_reports_no_cost_rather_than_zero():
+    """agcode's backend reports no cost. `None` says "not measured"; a 0.0
+    would say "this was free", which is a different and false claim."""
+    runner = FakeRunner()
+    store, _, _, request = started(runner)
 
-    identity = Identity("node", "agpc-uuid", "agpc-serial")
-    session_id = opencode.create_session("t")
-
-    first = store.create_session_and_request(session_id, identity, "hello")
-    w.enqueue(first.request_id)
-    wait_for_state(store, first.request_id, "running")
-    opencode.costs[session_id] = 0.004
-    opencode.complete_latest_turn(session_id, text="hi")
-    wait_for_state(store, first.request_id, "completed")
-    assert store.get_request(first.request_id).cost_usd == pytest.approx(0.004)
-
-    second = store.continue_session(session_id, identity, "and again")
-    w.enqueue(second.request_id)
-    wait_for_state(store, second.request_id, "running")
-    opencode.costs[session_id] = 0.011
-    opencode.complete_latest_turn(session_id, text="again")
-    wait_for_state(store, second.request_id, "completed")
-    assert store.get_request(second.request_id).cost_usd == pytest.approx(0.007)
-
-
-def test_cancelled_turn_still_reports_what_it_cost():
-    """An interrupted request is not a free request (turn1 F2)."""
-    store = Store()
-    opencode = FakeOpenCodeClient()
-    w = Worker(store, opencode)
-    w.start()
-
-    identity = Identity("node", "agpc-uuid", "agpc-serial")
-    session_id = opencode.create_session("t")
-    request = store.create_session_and_request(session_id, identity, "hello")
-    w.enqueue(request.request_id)
-    wait_for_state(store, request.request_id, "running")
-
-    opencode.costs[session_id] = 0.0031
-    w.request_cancel(request.request_id)
-    wait_for_state(store, request.request_id, "cancelled")
-
-    assert store.get_request(request.request_id).cost_usd == pytest.approx(0.0031)
-
-
-def test_multi_step_turn_does_not_complete_early():
-    """A real multi-step tool-calling turn produces several assistant
-    messages, only the last of which is the true end (OpenCode's
-    `finish != "tool-calls"`). The worker must not treat an intermediate
-    step's completion as the whole turn finishing."""
-    store = Store()
-    opencode = FakeOpenCodeClient()
-    w = Worker(store, opencode)
-    w.start()
-
-    identity = Identity("node", "agpc-uuid", "agpc-serial")
-    session_id = opencode.create_session("t")
-    request = store.create_session_and_request(session_id, identity, "hello")
-    w.enqueue(request.request_id)
-
-    wait_for_state(store, request.request_id, "running")
-    opencode.push_intermediate_step(session_id)
-    opencode.push_intermediate_step(session_id)
-    time.sleep(0.1)
-    assert store.get_request(request.request_id).state == "running"
-
-    opencode.complete_latest_turn(session_id, text="final answer")
     wait_for_state(store, request.request_id, "completed")
-    assert store.get_request(request.request_id).response == "final answer"
+    assert store.get_request(request.request_id).cost_usd is None
 
 
-def test_opencode_error_marks_failed():
-    store = Store()
-    opencode = FakeOpenCodeClient()
-    opencode.raise_on_prompt = True
-    w = Worker(store, opencode)
-    w.start()
-
-    identity = Identity("node", "agpc-uuid", "agpc-serial")
-    session_id = opencode.create_session("t")
-    request = store.create_session_and_request(session_id, identity, "hello")
-    w.enqueue(request.request_id)
-
-    wait_for_state(store, request.request_id, "failed")
-    assert store.get_request(request.request_id).error["code"] == "opencode_error"
-
-
-def test_assistant_error_marks_failed():
-    store = Store()
-    opencode = FakeOpenCodeClient()
-    w = Worker(store, opencode)
-    w.start()
-
-    identity = Identity("node", "agpc-uuid", "agpc-serial")
-    session_id = opencode.create_session("t")
-    request = store.create_session_and_request(session_id, identity, "hello")
-    w.enqueue(request.request_id)
+def test_a_harness_that_reports_cost_keeps_it():
+    runner = FakeRunner()
+    store, _, _, request = started(runner, held=True)
 
     wait_for_state(store, request.request_id, "running")
-    opencode.fail_latest_turn(session_id, error_name="SomeModelError")
-    wait_for_state(store, request.request_id, "failed")
-    assert store.get_request(request.request_id).error["message"] == "SomeModelError"
+    runner.charge(0.0041, text="an answer")
+    wait_for_state(store, request.request_id, "completed")
+    assert store.get_request(request.request_id).cost_usd == pytest.approx(0.0041)
 
 
-def test_cancel_while_running_aborts_and_marks_cancelled():
-    store = Store()
-    opencode = FakeOpenCodeClient()
-    w = Worker(store, opencode)
-    w.start()
+def test_prior_turns_of_the_session_are_replayed_into_the_task():
+    """agcode is stateless, so cagent is the memory: the second turn's task
+    carries the first turn's question and answer."""
+    runner = FakeRunner()
+    store, worker, session, first = started(runner)
+    wait_for_state(store, first.request_id, "completed")
 
-    identity = Identity("node", "agpc-uuid", "agpc-serial")
-    session_id = opencode.create_session("t")
-    request = store.create_session_and_request(session_id, identity, "hello")
-    w.enqueue(request.request_id)
+    second = store.continue_session(session, IDENTITY, "and what about the other one?")
+    worker.enqueue(second.request_id)
+    wait_for_state(store, second.request_id, "completed")
+
+    replayed = runner.tasks[1]
+    assert "=== EARLIER IN THIS SESSION ===" in replayed
+    assert "hello" in replayed and "hi there" in replayed
+    assert replayed.endswith("and what about the other one?")
+    # The first turn saw no history at all.
+    assert runner.tasks[0] == "hello"
+
+
+def test_a_failed_turn_is_not_replayed_as_an_unanswered_question():
+    runner = FakeRunner()
+    store, worker, session, first = started(runner, held=True)
+    wait_for_state(store, first.request_id, "running")
+    runner.fail()
+    wait_for_state(store, first.request_id, "failed")
+
+    runner.release.set()
+    runner.result = type(runner.result)("ok", "completed", None, None, None)
+    second = store.continue_session(session, IDENTITY, "again")
+    worker.enqueue(second.request_id)
+    wait_for_state(store, second.request_id, "completed")
+
+    assert runner.tasks[1] == "again"
+
+
+def test_a_failing_run_marks_failed_with_its_reason():
+    runner = FakeRunner()
+    store, _, _, request = started(runner, held=True)
 
     wait_for_state(store, request.request_id, "running")
-    w.request_cancel(request.request_id)
+    runner.fail("deadline_exceeded: out of time")
+    wait_for_state(store, request.request_id, "failed")
+    assert store.get_request(request.request_id).error == {
+        "code": "agent_error", "message": "deadline_exceeded: out of time",
+    }
+
+
+def test_cancel_while_running_reaches_the_run_through_stop():
+    """Cancellation is the runner's `stop` callable, not an abort call to a
+    session API — there is no session to abort any more."""
+    runner = FakeRunner()
+    store, worker, _, request = started(runner, held=True)
+
+    wait_for_state(store, request.request_id, "running")
+    assert callable(runner.stops[0])
+    assert runner.stops[0]() is False
+    worker.request_cancel(request.request_id)
     wait_for_state(store, request.request_id, "cancelled")
-    assert opencode.abort_calls == [session_id]
 
 
 def test_cancel_while_queued_never_dispatches():
+    runner = FakeRunner()
     store = Store()
-    opencode = FakeOpenCodeClient()
-    w = Worker(store, opencode)
+    worker = Worker(store, runner)
     # Do not start the worker thread — simulate cancel landing before dispatch.
-
-    identity = Identity("node", "agpc-uuid", "agpc-serial")
-    session_id = opencode.create_session("t")
-    request = store.create_session_and_request(session_id, identity, "hello")
+    session = runner.new_session_id()
+    request = store.create_session_and_request(session, IDENTITY, "hello")
     store.update_request(request.request_id, state="cancelled")
-    w.enqueue(request.request_id)
+    worker.enqueue(request.request_id)
 
-    w.start()
+    worker.start()
     time.sleep(0.1)
     assert store.get_request(request.request_id).state == "cancelled"
-    assert opencode.prompt_calls == []
-
-
-def test_turn_timeout_marks_failed():
-    store = Store()
-    opencode = FakeOpenCodeClient()
-    w = Worker(store, opencode)
-    w.start()
-    original_timeout = worker_module.TURN_TIMEOUT_SECONDS
-    worker_module.TURN_TIMEOUT_SECONDS = 0.05
-    try:
-        identity = Identity("node", "agpc-uuid", "agpc-serial")
-        session_id = opencode.create_session("t")
-        request = store.create_session_and_request(session_id, identity, "hello")
-        w.enqueue(request.request_id)
-        # never complete the turn
-        wait_for_state(store, request.request_id, "failed", timeout=2.0)
-        assert store.get_request(request.request_id).error["code"] == "timeout"
-        assert opencode.abort_calls == [session_id]
-    finally:
-        worker_module.TURN_TIMEOUT_SECONDS = original_timeout
+    assert runner.tasks == []
 
 
 def test_global_serialization_second_request_waits():
-    store = Store()
-    opencode = FakeOpenCodeClient()
-    w = Worker(store, opencode)
-    w.start()
-
-    identity = Identity("node", "agpc-uuid", "agpc-serial")
-    session_a = opencode.create_session("a")
-    session_b = opencode.create_session("b")
-    req1 = store.create_session_and_request(session_a, identity, "first")
-    req2 = store.create_session_and_request(session_b, identity, "second")
-    w.enqueue(req1.request_id)
-    w.enqueue(req2.request_id)
+    runner = FakeRunner()
+    store, worker, session_a, req1 = started(runner, held=True)
+    session_b = runner.new_session_id()
+    req2 = store.create_session_and_request(session_b, IDENTITY, "second")
+    worker.enqueue(req2.request_id)
 
     wait_for_state(store, req1.request_id, "running")
     time.sleep(0.05)
     # second request must still be queued: one global worker, req1 not done yet
     assert store.get_request(req2.request_id).state == "queued"
 
-    opencode.complete_latest_turn(session_a, text="done-a")
+    runner.finish("done-a")
     wait_for_state(store, req1.request_id, "completed")
-    wait_for_state(store, req2.request_id, "running")
-    opencode.complete_latest_turn(session_b, text="done-b")
     wait_for_state(store, req2.request_id, "completed")
+
+
+def test_a_crashing_runner_is_a_failed_request_not_a_dead_worker():
+    class Exploding(FakeRunner):
+        def run(self, task, *, stop=None, transcript_path=None):
+            raise RuntimeError("boom")
+
+    runner = Exploding()
+    store, _, _, request = started(runner)
+    wait_for_state(store, request.request_id, "failed")
+    assert store.get_request(request.request_id).error["code"] == "internal_error"

@@ -8,31 +8,26 @@ import urllib.request
 
 import pytest
 
-from cagent_api import worker as worker_module
 from cagent_api.server import build_server
 from cagent_api.store import Store
 from cagent_api.worker import Worker
 
-from .fakes import FakeAuthenticator, FakeHumanAuthenticator, FakeOpenCodeClient
-
-
-@pytest.fixture(autouse=True)
-def fast_polling(monkeypatch):
-    monkeypatch.setattr(worker_module, "POLL_INTERVAL_SECONDS", 0.01)
+from .fakes import FakeAuthenticator, FakeHumanAuthenticator, FakeRunner
 
 
 @pytest.fixture()
 def running_server():
     store = Store()
-    opencode = FakeOpenCodeClient()
-    w = Worker(store, opencode)
+    runner = FakeRunner()
+    runner.hold()
+    w = Worker(store, runner)
     w.start()
-    httpd = build_server("127.0.0.1", 0, store, opencode, w, FakeAuthenticator())
+    httpd = build_server("127.0.0.1", 0, store, runner, w, FakeAuthenticator())
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
     thread.start()
     port = httpd.server_address[1]
     try:
-        yield f"http://127.0.0.1:{port}", opencode
+        yield f"http://127.0.0.1:{port}", runner
     finally:
         httpd.shutdown()
         httpd.server_close()
@@ -51,15 +46,16 @@ def _call_raw(url: str):
 def running_dual_server():
     """Node listener + human listener sharing one store/worker (p4/plan.md
     Step 1: 'a second build_server() call sharing the same
-    store/worker/opencode objects'), both plain HTTP here — the fakes
+    store/worker/runner objects'), both plain HTTP here — the fakes
     replace the auth seam, real TLS is the Step 3 conformance test's job."""
     store = Store()
-    opencode = FakeOpenCodeClient()
-    w = Worker(store, opencode)
+    runner = FakeRunner()
+    runner.hold()
+    w = Worker(store, runner)
     w.start()
-    node_httpd = build_server("127.0.0.1", 0, store, opencode, w, FakeAuthenticator())
+    node_httpd = build_server("127.0.0.1", 0, store, runner, w, FakeAuthenticator())
     human_httpd = build_server(
-        "127.0.0.1", 0, store, opencode, w, FakeHumanAuthenticator(), serve_ui=True
+        "127.0.0.1", 0, store, runner, w, FakeHumanAuthenticator(), serve_ui=True
     )
     node_thread = threading.Thread(target=node_httpd.serve_forever, daemon=True)
     human_thread = threading.Thread(target=human_httpd.serve_forever, daemon=True)
@@ -68,7 +64,7 @@ def running_dual_server():
     node_port = node_httpd.server_address[1]
     human_port = human_httpd.server_address[1]
     try:
-        yield f"http://127.0.0.1:{node_port}", f"http://127.0.0.1:{human_port}", opencode
+        yield f"http://127.0.0.1:{node_port}", f"http://127.0.0.1:{human_port}", runner
     finally:
         node_httpd.shutdown()
         node_httpd.server_close()
@@ -106,7 +102,7 @@ def test_create_request_missing_identity_returns_401(running_server):
 
 
 def test_create_and_poll_request_to_completion(running_server):
-    base, opencode = running_server
+    base, runner = running_server
     status, payload = _call(base + "/requests", "POST", {"message": "hi"}, NODE_HEADERS)
     assert status == 202
     assert payload["state"] == "queued"
@@ -121,7 +117,7 @@ def test_create_and_poll_request_to_completion(running_server):
         time.sleep(0.01)
     assert get_payload["state"] == "running"
 
-    opencode.complete_latest_turn(session_id, text="the answer")
+    runner.finish("the answer")
     deadline = time.monotonic() + 2
     while time.monotonic() < deadline:
         status, get_payload = _call(f"{base}/requests/{request_id}", headers=NODE_HEADERS)
@@ -174,7 +170,7 @@ def test_continue_session_requires_matching_identity(running_server):
 
 
 def test_cancel_queued_request_is_immediate(running_server):
-    base, opencode = running_server
+    base, runner = running_server
     # Never complete the first turn so the queue backs up.
     status, first = _call(base + "/requests", "POST", {"message": "first"}, NODE_HEADERS)
 
@@ -198,10 +194,10 @@ def test_cancel_request_owned_by_another_uuid_is_rejected(running_server):
 
 
 def test_list_sessions_and_session_requests(running_server):
-    base, opencode = running_server
+    base, runner = running_server
     status, payload = _call(base + "/requests", "POST", {"message": "hi"}, NODE_HEADERS)
     session_id = payload["session_id"]
-    opencode.complete_latest_turn(session_id)
+    runner.finish()
 
     time.sleep(0.05)
     status, sessions = _call(base + "/sessions", headers=NODE_HEADERS)
@@ -214,7 +210,7 @@ def test_list_sessions_and_session_requests(running_server):
 
 
 def test_list_sessions_excludes_other_identities_sessions(running_server):
-    base, opencode = running_server
+    base, runner = running_server
     _call(base + "/requests", "POST", {"message": "hi"}, NODE_HEADERS)
 
     other_headers = {**NODE_HEADERS, "X-Test-Node-Uuid": "someone-else-uuid"}

@@ -90,7 +90,7 @@ def test_answer_text_prefers_the_response():
 @pytest.mark.parametrize(
     "unanswered",
     [
-        {"state": "failed", "error": {"code": "opencode_error", "message": "backend exploded"}},
+        {"state": "failed", "error": {"code": "agent_error", "message": "backend exploded"}},
         {"state": "interrupted", "error": None},
         {"state": "completed", "response": "   "},
     ],

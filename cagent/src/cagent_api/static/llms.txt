@@ -1,7 +1,7 @@
 # cluster-agent
 
-An HTTP entrance onto a command node's cluster-agent (an OpenCode agent
-session whose working directory is the pj-clusterintent superproject). Ask
+An HTTP entrance onto a command node's cluster-agent (an agent whose single
+working directory is the pj-clusterintent superproject). Ask
 it about cluster resources/services — status, drift, relations, "does X
 exist", "how do I get S3-compatible storage" — instead of guessing or
 installing your own. It reads the cluster's actual state and answers with
@@ -67,16 +67,17 @@ This file is the cluster-agent's capability card; the agent answers "what
 can you do" and "what does it cost" from it in a session too, so you can
 just ask.
 
-- **Money: reported per request.** `GET /requests/{request_id}` returns
-  `cost_usd` — what this turn added to its OpenCode session, from OpenCode's
-  own accounting. `null` means not measured (the turn never reached the
-  backend, or the record predates this field); on the cancel and timeout
-  paths it is a floor, not a total, because the turn may still be running.
-  Measured 2026-08-10 over 7 sessions on `openai/gpt-5.6-luna`: $0.0025 for
-  a capability question, ~$0.005 for a plain read, $0.042 for a multi-step
-  composition, $0.062 for a guest creation; median ~$0.005. Cents, not
-  dollars. The backend model is `CAGENT_OPENCODE_MODEL` (default
-  `openai/gpt-5.6-luna`) and those figures move with it.
+- **Money: reported per request, when there is one.**
+  `GET /requests/{request_id}` returns `cost_usd`, and `backend` naming the
+  role, profile, harness, provider and model that served the turn. On the
+  default backend — a local model behind an endpoint that charges nothing and
+  reports nothing — `cost_usd` is `null`: not measured, which is a different
+  claim from "free", and inventing a 0.0 would be the wrong one. `null` also
+  covers a turn that never reached the backend, and records written before
+  this field existed. A paid backend (a `claude_code` profile) reports its
+  own figure there. Which backend serves this door is configuration
+  (`cagent/agents.toml` plus the machine-local overlay), so read `backend`
+  rather than assuming.
 - **Time: seconds to ~4 minutes**, as above. A single read
   (`nctl status`, "does X exist") is usually well under a minute; a
   multi-command state bundle is the slow end.

@@ -1,7 +1,7 @@
 [project]
 name = "cagent-api"
 version = "0.0.1"
-description = "cluster-agent API: loopback HTTP server proxying a dedicated OpenCode instance (pj-clusterintent, devdocs/vision/cluster_agent)"
+description = "cluster-agent API: the three-door HTTP entrance and its in-process agent (pj-clusterintent, devdocs/vision/cluster_agent)"
 readme = "README.md"
 requires-python = ">=3.11"
 # The one dependency: the shared Zulip chat entrance (`agag.zulip`). The

@@ -41,10 +41,10 @@ Can: read-only `nctl` — `status`, `drift`, `relations`, `actual`, `ops list`,
 `ops show` — read files in the repository, and record incidents.
 
 Cannot: change anything. `reconcile`, `desired apply`, `apply`, `prune`,
-`lifecycle`, Ansible, SSH and every file write are denied to this door at the
-tool-permission layer, so a request for a change comes back as a refusal with
-its reason, however it is phrased. That is the safety story here: the
-permission set, not a promise in prose.
+`lifecycle`, Ansible, SSH and every file write are simply not among this
+door's tools — there is no shell here at all — so a request for a change
+comes back as a refusal naming what *is* available, however it is phrased.
+That is the safety story here: the tool set, not a promise in prose.
 
 Cluster changes go through the authenticated entrances instead — the human
 entrance's chat UI, or the node entrance with a client certificate. Their
@@ -52,15 +52,17 @@ capability card is `GET /llms.txt` on those ports.
 
 ## What it costs
 
-Every message costs a real model turn; there is no cheap path for small talk.
-`GET /requests/{request_id}` carries `cost_usd` for the turn, and `backend`
-naming the harness/provider/model that served it — those are the live
-numbers, the ones below are measurements, not quotes.
+Every message costs a real model turn. `GET /requests/{request_id}` carries
+`cost_usd` for the turn, and `backend` naming the role, profile, harness,
+provider and model that served it — those are the live numbers, the ones
+below are measurements, not quotes.
 
-- Measured 2026-08-12 on `openai/gpt-5.6-luna` (the default backend, set by
-  `CAGENT_WINDOW_MODEL`): **about 0.2 US cents for a capability question, a
-  plain read, or a refusal, and 0.2–0.6 cents for a recorded incident** —
-  a fraction of a cent per turn, but never zero.
-- Time: 6–10 s for a single read or a recorded report; a multi-command answer
-  can take minutes. Poll, do not block on a short timeout.
+- **Money: `cost_usd` is `null` on the default backend.** The window runs on
+  a local model behind an endpoint that charges nothing and reports nothing,
+  so the field says "not measured" rather than claiming the turn was free.
+  If this door is moved onto a paid backend, that backend's own figure
+  appears there instead — read `backend` rather than assuming.
+- Time: a few seconds for a single read or a recorded report; a
+  multi-command answer can take minutes. Poll, do not block on a short
+  timeout.
 - Cluster side effects: none. This door cannot cause any.

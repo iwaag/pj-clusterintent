@@ -1,4 +1,4 @@
-"""Background worker: dispatches turns to OpenCode and polls to completion.
+"""Background worker: runs one turn to completion through an AgentRunner.
 
 Serialization choice (recorded per p1/contract.md, which left this to the
 implementation): **global** serialization — a single worker thread drains
@@ -6,6 +6,13 @@ one queue for every session, not one queue per session. The plan
 (p1/plan.md Step 3) explicitly allows this as "acceptable and simpler for
 now (all sessions share one working directory)"; it also trivially
 satisfies the contract's weaker per-session serialization requirement.
+
+The turn is synchronous now. The previous harness's session API forced a
+poll loop — a message count, a `completed` flag, and a `finish == "tool-calls"` check to
+tell an intermediate step from the turn's end. `AgentRunner.run()` returns
+when the run is over, so all of that is gone. Cancellation and the timeout
+are handed to the runner instead of enforced by this loop: agcode checks the
+`stop` callable between turns and ends itself on `deadline_s`.
 """
 
 from __future__ import annotations
@@ -14,25 +21,23 @@ import logging
 import os
 import queue
 import threading
-import time
 
-from .opencode_client import OpenCodeClient, OpenCodeError
+from .agent_runner import AgentRunner, compose_task
 from .store import Store
 
 logger = logging.getLogger("cagent_api.worker")
 
-POLL_INTERVAL_SECONDS = 1.0
-# OpenCode can retry a broken backend connection indefinitely without ever
-# settling a message (see p1/report2.md) — bound how long one turn can wedge
-# the single global queue. Multi-command compositions (e.g. a state bundle)
-# can legitimately outlast the old fixed 300s, so the bound is configurable.
+# Bounds how long one turn can wedge the single global queue. Multi-command
+# compositions (e.g. a state bundle) can legitimately take minutes, so the
+# bound is configurable. It reaches the model as agcode's `deadline_s`, which
+# ends the run from inside rather than abandoning a subprocess.
 TURN_TIMEOUT_SECONDS = float(os.environ.get("CAGENT_TURN_TIMEOUT_SECONDS", "300"))
 
 
 class Worker:
-    def __init__(self, store: Store, opencode: OpenCodeClient) -> None:
+    def __init__(self, store: Store, runner: AgentRunner) -> None:
         self._store = store
-        self._opencode = opencode
+        self._runner = runner
         self._queue: queue.Queue[str] = queue.Queue()
         self._cancel_flags: set[str] = set()
         self._cancel_lock = threading.Lock()
@@ -72,6 +77,24 @@ class Worker:
             finally:
                 self._clear_cancel(request_id)
 
+    def _history(self, request_id: str, session_id: str) -> list[tuple[str, str | None]]:
+        """Every earlier turn of this session, oldest first.
+
+        agcode is stateless; the store is the memory. Only turns that actually
+        answered are replayed — a failed or cancelled one contributes nothing
+        the model can use, and replaying its message alone would read as an
+        unanswered question.
+        """
+        try:
+            requests = self._store.list_session_requests(session_id)
+        except Exception:  # a session that vanished is a history of nothing
+            return []
+        return [
+            (request.message, request.response)
+            for request in requests
+            if request.request_id != request_id and request.response
+        ]
+
     def _process(self, request_id: str) -> None:
         request = self._store.get_request(request_id)
         if request.state != "queued":
@@ -81,106 +104,17 @@ class Worker:
             self._store.update_request(request_id, state="cancelled")
             return
 
-        session_id = request.session_id
         self._store.update_request(request_id, state="running")
+        task = compose_task(request.message, self._history(request_id, request.session_id))
+        result = self._runner.run(task, stop=lambda: self._is_cancel_requested(request_id))
 
-        try:
-            baseline = self._opencode.count_assistant_messages(session_id)
-            baseline_cost = self._opencode.session_cost(session_id)
-            self._opencode.prompt_async(session_id, request.message)
-        except OpenCodeError as exc:
-            self._store.update_request(
-                request_id,
-                state="failed",
-                error={"code": "opencode_error", "message": str(exc)},
-            )
-            return
-
-        deadline = time.monotonic() + TURN_TIMEOUT_SECONDS
-        while True:
-            if self._is_cancel_requested(request_id):
-                self._abort_and_mark_cancelled(request_id, session_id, baseline_cost)
-                return
-
-            if time.monotonic() > deadline:
-                self._abort_and_mark_failed(
-                    request_id, session_id, "turn did not complete within timeout", baseline_cost
-                )
-                return
-
-            try:
-                count = self._opencode.count_assistant_messages(session_id)
-                if count > baseline:
-                    msg = self._opencode.latest_assistant_message(session_id)
-                    if msg is not None and msg.completed and msg.is_final_step:
-                        cost = self._turn_cost(session_id, baseline_cost)
-                        backend = msg.backend()
-                        if msg.error_name == "MessageAbortedError":
-                            self._store.update_request(
-                                request_id, state="cancelled", cost_usd=cost, backend=backend
-                            )
-                        elif msg.error_name:
-                            self._store.update_request(
-                                request_id,
-                                state="failed",
-                                error={"code": "opencode_error", "message": msg.error_name},
-                                cost_usd=cost,
-                                backend=backend,
-                            )
-                        else:
-                            self._store.update_request(
-                                request_id, state="completed", response=msg.text,
-                                cost_usd=cost, backend=backend,
-                            )
-                        return
-            except OpenCodeError as exc:
-                self._store.update_request(
-                    request_id,
-                    state="failed",
-                    error={"code": "opencode_error", "message": str(exc)},
-                )
-                return
-
-            time.sleep(POLL_INTERVAL_SECONDS)
-
-    def _turn_cost(self, session_id: str, baseline: float | None) -> float | None:
-        """USD this turn added to the session, or None if either end is unknown.
-
-        Read at the moment the request reaches a terminal state. On the
-        cancel/timeout paths OpenCode may still be finishing the turn, so
-        the figure there is a floor, not a total.
-        """
-        if baseline is None:
-            return None
-        try:
-            current = self._opencode.session_cost(session_id)
-        except OpenCodeError:
-            return None
-        if current is None:
-            return None
-        return max(0.0, current - baseline)
-
-    def _abort_and_mark_cancelled(
-        self, request_id: str, session_id: str, baseline_cost: float | None = None
-    ) -> None:
-        try:
-            self._opencode.abort(session_id)
-        except OpenCodeError:
-            logger.warning("worker: abort call failed for %s, marking cancelled anyway", request_id)
-        self._store.update_request(
-            request_id, state="cancelled", cost_usd=self._turn_cost(session_id, baseline_cost)
-        )
-
-    def _abort_and_mark_failed(
-        self, request_id: str, session_id: str, message: str, baseline_cost: float | None = None
-    ) -> None:
-        try:
-            self._opencode.abort(session_id)
-        except OpenCodeError:
-            pass
-        self._store.update_request(
-            request_id,
-            state="failed",
-            error={"code": "timeout", "message": message},
-            cost_usd=self._turn_cost(session_id, baseline_cost),
-        )
+        fields = {
+            "state": result.state,
+            "cost_usd": result.cost_usd,
+            "backend": result.backend,
+        }
+        if result.state == "completed":
+            fields["response"] = result.text
+        if result.error is not None:
+            fields["error"] = result.error
+        self._store.update_request(request_id, **fields)

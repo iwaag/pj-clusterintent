@@ -74,9 +74,10 @@ class Request:
     updated_at: float = field(default_factory=time.time)
     response: str | None = None
     error: dict | None = None
-    # USD this turn cost, as the OpenCode session's own accounting reports it
-    # (the per-turn delta of `GET /session/{id}`.cost). `None` means not
-    # measured — a turn that never reached the backend, or a pre-existing
+    # USD this turn cost, when the backend reports one at all. `None` means
+    # not measured — which is every agcode turn (a local model behind an
+    # endpoint that reports no cost; inventing a 0.0 would claim it was free
+    # rather than unmeasured), a turn that never reached the backend, or an
     # evidence record written before cost was recorded at all.
     cost_usd: float | None = None
     # Which backend actually served the turn — `{harness, provider, model}`,
@@ -226,12 +227,10 @@ def scan_and_load(evidence: EvidenceWriter) -> tuple[Store, list[str]]:
 
     Any request whose latest recorded event is not a terminal state
     (`queued` or `running`) is stuck: either the process was killed
-    mid-turn (exit criterion 4), or — per the Step 2 finding that OpenCode
-    can retry a dead backend forever without ever settling a message — the
-    process is still running OpenCode's underlying wait but restarting
-    fresh means that in-flight wait is gone too. Either way, this process
-    has no way to resume it, so it is marked `interrupted` here, once, at
-    startup.
+    mid-turn (exit criterion 4), or the process is still inside a backend
+    call that never settles — but restarting fresh means that in-flight wait
+    is gone too. Either way, this process has no way to resume it, so it is
+    marked `interrupted` here, once, at startup.
 
     Returns `(store, newly_interrupted_request_ids)` — the second element
     is only the requests transitioned *by this call*, not every request

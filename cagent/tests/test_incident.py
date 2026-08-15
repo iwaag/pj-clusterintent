@@ -1,25 +1,22 @@
 """The window's only write path: one incident report, one file.
 
-`cagent/window/incident.py` is a standalone script, not part of the
-`cagent_api` package (the window's OpenCode config allows running it and
-nothing else), so it is loaded here by path.
+The implementation lives in the package (`cagent_api.incident`) because the
+window has no shell to run a script from — its `record_incident` and
+`list_incidents` tools call these functions directly. `cagent/window/incident.py`
+is now a CLI shim over the same code, for humans.
 """
 
-import importlib.util
 from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
 
-SCRIPT = Path(__file__).resolve().parents[1] / "window" / "incident.py"
+from cagent_api import incident as incident_module
 
 
 @pytest.fixture(scope="module")
 def incident():
-    spec = importlib.util.spec_from_file_location("incident", SCRIPT)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+    return incident_module
 
 
 def at(hour=12, minute=0, second=0):

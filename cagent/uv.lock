@@ -218,7 +218,7 @@ wheels = [
 [[package]]
 name = "pyagag"
 version = "0.1.0"
-source = { git = "https://github.com/iwaag/pyagag.git?branch=main#36723a708971eb01969f9066f8bbc334c1f22f16" }
+source = { git = "https://github.com/iwaag/pyagag.git?branch=main#b705fd97f63918b3245d624efade94af762d1a9a" }
 
 [[package]]
 name = "pycparser"

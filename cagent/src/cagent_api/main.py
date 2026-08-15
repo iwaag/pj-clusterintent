@@ -2,8 +2,12 @@
 
 See p2/contract.md for the API this serves (mTLS identity; p1/contract.md
 for the resources/state-machine parts unchanged since Phase 1) and
-cagent/README.md for how to run it together with the OpenCode instance and
-the Step 2/3 CA + ledger tooling.
+cagent/README.md for how to run it together with the Step 2/3 CA + ledger
+tooling.
+
+This is now the only cagent process. The three doors each resolve their own
+role from `cagent/agents.toml`, so which backend serves which door is
+configuration — and every answer's run record names it.
 """
 
 from __future__ import annotations
@@ -17,11 +21,11 @@ from pathlib import Path
 from .auth import CertAuthenticator, NoAuthenticator, TokenAuthenticator
 from .evidence import EvidenceWriter
 from .ledger import Ledger
+from .agent_runner import AgentConfigError, build_runner
 from .node_resolver import NautobotNodeResolver
-from .opencode_client import OpenCodeClient
 from .server import build_server
 from .store import scan_and_load
-from .worker import Worker
+from .worker import TURN_TIMEOUT_SECONDS, Worker
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_EVIDENCE_DIR = Path.home() / ".local" / "state" / "cagent" / "evidence"
@@ -30,6 +34,11 @@ DEFAULT_CA_DIR = REPO_ROOT / ".local" / "cagent-ca"
 DEFAULT_NCTL_TOML = REPO_ROOT / "nctl.toml"
 DEFAULT_HUMAN_TOKEN_FILE = Path.home() / ".local" / "state" / "cagent" / "human_token"
 DEFAULT_WINDOW_GUIDE = REPO_ROOT / "cagent" / "window" / "GUIDE.md"
+DEFAULT_AGENTS_CONFIG = REPO_ROOT / "cagent" / "agents.toml"
+DEFAULT_AGENTS_OVERLAY = REPO_ROOT / "cagent" / ".local" / "agents.local.toml"
+# Per-role instructions, read from disk on every request (agent_runner).
+AGENT_INSTRUCTIONS = REPO_ROOT / "cagent" / "agent" / "AGENTS.md"
+WINDOW_INSTRUCTIONS = REPO_ROOT / "cagent" / "window" / "AGENTS.md"
 
 
 def _build_node_ssl_context(ca_cert: Path, server_cert: Path, server_key: Path) -> ssl.SSLContext:
@@ -57,8 +66,8 @@ def _build_human_ssl_context(server_cert: Path, server_key: Path) -> ssl.SSLCont
 
 
 def _read_human_token(token_file: Path) -> str:
-    """Refuse-don't-fallback (mirrors start.sh's OpenAI key check): there is
-    no plaintext/no-auth mode for the human listener."""
+    """Refuse-don't-fallback: there is no plaintext/no-auth mode for the
+    human listener."""
     if not token_file.exists():
         raise SystemExit(
             f"human token file not found: {token_file} — generate one before starting the "
@@ -82,10 +91,10 @@ def main() -> None:
     human_token_file = Path(os.environ.get("CAGENT_HUMAN_TOKEN_FILE", str(DEFAULT_HUMAN_TOKEN_FILE)))
     human_name = os.environ.get("CAGENT_HUMAN_NAME", "operator")
     window_port = int(os.environ.get("CAGENT_WINDOW_PORT", "8790"))
-    window_opencode_url = os.environ.get("CAGENT_WINDOW_OPENCODE_URL", "http://127.0.0.1:4098")
     window_guide = Path(os.environ.get("CAGENT_WINDOW_GUIDE", str(DEFAULT_WINDOW_GUIDE)))
-    opencode_url = os.environ.get("CAGENT_OPENCODE_URL", "http://127.0.0.1:4097")
-    directory = os.environ.get("CAGENT_DIRECTORY", str(REPO_ROOT))
+    agents_config = Path(os.environ.get("CAGENT_AGENTS_CONFIG", str(DEFAULT_AGENTS_CONFIG)))
+    agents_overlay = Path(os.environ.get("CAGENT_AGENTS_OVERLAY", str(DEFAULT_AGENTS_OVERLAY)))
+    directory = Path(os.environ.get("CAGENT_DIRECTORY", str(REPO_ROOT)))
     evidence_dir = Path(os.environ.get("CAGENT_EVIDENCE_DIR", str(DEFAULT_EVIDENCE_DIR)))
     ledger_path = Path(os.environ.get("CAGENT_LEDGER_PATH", str(DEFAULT_LEDGER_PATH)))
     ca_dir = Path(os.environ.get("CAGENT_CA_DIR", str(DEFAULT_CA_DIR)))
@@ -103,20 +112,41 @@ def main() -> None:
             len(newly_interrupted), ", ".join(newly_interrupted),
         )
 
-    opencode = OpenCodeClient(base_url=opencode_url, directory=directory)
-    worker = Worker(store, opencode)
+    def runner_for(role: str, instructions: Path):
+        return build_runner(
+            role,
+            config_path=agents_config,
+            overlay_path=agents_overlay,
+            working_dir=directory,
+            instructions_path=instructions,
+            turn_timeout=TURN_TIMEOUT_SECONDS,
+        )
+
+    # Resolution failures are fatal at startup rather than per request: a door
+    # whose profile does not resolve has no backend, and answering "the agent
+    # is misconfigured" once at boot beats discovering it on someone's message.
+    try:
+        node_runner = runner_for("node", AGENT_INSTRUCTIONS)
+        human_runner = runner_for("human", AGENT_INSTRUCTIONS)
+        window_runner = runner_for("window", WINDOW_INSTRUCTIONS)
+    except AgentConfigError as error:
+        raise SystemExit(f"agent configuration is unusable: {error}") from error
+
+    worker = Worker(store, node_runner)
     worker.start()
 
     ledger = Ledger(ledger_path)
     node_resolver = NautobotNodeResolver.from_nctl_toml(nctl_toml)
     node_authenticate = CertAuthenticator(ledger, node_resolver)
     node_ssl_context = _build_node_ssl_context(ca_dir / "ca_cert.pem", server_cert, server_key)
-    httpd = build_server(host, port, store, opencode, worker, node_authenticate, ssl_context=node_ssl_context)
+    httpd = build_server(host, port, store, node_runner, worker, node_authenticate, ssl_context=node_ssl_context)
 
     human_authenticate = TokenAuthenticator(human_token, human_name)
     human_ssl_context = _build_human_ssl_context(server_cert, server_key)
+    human_worker = Worker(store, human_runner)
+    human_worker.start()
     human_httpd = build_server(
-        host, human_port, store, opencode, worker, human_authenticate,
+        host, human_port, store, human_runner, human_worker, human_authenticate,
         ssl_context=human_ssl_context, serve_ui=True,
     )
     human_thread = threading.Thread(target=human_httpd.serve_forever, daemon=True)
@@ -124,17 +154,16 @@ def main() -> None:
 
     # Window entrance: no authentication and no TLS. There is no credential
     # to protect in transit and the guide is meant to be fetchable with a
-    # bare curl; what keeps this door safe is its OpenCode instance's
-    # permission set (cagent/window/opencode-window.json.template), not an
-    # identity check. It gets its own OpenCode client and its own worker
-    # thread — a shared worker would run window turns on the authenticated
-    # instance's permissions — but the same store and evidence, so a window
-    # answer leaves the same run record as any other request.
-    window_opencode = OpenCodeClient(base_url=window_opencode_url, directory=directory)
-    window_worker = Worker(store, window_opencode)
+    # bare curl; what keeps this door safe is the tool set its runner offers
+    # (`agent_runner.window_tools`: read, list, read-only nctl, and the two
+    # incident tools — no shell at all), not an identity check. It gets its
+    # own runner and its own worker thread — a shared worker would run window
+    # turns on the authenticated tool set — but the same store and evidence,
+    # so a window answer leaves the same run record as any other request.
+    window_worker = Worker(store, window_runner)
     window_worker.start()
     window_httpd = build_server(
-        host, window_port, store, window_opencode, window_worker, NoAuthenticator(),
+        host, window_port, store, window_runner, window_worker, NoAuthenticator(),
         guide_path=window_guide,
     )
     window_thread = threading.Thread(target=window_httpd.serve_forever, daemon=True)
@@ -143,9 +172,10 @@ def main() -> None:
     log.info(
         "cluster-agent API listening on https://%s:%s (node entrance, mTLS required), "
         "https://%s:%s (human entrance, bearer token) and http://%s:%s (window entrance, "
-        "unauthenticated, opencode=%s) — opencode=%s, directory=%s, evidence=%s, ledger=%s",
-        host, port, host, human_port, host, window_port, window_opencode_url,
-        opencode_url, directory, evidence_dir, ledger_path,
+        "unauthenticated) — node/human=%s, window=%s, directory=%s, evidence=%s, ledger=%s",
+        host, port, host, human_port, host, window_port,
+        node_runner.identity(), window_runner.identity(),
+        directory, evidence_dir, ledger_path,
     )
     httpd.serve_forever()
 

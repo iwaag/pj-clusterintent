@@ -6,7 +6,7 @@ lost and the sender resends.
 
 It holds no cluster capability of its own — it is an adapter between Zulip and
 the window's HTTP door, so everything it can cause is bounded by the window's
-OpenCode permission set. The mechanics of the Zulip side live in `agag.zulip`.
+tool set. The mechanics of the Zulip side live in `agag.zulip`.
 """
 
 from __future__ import annotations

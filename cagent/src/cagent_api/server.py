@@ -8,8 +8,8 @@ import re
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+from .agent_runner import AgentRunner
 from .auth import AuthError
-from .opencode_client import OpenCodeClient, OpenCodeError
 from .store import Identity, NotFoundError, OwnershipError, Store, TERMINAL_STATES
 from .worker import Worker
 
@@ -50,7 +50,7 @@ class ApiError(Exception):
 
 def make_handler(
     store: Store,
-    opencode: OpenCodeClient,
+    runner: AgentRunner,
     worker: Worker,
     authenticate,
     serve_ui: bool = False,
@@ -66,6 +66,11 @@ def make_handler(
     itself carries no data, only the fetch calls it makes need the token).
     `main.py` passes `True` only for the human listener build_server() call
     (p4/contract.md: 'UI routes exist only on the human listener').
+
+    `runner` is the door's backend (`agent_runner.AgentRunner`): it mints
+    session ids and, through `worker`, serves the turns. Each listener gets
+    its own — a shared one would run window turns on the authenticated
+    door's tool set.
 
     `guide_path` turns this into the **window listener**, a different door
     rather than a variation of the same one: `POST /window {"text": ...}` is
@@ -227,13 +232,12 @@ def make_handler(
             self._start_request(message)
 
         def _start_request(self, message: str) -> None:
+            # The session id is cagent's own — there is no backend to ask for
+            # one, so starting a session cannot fail here. A backend that is
+            # down surfaces as a failed run record instead, which is where a
+            # caller was already looking.
             identity = self._identity()
-            title = message[:60]
-            try:
-                session_id = opencode.create_session(title)
-            except OpenCodeError as exc:
-                raise ApiError(502, "opencode_unavailable", str(exc))
-
+            session_id = runner.new_session_id()
             request = store.create_session_and_request(session_id, identity, message)
             worker.enqueue(request.request_id)
             self._write_json(202, {
@@ -323,7 +327,7 @@ def build_server(
     host: str,
     port: int,
     store: Store,
-    opencode: OpenCodeClient,
+    runner: AgentRunner,
     worker: Worker,
     authenticate,
     ssl_context=None,
@@ -331,7 +335,7 @@ def build_server(
     guide_path: Path | None = None,
 ) -> ThreadingHTTPServer:
     handler_cls = make_handler(
-        store, opencode, worker, authenticate, serve_ui=serve_ui, guide_path=guide_path
+        store, runner, worker, authenticate, serve_ui=serve_ui, guide_path=guide_path
     )
     httpd = ThreadingHTTPServer((host, port), handler_cls)
     if ssl_context is not None:

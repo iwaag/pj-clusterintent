@@ -1,0 +1,43 @@
+# cagent's agent configuration (ag.agent-config.v1).
+#
+# Three doors, three roles. Each answer's run record names the profile,
+# harness, provider and model that actually served it — Agent ≠ Model,
+# satisfied by construction rather than by a promise in prose.
+#
+# Per-machine backend choice belongs in the ignored `.local/agents.local.toml`
+# overlay: `[roles.window] profile = "sonnet"` switches one door without
+# touching this file.
+schema = "ag.agent-config.v1"
+project = "cagent"
+
+[models."ollama/qwen3.6:35b-a3b-coding-nvfp4"]
+
+[models."anthropic/claude-sonnet-5"]
+
+[profiles.local]
+harness = "agcode"
+model = "ollama/qwen3.6:35b-a3b-coding-nvfp4"
+
+[profiles.sonnet]
+harness = "claude_code"
+model = "anthropic/claude-sonnet-5"
+
+[profiles.stub]
+harness = "fake"
+model = "ollama/qwen3.6:35b-a3b-coding-nvfp4"
+
+# The authenticated doors: mTLS (node) and bearer token (human). Same
+# instructions, same tools; they differ only in who may reach them.
+[roles.node]
+profile = "local"
+requires = []
+
+[roles.human]
+profile = "local"
+requires = []
+
+# The unauthenticated door. Its tool set is strictly smaller — see
+# `agent_runner.window_tools()`.
+[roles.window]
+profile = "local"
+requires = []
