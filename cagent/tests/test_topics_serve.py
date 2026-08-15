@@ -122,6 +122,94 @@ def test_the_front_prompt_is_the_placement_line_plus_its_own_guide(monkeypatch, 
     )
 
 
+# --- (b) required_info.md present: the operator runs ------------------------
+
+
+def test_required_info_builds_the_operator_workspace_and_runs_it(monkeypatch, tmp_path):
+    calls = []
+    wire(monkeypatch, tmp_path, calls, writes=(("required_info.md", "which node?"),))
+
+    topics_serve.handle_topic(Client(calls), CHANNEL, TOPIC)
+
+    operator = gen_dir(tmp_path, 1, "operator")
+    assert [call[0] for call in calls] == [
+        "whoami", "write", "history", "front", "write", "operator", "write", "history",
+    ]
+    assert (operator / "required_info.md").read_text() == "which node?"
+    assert (operator / "tools" / "toolset_nctl.md").read_text().startswith("# Description")
+    assert calls[5][1] == operator
+    # The operator's answer travels verbatim.
+    assert calls[-2][2] == "here it is"
+
+
+def test_the_front_answer_is_posted_before_the_operator_runs(monkeypatch, tmp_path):
+    """The front's answer is the conversational reply; the operator can take
+    minutes, and the topic should not sit silent through them."""
+    calls = []
+    wire(monkeypatch, tmp_path, calls, writes=(("required_info.md", "which node?"),))
+    topics_serve.handle_topic(Client(calls), CHANNEL, TOPIC)
+    kinds = [call[0] for call in calls]
+    assert kinds.index("write", 3) < kinds.index("operator")
+
+
+# --- (b2) requested_change.md present: a Plane Work --------------------------
+
+
+def test_requested_change_registers_a_work_and_runs_no_operator(monkeypatch, tmp_path):
+    calls = []
+    wire(monkeypatch, tmp_path, calls,
+         writes=(("requested_change.md", "# Add a VM\n\nOne more."),))
+    monkeypatch.setattr(
+        topics_serve, "register_change",
+        lambda channel, topic, change: (
+            calls.append(("plane", channel, topic, change)) or 'created CA-1 "Add a VM"'
+        ),
+    )
+
+    topics_serve.handle_topic(Client(calls), CHANNEL, TOPIC)
+
+    assert [call[0] for call in calls] == [
+        "whoami", "write", "history", "front", "write", "plane", "write", "history",
+    ]
+    assert calls[5][1:3] == (CHANNEL, TOPIC)
+    assert calls[5][3] == gen_dir(tmp_path, 1, "front") / "requested_change.md"
+    assert calls[-2][2] == 'created CA-1 "Add a VM"'
+    assert not gen_dir(tmp_path, 1, "operator").exists()
+
+
+def test_both_files_present_registers_the_work_then_runs_the_operator(
+    monkeypatch, tmp_path
+):
+    """The observe-first behavior for mixed requests: both branches run,
+    independently, Work first."""
+    calls = []
+    wire(monkeypatch, tmp_path, calls, writes=(
+        ("required_info.md", "which node?"),
+        ("requested_change.md", "# Add a VM\n\nOne more."),
+    ))
+    monkeypatch.setattr(
+        topics_serve, "register_change",
+        lambda channel, topic, change: calls.append(("plane",)) or "created CA-1",
+    )
+    topics_serve.handle_topic(Client(calls), CHANNEL, TOPIC)
+    kinds = [call[0] for call in calls]
+    assert kinds.index("plane") < kinds.index("operator")
+    assert calls[-2][2] == "created CA-1\n\nhere it is"
+
+
+def test_a_plane_failure_is_reported_not_swallowed(monkeypatch, tmp_path):
+    calls = []
+    wire(monkeypatch, tmp_path, calls,
+         writes=(("requested_change.md", "# Add a VM\n\nOne more."),))
+
+    def explode(channel, topic, change):
+        raise topics_serve.ListenerError("plane is down")
+
+    monkeypatch.setattr(topics_serve, "register_change", explode)
+    topics_serve.handle_topic(Client(calls), CHANNEL, TOPIC)
+    assert "failed during handoffs: plane is down" in calls[-1][2]
+
+
 # --- (c) an exception mid-way: `failed during …` is posted ------------------
 
 
