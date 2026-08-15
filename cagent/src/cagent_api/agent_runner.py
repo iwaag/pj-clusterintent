@@ -42,10 +42,12 @@ from agag.harness import run_harness
 from . import incident
 
 # Replay caps. A cagent session is a chat, not a codebase: eight turns is more
-# context than any observed answer has needed, and the character cap stops one
-# enormous `nctl drift --json` response from crowding out everything else.
+# context than any observed answer has needed. The character cap is a backstop
+# against a run of enormous `nctl drift --json` responses, not the working
+# limit — at 256k it admits eight full turns in practice, and the effective
+# ceiling becomes whatever context the backend actually serves.
 REPLAY_TURNS = 8
-REPLAY_CHARS = 20_000
+REPLAY_CHARS = 256_000
 RUNAWAY_TURN_BUDGET = 40
 
 # Destroy-class commands, denied before exec on the authenticated doors.
