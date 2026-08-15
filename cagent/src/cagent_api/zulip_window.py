@@ -1,12 +1,18 @@
-"""The Cagent bot's chat entrance: a Zulip DM becomes one `POST /window`.
+"""The Cagent bot's chat entrance: DMs to `POST /window`, topics to the flow.
 
-Deliberately dumb, like agforge's listener: no queue persistence, no delivery
-guarantees, one answer per message. A DM that arrives while this is down is
-lost and the sender resends.
+The DM side is deliberately dumb, like agforge's listener: no queue
+persistence, no delivery guarantees, one answer per message. A DM that
+arrives while this is down is lost and the sender resends. It holds no
+cluster capability of its own — it is an adapter between Zulip and the
+window's HTTP door, so everything it can cause is bounded by the window's
+tool set.
 
-It holds no cluster capability of its own — it is an adapter between Zulip and
-the window's HTTP door, so everything it can cause is bounded by the window's
-tool set. The mechanics of the Zulip side live in `agag.zulip`.
+The topic side is the pull loop (`agag.zulip.sweep_serve`): every unresolved
+`cagent-` topic in a subscribed channel whose last poster is not this bot is
+served through `topics_serve.handle_topic` — the front/operator pair over a
+generation workspace. Sweeping again on startup and queue re-registration is
+what makes topic downtime lossless, unlike the DM path. The mechanics of the
+Zulip side live in `agag.zulip`.
 """
 
 from __future__ import annotations
@@ -168,19 +174,41 @@ def log_only(zulip: ZulipClient, message: dict, self_id: int) -> None:
     )
 
 
+def observe_topic(channel: str, topic: str) -> None:
+    """Passive sweep handler (`CAGENT_ZULIP_LOG_ONLY=1`): log matches only."""
+    log(f"observed sweep match {channel!r}/{topic!r}")
+
+
 def main() -> None:
-    from agag.zulip import serve
+    from agag.zulip import serve, sweep_serve
+
+    from .topics_serve import TOPIC_PREFIX, handle_topic
 
     env_path = Path(os.environ.get("CAGENT_ZULIP_ENV", str(DEFAULT_ZULIP_ENV)))
     window = WindowClient(
         os.environ.get("CAGENT_WINDOW_URL", DEFAULT_WINDOW_URL),
         timeout_seconds=float(os.environ.get("CAGENT_WINDOW_TIMEOUT_SECONDS", "420")),
     )
-    handler = log_only if os.environ.get("CAGENT_ZULIP_LOG_ONLY") == "1" else make_handler(window)
-    zulip = ZulipClient.from_env(env_path)
-    log(f"cagent zulip listener starting (window={window.base_url}, handler={handler.__name__})")
+    sweep_client = ZulipClient.from_env(env_path)
+    dm_client = ZulipClient.from_env(env_path)
+    if os.environ.get("CAGENT_ZULIP_LOG_ONLY") == "1":
+        dm_handler, topic_handler = log_only, observe_topic
+    else:
+        dm_handler = make_handler(window)
+
+        def topic_handler(channel: str, topic: str) -> None:
+            handle_topic(sweep_client, channel, topic)
+
+    # The DM thread keeps the existing window path; the main thread pulls
+    # `cagent-` topics. One client per polling thread, as agag.zulip asks.
+    threading.Thread(target=serve, args=(dm_client, dm_handler), daemon=True).start()
+    log(
+        f"cagent zulip listener starting (window={window.base_url}, "
+        f"pull sweep prefix {TOPIC_PREFIX!r} + DM thread, "
+        f"dm_handler={dm_handler.__name__})"
+    )
     try:
-        serve(zulip, handler)
+        sweep_serve(sweep_client, topic_handler, topic_filter=(TOPIC_PREFIX,))
     except KeyboardInterrupt:
         log("stopped")
 
