@@ -12,7 +12,7 @@ DesiredNode validity is faked (a fixed set of "currently valid" UUIDs), not
 read from a live Nautobot: this gate must not read `nctl.toml` or a live
 inventory (devtests/test_strategy/README.md), and DesiredNode
 resolution is `node_resolver.py`'s own concern, not this boundary's — same
-split the plan makes ("OpenCode side can be faked here; this test owns the
+split the plan makes ("the agent side can be faked here; this test owns the
 TLS/ledger boundary, not the agent conversation").
 
 Run from the superproject root:
@@ -41,8 +41,8 @@ sys.path.insert(0, str(ROOT / "cagent" / "src"))
 
 from cagent_api import ca  # noqa: E402
 from cagent_api.auth import CertAuthenticator, TokenAuthenticator  # noqa: E402
+from cagent_api.agent_runner import TurnResult  # noqa: E402
 from cagent_api.ledger import Ledger  # noqa: E402
-from cagent_api.opencode_client import AssistantMessage, OpenCodeError  # noqa: E402
 from cagent_api.server import build_server  # noqa: E402
 from cagent_api.store import Store  # noqa: E402
 from cagent_api.worker import Worker  # noqa: E402
@@ -55,54 +55,30 @@ HUMAN_TOKEN = "conformance-test-token"
 WRAPPER = ROOT / "ansible_agdev" / "roles" / "cagent_client" / "files" / "cagent"
 
 
-class _FakeOpenCode:
-    """Minimal stand-in so this gate never depends on a real OpenCode
-    process — the conversation itself is out of scope here. Tracks a
-    per-session message count so `worker.py`'s real `count >
-    baseline`-based completion detection actually fires (needed by the
-    Step 1 wrapper tests below, which wait for a real `completed`
-    transition, not just the immediate post-create `queued` state the
-    earlier connect/reject tests inspect)."""
+class _FakeRunner:
+    """Minimal stand-in so this gate never depends on a model — the
+    conversation itself is out of scope here. It sleeps briefly before
+    answering so the wrapper tests below observe a real queued → running →
+    completed transition rather than only the immediate post-create state
+    the connect/reject tests inspect."""
 
-    def __init__(self) -> None:
-        self._sessions: dict[str, list[dict]] = {}
-        self._lock = threading.Lock()
+    BACKEND = {
+        "harness": "agcode", "provider": "ollama", "model": "ollama/conformance",
+        "role": "node", "profile": "local",
+    }
 
-    def create_session(self, title: str) -> str:
-        # uuid4, not a per-instance counter: the fixture builds one
-        # _FakeOpenCode per listener (node + human), so a counter starting
-        # at 1 in each would still collide across listeners.
-        session_id = f"ses_conformance_{uuid.uuid4().hex[:8]}"
-        with self._lock:
-            self._sessions.setdefault(session_id, [])
-        return session_id
+    def new_session_id(self) -> str:
+        # uuid4, not a per-instance counter: the fixture builds one runner
+        # per listener (node + human), so a counter starting at 1 in each
+        # would still collide across listeners.
+        return f"ses_conformance_{uuid.uuid4().hex[:8]}"
 
-    def prompt_async(self, session_id: str, text: str) -> None:
-        def _complete() -> None:
-            time.sleep(0.2)
-            with self._lock:
-                self._sessions.setdefault(session_id, []).append(
-                    {"completed": True, "text": "ok", "error_name": None, "is_final_step": True}
-                )
+    def identity(self) -> dict:
+        return dict(self.BACKEND)
 
-        threading.Thread(target=_complete, daemon=True).start()
-
-    def count_assistant_messages(self, session_id: str) -> int:
-        with self._lock:
-            return len(self._sessions.get(session_id, []))
-
-    def latest_assistant_message(self, session_id: str):
-        with self._lock:
-            turns = self._sessions.get(session_id, [])
-            if not turns:
-                return None
-            t = turns[-1]
-            return AssistantMessage(
-                completed=t["completed"], text=t["text"], error_name=t["error_name"], is_final_step=t["is_final_step"],
-            )
-
-    def abort(self, session_id: str) -> bool:
-        return True
+    def run(self, task, *, stop=None, transcript_path=None) -> TurnResult:
+        time.sleep(0.2)
+        return TurnResult("ok", "completed", None, None, self.identity())
 
 
 class _FakeNodeResolver:
@@ -148,10 +124,10 @@ class _Fixture:
         server_ctx.load_verify_locations(str(tmp_path / "ca.pem"))
 
         self.store = Store()
-        self.worker = Worker(self.store, _FakeOpenCode())
+        self.worker = Worker(self.store, _FakeRunner())
         self.worker.start()
         self.httpd = build_server(
-            "127.0.0.1", 0, self.store, _FakeOpenCode(), self.worker, authenticate, ssl_context=server_ctx
+            "127.0.0.1", 0, self.store, _FakeRunner(), self.worker, authenticate, ssl_context=server_ctx
         )
         self.port = self.httpd.socket.getsockname()[1]
         self._thread = threading.Thread(target=self.httpd.serve_forever, daemon=True)
@@ -166,7 +142,7 @@ class _Fixture:
         human_ctx.verify_mode = ssl.CERT_NONE
         human_authenticate = TokenAuthenticator(HUMAN_TOKEN, human_name="operator")
         self.human_httpd = build_server(
-            "127.0.0.1", 0, self.store, _FakeOpenCode(), self.worker, human_authenticate,
+            "127.0.0.1", 0, self.store, _FakeRunner(), self.worker, human_authenticate,
             ssl_context=human_ctx, serve_ui=True,
         )
         self.human_port = self.human_httpd.socket.getsockname()[1]
@@ -377,7 +353,7 @@ def test_session_owned_by_another_uuid_is_rejected(fixture):
 
 
 # --- p3/plan.md Step 1: drive the actual wrapper script, not curl, against
-# this same real-TLS/ledger/OpenCode fixture. Covers the wrapper's whole
+# this same real-TLS/ledger/agent fixture. Covers the wrapper's whole
 # job (TLS args, body-from-stdin, polling, error surfacing) with no
 # mock-only TLS and no live node.
 
@@ -391,7 +367,7 @@ def test_wrapper_ask_with_wait_prints_answer_and_exits_zero(fixture):
 
     assert result.returncode == 0, result.stderr
     assert "state=completed" in result.stdout
-    assert "ok" in result.stdout  # _FakeOpenCode.latest_assistant_message's text
+    assert "ok" in result.stdout  # _FakeRunner.run's text
 
 
 def test_wrapper_status_fetches_a_created_requests_state(fixture):
