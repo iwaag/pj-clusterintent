@@ -40,8 +40,17 @@ requires = []
 # cagent- topic flow. Its in-process tool set is strictly smaller — see
 # `agent_runner.window_tools()`; in the topic flow it writes handoff files
 # and never touches nctl.
+#
+# This door stays on agcode while the others are sonnet, and that is
+# structural rather than a machine preference. Those five tools run inside
+# this process, so only agcode can be handed them; claude_code takes a grant
+# of tool *names* and would reach the same work through `Bash`. A `Bash(...)`
+# grant does not bound what runs — measured: `Bash(echo hello:*)` admits
+# `echo hello && echo pwned` — and this door is unauthenticated, so a shell
+# behind it is a shell for anyone on the LAN. Moving `front` to a claude_code
+# profile means giving these tools to it over MCP first.
 [roles.front]
-profile = "sonnet"
+profile = "local"
 requires = []
 
 # The topic flow's cluster reader: runs the read-only `cagent` CLI to gather
