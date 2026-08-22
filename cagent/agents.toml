@@ -5,8 +5,8 @@
 # satisfied by construction rather than by a promise in prose.
 #
 # Per-machine backend choice belongs in the ignored `.local/agents.local.toml`
-# overlay: `[roles.window] profile = "sonnet"` switches one door without
-# touching this file.
+# overlay: `[roles.front] profile = "local"` switches one door back to a
+# local model without touching this file.
 schema = "ag.agent-config.v1"
 project = "cagent"
 
@@ -29,11 +29,11 @@ model = "ollama/qwen3.6:35b-a3b-coding-nvfp4"
 # The authenticated doors: mTLS (node) and bearer token (human). Same
 # instructions, same tools; they differ only in who may reach them.
 [roles.node]
-profile = "local"
+profile = "sonnet"
 requires = []
 
 [roles.human]
-profile = "local"
+profile = "sonnet"
 requires = []
 
 # The conversational front: the unauthenticated `/window` route and the
@@ -41,12 +41,12 @@ requires = []
 # `agent_runner.window_tools()`; in the topic flow it writes handoff files
 # and never touches nctl.
 [roles.front]
-profile = "local"
+profile = "sonnet"
 requires = []
 
 # The topic flow's cluster reader: runs the read-only `cagent` CLI to gather
 # what the front's `required_info.md` asks for. Out-of-process only
 # (`role_run.py`); no HTTP door resolves this role.
 [roles.operator]
-profile = "local"
+profile = "sonnet"
 requires = []

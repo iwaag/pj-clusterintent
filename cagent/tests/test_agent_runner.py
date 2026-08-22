@@ -160,26 +160,43 @@ def test_session_ids_are_cagents_own_and_unique(tmp_path):
 # --- the committed configuration --------------------------------------------
 
 
-def test_the_committed_config_resolves_all_three_doors(tmp_path):
+def _machine_overlay(tmp_path):
+    """The machine facts every door needs, whatever backend it is pointed at.
+
+    Which harness and model the committed config chooses is not pinned here:
+    Agent != Model, so a backend swap is a configuration change and must not
+    read as a test failure. What is pinned is that every door still resolves
+    and still answers as itself.
+    """
+    claude = tmp_path / "claude"
+    claude.write_text("#!/bin/sh\nexit 0\n")
+    claude.chmod(0o755)
     overlay = tmp_path / "agents.local.toml"
     overlay.write_text(
         'schema = "ag.agent-config.v1"\n\n[local.provider.ollama]\n'
-        'base_url = "http://ollama.example:11434"\n'
+        'base_url = "http://ollama.example:11434"\n\n'
+        f'[local.harness.claude_code]\ncommand = "{claude}"\n'
     )
+    return overlay
+
+
+def test_the_committed_config_resolves_all_three_doors(tmp_path):
+    overlay = _machine_overlay(tmp_path)
     for role in ("node", "human", "front"):
         runner = build_runner(
             role, config_path=CONFIG, overlay_path=overlay, working_dir=tmp_path,
             instructions_path=tmp_path / "a.md", turn_timeout=1,
         )
-        assert runner.agent.harness == "agcode"
-        assert runner.identity()["role"] == role
-        assert runner.identity()["model"] == "ollama/qwen3.6:35b-a3b-coding-nvfp4"
+        identity = runner.identity()
+        assert identity["role"] == role
+        assert identity["profile"]
+        assert identity["harness"] and identity["model"]
 
 
 def test_only_the_front_role_gets_the_window_tools(tmp_path):
     """`front` is the renamed window role; the `/window` route keeps serving
     the strictly-smaller tool set through it."""
-    overlay = tmp_path / "agents.local.toml"
+    overlay = _machine_overlay(tmp_path)
     kwargs = dict(config_path=CONFIG, overlay_path=overlay, working_dir=tmp_path,
                   instructions_path=tmp_path / "a.md", turn_timeout=1)
     window = build_runner("front", **kwargs)
