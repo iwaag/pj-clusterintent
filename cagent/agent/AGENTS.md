@@ -17,6 +17,14 @@ Run from the repository root.
 - `uv run --project nctl nctl reconcile ... --yes` — run the reconciliation.
 - `uv run --project nctl nctl desired export` — the canonical re-applyable
   desired-state batch document.
+- An active `agag_agent` placement installs or updates a generated agag agent
+  on its desired node. Render first with `uv run --project nctl nctl render
+  production --out ansible_agdev/inventories/generated`, then run from
+  `ansible_agdev`: `AGAG_AGENT_ZULIP_CREDENTIALS_SOURCE=../../pj-agdev/.local/zulip/<instance>.env
+  ansible-playbook -i inventories/generated/production.yml
+  playbooks/agent/setup_agag_agent.yml --limit <node>`. The credential source
+  is controller-local and must never be put into desired state or inventory.
+  Report the play recap and which tasks changed.
 - `uv run --project nctl nctl upload PATH [PATH...] [--zip] [--ttl 30m] [--json]`
   — hand a file out as a time-limited download URL, via the local MinIO
   outbox. Default TTL 30 minutes; the URL stops working after it.
