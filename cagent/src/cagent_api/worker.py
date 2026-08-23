@@ -31,7 +31,7 @@ logger = logging.getLogger("cagent_api.worker")
 # compositions (e.g. a state bundle) can legitimately take minutes, so the
 # bound is configurable. It reaches the model as agcode's `deadline_s`, which
 # ends the run from inside rather than abandoning a subprocess.
-TURN_TIMEOUT_SECONDS = float(os.environ.get("CAGENT_TURN_TIMEOUT_SECONDS", "300"))
+TURN_TIMEOUT_SECONDS = float(os.environ.get("CAGENT_TURN_TIMEOUT_SECONDS", "900"))
 
 
 class Worker:

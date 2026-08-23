@@ -48,6 +48,14 @@ REPLAY_TURNS = 8
 REPLAY_CHARS = 256_000
 RUNAWAY_TURN_BUDGET = 40
 
+
+def model_max_tokens(options: dict) -> int:
+    """Read the optional per-model cap with the same contract as agcode."""
+    value = options.get("max_tokens", agcode.DEFAULT_MAX_TOKENS)
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        raise ValueError("model option max_tokens must be a positive integer")
+    return value
+
 # Destroy-class commands, denied before exec on the authenticated doors.
 #
 # This is the one guard carried over from the retired permission file, and it
@@ -308,6 +316,7 @@ class AgentRunner:
             model=self.agent.native_model,
             max_turns=RUNAWAY_TURN_BUDGET,
             deadline_s=self.turn_timeout,
+            max_tokens=model_max_tokens(self.agent.model_options),
             tools=self.tools,
             system_suffix=self.instructions(),
             stop=stop,

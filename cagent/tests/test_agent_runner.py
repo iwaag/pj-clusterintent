@@ -21,6 +21,13 @@ from cagent_api.agent_runner import AgentRunner, build_runner, compose_task
 CONFIG = Path(__file__).resolve().parents[1] / "agents.toml"
 
 
+def test_model_max_tokens_defaults_and_rejects_invalid_values():
+    assert agent_runner.model_max_tokens({}) == agcode.DEFAULT_MAX_TOKENS
+    assert agent_runner.model_max_tokens({"max_tokens": 1234}) == 1234
+    with pytest.raises(ValueError, match="positive integer"):
+        agent_runner.model_max_tokens({"max_tokens": 0})
+
+
 # --- session replay ---------------------------------------------------------
 
 
