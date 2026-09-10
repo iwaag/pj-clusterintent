@@ -8,7 +8,7 @@ shape over one generation:
     <N>/front/     chatlog.md         → front run → its answer, posted
     <N>/operator/  required_info.md   → operator run → its answer, posted
                    tools/toolset_nctl.md
-                   (requested_change.md → a Plane Work in ClusterAdmin)
+                   (requested_change.md → a change record in cagent's channel)
 
 What the front *wrote* drives the handoffs, never what it said — its chat
 answer is relayed verbatim and never parsed. Generation directories are
@@ -35,18 +35,16 @@ from agag.topics import (
     serve_topic,
     topic_workspace as shared_topic_workspace,
 )
-from agag.zulip import ZulipClient, log
+from agag.zulip import ZulipClient, ZulipError, log
 
+from .change_record import RecordError, register_change as record_change
+from .instance import CHANGE_TOPIC_PREFIX, TOPIC_PREFIX
 from .role_run import CAGENT_ROOT, REPO_ROOT, run_role
 
 TOPICS_ROOT = REPO_ROOT / ".local" / "topics"
 GUIDES = CAGENT_ROOT / "agent" / "guides"
 TOOLS = CAGENT_ROOT / "agent" / "tools"
 RECORDS_ROOT = REPO_ROOT / ".local" / "agent"
-
-# Request topics per the zulip_channel_topic workflow, in any subscribed
-# channel. A resolved topic is renamed "✔ cagent-…" and stops matching.
-TOPIC_PREFIX = "cagent-"
 
 # The common sweep ack (shared wording across agents). Posted synchronously
 # on a topic match: it makes this bot the last poster, so the pull loop stops
@@ -66,6 +64,8 @@ TOOLSET_NCTL = "toolset_nctl.md"
 TOOLS_DIR = "tools"
 
 __all__ = [
+    "CHANGE_TOPIC_PREFIX",
+    "TOPIC_PREFIX",
     "ListenerError",
     "front_prompt",
     "generation_dir",
@@ -120,25 +120,40 @@ def run_operator(cwd: Path) -> str:
     return _run("operator", guide("operator_read", "guide.md"), cwd, OPERATOR_TIMEOUT_SECONDS)
 
 
-def register_change(channel: str, topic: str, change: Path) -> str:
-    """Wrapped so the whole Plane route stays behind one name here."""
-    from .plane import register_change as plane_register_change
+def register_change(context, change: Path) -> str:
+    """Record one `requested_change.md`, in the conversation it belongs to.
 
-    return plane_register_change(channel, topic, change)
+    Wrapped so the whole record route stays behind one name here — the same
+    seam `plane.py` used to sit behind, now leading to Zulip.
+    """
+    return record_change(
+        context.client,
+        context.channel,
+        context.topic,
+        change.read_text(encoding="utf-8"),
+        self_id=context.self_id,
+        history=context.history,
+    )
 
 
-def handle_handoffs(channel: str, topic: str, front_dir: Path, number: int) -> list[str]:
+def handle_handoffs(context, front_dir: Path, number: int) -> list[str]:
     """The file-driven branches, after the front's answer is already posted.
 
-    Both files present in one serving is processed both, independently —
-    register the Work, then run the operator. The braindump defers real
-    design of mixed requests; this is the observe-first behavior.
+    Both files present in one serving are processed, and **independently**:
+    a registration that fails is reported as its own section and the
+    observation still runs. They were sequential once, and a raised exception
+    in the first branch meant the person who asked to be told *and* shown
+    got neither.
     """
+    channel, topic = context.channel, context.topic
     sections: list[str] = []
 
     change = front_dir / REQUESTED_CHANGE
     if change.is_file():
-        sections.append(register_change(channel, topic, change))
+        try:
+            sections.append(register_change(context, change))
+        except (RecordError, ZulipError) as error:
+            sections.append(f"the change could not be recorded: {error}")
 
     required = front_dir / REQUIRED_INFO
     if required.is_file():
@@ -169,7 +184,7 @@ def serve(context) -> TopicResult:
     context.post(answer)
 
     context.step = "handoffs"
-    return TopicResult(handle_handoffs(context.channel, context.topic, front_dir, number))
+    return TopicResult(handle_handoffs(context, front_dir, number))
 
 
 def handle_topic(client: ZulipClient, channel: str, topic: str) -> None:

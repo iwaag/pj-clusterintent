@@ -19,6 +19,9 @@ from cagent_api import topics_serve
 
 BOT_ID = 14
 HUMAN_ID = 8
+# Every reply names the last other speaker: whoever is named takes the next
+# turn (`agag.topics.serve_topic`). It costs one extra history read.
+MENTION = "@**Developer**\n\n"
 CHANNEL = "general"
 TOPIC = "cagent-hello"
 
@@ -133,13 +136,15 @@ def test_required_info_builds_the_operator_workspace_and_runs_it(monkeypatch, tm
 
     operator = gen_dir(tmp_path, 1, "operator")
     assert [call[0] for call in calls] == [
-        "whoami", "write", "history", "front", "write", "operator", "write", "history",
+        "whoami", "write", "history", "front", "write", "operator",
+        "history", "write", "history",
     ]
     assert (operator / "required_info.md").read_text() == "which node?"
     assert (operator / "tools" / "toolset_nctl.md").read_text().startswith("# Description")
     assert calls[5][1] == operator
-    # The operator's answer travels verbatim.
-    assert calls[-2][2] == "here it is"
+    # The operator's answer travels verbatim, under the mention that hands
+    # the turn back.
+    assert calls[-2][2] == MENTION + "here it is"
 
 
 def test_the_front_answer_is_posted_before_the_operator_runs(monkeypatch, tmp_path):
@@ -152,36 +157,40 @@ def test_the_front_answer_is_posted_before_the_operator_runs(monkeypatch, tmp_pa
     assert kinds.index("write", 3) < kinds.index("operator")
 
 
-# --- (b2) requested_change.md present: a Plane Work --------------------------
+# --- (b2) requested_change.md present: a change record -----------------------
 
 
-def test_requested_change_registers_a_work_and_runs_no_operator(monkeypatch, tmp_path):
+def test_requested_change_records_it_and_runs_no_operator(monkeypatch, tmp_path):
     calls = []
     wire(monkeypatch, tmp_path, calls,
          writes=(("requested_change.md", "# Add a VM\n\nOne more."),))
     monkeypatch.setattr(
         topics_serve, "register_change",
-        lambda channel, topic, change: (
-            calls.append(("plane", channel, topic, change)) or 'created CA-1 "Add a VM"'
+        lambda context, change: (
+            calls.append(("record", context.channel, context.topic, change))
+            or 'recorded c9 "Add a VM" in #**cagent-test>change-hello-o1**'
         ),
     )
 
     topics_serve.handle_topic(Client(calls), CHANNEL, TOPIC)
 
     assert [call[0] for call in calls] == [
-        "whoami", "write", "history", "front", "write", "plane", "write", "history",
+        "whoami", "write", "history", "front", "write", "record",
+        "history", "write", "history",
     ]
     assert calls[5][1:3] == (CHANNEL, TOPIC)
     assert calls[5][3] == gen_dir(tmp_path, 1, "front") / "requested_change.md"
-    assert calls[-2][2] == 'created CA-1 "Add a VM"'
+    assert calls[-2][2] == (
+        MENTION + 'recorded c9 "Add a VM" in #**cagent-test>change-hello-o1**'
+    )
     assert not gen_dir(tmp_path, 1, "operator").exists()
 
 
-def test_both_files_present_registers_the_work_then_runs_the_operator(
+def test_both_files_present_records_the_change_then_runs_the_operator(
     monkeypatch, tmp_path
 ):
     """The observe-first behavior for mixed requests: both branches run,
-    independently, Work first."""
+    independently, the record first."""
     calls = []
     wire(monkeypatch, tmp_path, calls, writes=(
         ("required_info.md", "which node?"),
@@ -189,25 +198,36 @@ def test_both_files_present_registers_the_work_then_runs_the_operator(
     ))
     monkeypatch.setattr(
         topics_serve, "register_change",
-        lambda channel, topic, change: calls.append(("plane",)) or "created CA-1",
+        lambda context, change: calls.append(("record",)) or "recorded c9",
     )
     topics_serve.handle_topic(Client(calls), CHANNEL, TOPIC)
     kinds = [call[0] for call in calls]
-    assert kinds.index("plane") < kinds.index("operator")
-    assert calls[-2][2] == "created CA-1\n\nhere it is"
+    assert kinds.index("record") < kinds.index("operator")
+    assert calls[-2][2] == MENTION + "recorded c9\n\nhere it is"
 
 
-def test_a_plane_failure_is_reported_not_swallowed(monkeypatch, tmp_path):
+def test_a_failed_record_is_reported_and_the_observation_still_runs(
+    monkeypatch, tmp_path
+):
+    """The plan's own example: an exception while registering used to take
+    the observation branch down with it, so somebody who asked to be told
+    *and* shown got neither."""
     calls = []
-    wire(monkeypatch, tmp_path, calls,
-         writes=(("requested_change.md", "# Add a VM\n\nOne more."),))
+    wire(monkeypatch, tmp_path, calls, writes=(
+        ("required_info.md", "which node?"),
+        ("requested_change.md", "# Add a VM\n\nOne more."),
+    ))
 
-    def explode(channel, topic, change):
-        raise topics_serve.ListenerError("plane is down")
+    def explode(context, change):
+        raise topics_serve.RecordError("zulip is down")
 
     monkeypatch.setattr(topics_serve, "register_change", explode)
     topics_serve.handle_topic(Client(calls), CHANNEL, TOPIC)
-    assert "failed during handoffs: plane is down" in calls[-1][2]
+    kinds = [call[0] for call in calls]
+    assert "operator" in kinds
+    assert calls[-2][2] == (
+        MENTION + "the change could not be recorded: zulip is down\n\nhere it is"
+    )
 
 
 # --- (c) an exception mid-way: `failed during …` is posted ------------------
@@ -222,7 +242,7 @@ def test_a_front_failure_names_its_step(monkeypatch, tmp_path):
 
     monkeypatch.setattr(topics_serve, "run_front", explode)
     topics_serve.handle_topic(Client(calls), CHANNEL, TOPIC)
-    assert calls[-1][2] == "failed during front: agcode timed out"
+    assert calls[-1][2] == MENTION + "failed during front: agcode timed out"
 
 
 # --- generations ------------------------------------------------------------

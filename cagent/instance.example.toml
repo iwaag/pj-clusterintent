@@ -1,0 +1,3 @@
+# Copy to `.local/instance.toml` and set this instance's name. The label is
+# the host, which tracked files do not carry — hence the ignored copy.
+name = "cagent-<host><n>"

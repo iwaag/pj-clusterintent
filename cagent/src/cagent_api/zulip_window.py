@@ -7,12 +7,15 @@ cluster capability of its own — it is an adapter between Zulip and the
 window's HTTP door, so everything it can cause is bounded by the window's
 tool set.
 
-The topic side is the pull loop (`agag.zulip.sweep_serve`): every unresolved
-`cagent-` topic in a subscribed channel whose last poster is not this bot is
-served through `topics_serve.handle_topic` — the front/operator pair over a
-generation workspace. Sweeping again on startup and queue re-registration is
-what makes topic downtime lossless, unlike the DM path. The mechanics of the
-Zulip side live in `agag.zulip`.
+The topic side is the pull loop (`agag.zulip.sweep_serve`). What it sweeps is
+`agag.agent.topic_filter`: **every** unresolved topic in cagent's own channel,
+and the `cagent-`/`change-` prefixes anywhere else it is subscribed. The
+channel is the one that holds cagent's change records (`change_record.py`), so
+a request recorded there is discussed and decided in the same place it is
+written — served through `topics_serve.handle_topic`, the front/operator pair
+over a generation workspace. Sweeping again on startup and queue
+re-registration is what makes topic downtime lossless, unlike the DM path. The
+mechanics of the Zulip side live in `agag.zulip`.
 """
 
 from __future__ import annotations
@@ -180,9 +183,13 @@ def observe_topic(channel: str, topic: str) -> None:
 
 
 def main() -> None:
+    from agag.agent import topic_filter
     from agag.zulip import serve, sweep_serve
 
-    from .topics_serve import TOPIC_PREFIX, handle_topic
+    from .instance import SPEC
+    from .topics_serve import handle_topic
+
+    sweep_filter = topic_filter(SPEC)
 
     env_path = Path(os.environ.get("CAGENT_ZULIP_ENV", str(DEFAULT_ZULIP_ENV)))
     window = WindowClient(
@@ -204,11 +211,12 @@ def main() -> None:
     threading.Thread(target=serve, args=(dm_client, dm_handler), daemon=True).start()
     log(
         f"cagent zulip listener starting (window={window.base_url}, "
-        f"pull sweep prefix {TOPIC_PREFIX!r} + DM thread, "
+        f"pull sweep of channel {SPEC.instance_name()!r} and prefixes "
+        f"{SPEC.sweep_prefixes!r} + DM thread, "
         f"dm_handler={dm_handler.__name__})"
     )
     try:
-        sweep_serve(sweep_client, topic_handler, topic_filter=(TOPIC_PREFIX,))
+        sweep_serve(sweep_client, topic_handler, topic_filter=sweep_filter)
     except KeyboardInterrupt:
         log("stopped")
 

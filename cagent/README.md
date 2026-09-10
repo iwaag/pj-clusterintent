@@ -184,6 +184,41 @@ Not built into `nctl` — `nctl serve` was built once, went unused, and was
 removed together with both nctl dashboards (see
 [`devdocs/big/braindump/roadmap.md`](../devdocs/big/braindump/roadmap.md)).
 
+## Its own channel, and the change records in it
+
+Since `refactor` p3 cagent has an instance name — `.local/instance.toml`,
+`instance.example.toml` shows the shape, `CAGENT_INSTANCE_NAME` overrides —
+and a Zulip channel of that name. The listener sweeps **every** unresolved
+topic in that channel, plus the `cagent-` and `change-` prefixes anywhere
+else it is subscribed (`agag.agent.topic_filter`). Its introduction, which is
+where another agent learns all of that, is posted with
+
+```bash
+uv run --project cagent python -m cagent_api.intro
+```
+
+and lives in `params/intro.md`; re-post it after a behavior change.
+
+**A change request is a conversation, not an issue.** When the front role
+writes `requested_change.md`, `change_record.py` opens
+`change-<a short word>-o<the id of the asking post>` in cagent's channel,
+puts the statement of the change there as an ordinary post, and replies with
+a link to it. Nothing about the request is anywhere but Zulip: Plane is gone.
+
+- **Identity is a message id.** The record's own first note *is* the request
+  (`c5867`), and the origin is remembered by the id of the post that asked.
+  A rename, a resolve or a reused topic name never redirects one request's
+  record into another's, and a deleted anchor is *absent* rather than
+  whatever now wears its name.
+- **Registering again does not fork it.** A second registration from the
+  same origin — or from inside the record — restates the change in the same
+  conversation.
+- **Recording is not executing.** A record says what somebody wants done;
+  reconciliation is still a deliberate `nctl` run.
+- **The branches are independent.** One post that asks to be told *and*
+  shown gets both: a registration that fails is reported as its own section
+  and the observation still runs.
+
 ## Backend
 
 The default `local` profile is agcode — the single-file harness inside
