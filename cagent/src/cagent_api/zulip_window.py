@@ -7,15 +7,17 @@ cluster capability of its own — it is an adapter between Zulip and the
 window's HTTP door, so everything it can cause is bounded by the window's
 tool set.
 
-The topic side is the pull loop (`agag.zulip.sweep_serve`). What it sweeps is
-`agag.agent.topic_filter`: **every** unresolved topic in cagent's own channel,
-and the `cagent-`/`change-` prefixes anywhere else it is subscribed. The
-channel is the one that holds cagent's change records (`change_record.py`), so
-a request recorded there is discussed and decided in the same place it is
-written — served through `topics_serve.handle_topic`, the front/operator pair
-over a generation workspace. Sweeping again on startup and queue
-re-registration is what makes topic downtime lossless, unlike the DM path. The
-mechanics of the Zulip side live in `agag.zulip`.
+The topic side is `agag.listen` (since `better_zulip_call` p1): a mirror of
+the realm's public conversations on cagent's own credential, an intake that
+follows its change feed into a durable queue, and one executor. What it
+serves is `agag.agent.topic_filter`: **every** unresolved topic in cagent's
+own channel, and the `cagent-`/`change-` prefixes in any public channel.
+The channel is the one that holds cagent's change records
+(`change_record.py`), so a request recorded there is discussed and decided
+in the same place it is written — served through `topics_serve.handle_topic`,
+the front/operator pair over a generation workspace. Downtime is recovered
+from the mirror's index, not by a sweep, which is what makes it lossless
+unlike the DM path.
 """
 
 from __future__ import annotations
@@ -183,8 +185,10 @@ def observe_topic(channel: str, topic: str) -> None:
 
 
 def main() -> None:
-    from agag.agent import topic_filter
-    from agag.zulip import serve, sweep_serve
+    from agag.agent import is_ack, topic_filter
+    from agag.listen import Listener
+    from agag.mirror import Mirror
+    from agag.zulip import serve
 
     from .instance import SPEC
     from .topics_serve import handle_topic
@@ -196,7 +200,7 @@ def main() -> None:
         os.environ.get("CAGENT_WINDOW_URL", DEFAULT_WINDOW_URL),
         timeout_seconds=float(os.environ.get("CAGENT_WINDOW_TIMEOUT_SECONDS", "420")),
     )
-    sweep_client = ZulipClient.from_env(env_path)
+    serving_client = ZulipClient.from_env(env_path)
     dm_client = ZulipClient.from_env(env_path)
     if os.environ.get("CAGENT_ZULIP_LOG_ONLY") == "1":
         dm_handler, topic_handler = log_only, observe_topic
@@ -204,21 +208,30 @@ def main() -> None:
         dm_handler = make_handler(window)
 
         def topic_handler(channel: str, topic: str) -> None:
-            handle_topic(sweep_client, channel, topic)
+            handle_topic(serving_client, channel, topic)
 
-    # The DM thread keeps the existing window path; the main thread pulls
-    # `cagent-` topics. One client per polling thread, as agag.zulip asks.
+    # The DM thread keeps the existing window path. The topic side is
+    # `agag.listen` since `better_zulip_call` p1: a mirror of the realm on
+    # cagent's own credential (`.local/cagent-window/mirror/`), a durable
+    # queue beside it, and one executor — nothing is swept any more.
     threading.Thread(target=serve, args=(dm_client, dm_handler), daemon=True).start()
+    store_dir = Path(os.environ.get("CAGENT_MIRROR_DIR", str(REPO_ROOT / ".local" / "cagent-window" / "mirror")))
+    mirror = Mirror.open(env_path, store_dir, log=log)
+    listener = Listener(mirror, serving_client, topic_filter=sweep_filter, handler=topic_handler,
+                        is_ack=is_ack, log=log)
     log(
         f"cagent zulip listener starting (window={window.base_url}, "
-        f"pull sweep of channel {SPEC.instance_name()!r} and prefixes "
-        f"{SPEC.sweep_prefixes!r} + DM thread, "
+        f"mirror in {store_dir}; every topic in {SPEC.instance_name()!r} and prefixes "
+        f"{SPEC.sweep_prefixes!r} elsewhere + DM thread, "
         f"dm_handler={dm_handler.__name__})"
     )
     try:
-        sweep_serve(sweep_client, topic_handler, topic_filter=sweep_filter)
+        listener.run()
     except KeyboardInterrupt:
         log("stopped")
+    finally:
+        listener.stop()
+        mirror.stop()
 
 
 if __name__ == "__main__":
