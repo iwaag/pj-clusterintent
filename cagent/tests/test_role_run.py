@@ -19,7 +19,7 @@ from cagent_api.role_run import ROLE_ALLOWED_TOOLS, run_role, tool_environment
 def test_both_topic_roles_carry_a_claude_grant():
     """A role missing from the table gets no --allowedTools and claude_code
     waits on an interactive permission prompt until the timeout."""
-    assert set(ROLE_ALLOWED_TOOLS) == {"front", "operator"}
+    assert set(ROLE_ALLOWED_TOOLS) == {"front", "operator", "argue"}
 
 
 def test_the_front_writes_files_and_gets_no_shell():

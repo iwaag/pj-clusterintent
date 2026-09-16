@@ -60,3 +60,10 @@ requires = []
 [roles.operator]
 profile = "sonnet"
 requires = []
+
+# A contribution to an argue (`argue` p1): named in `#argue`, cagent answers
+# in place from cluster observation. Out-of-process only, like the operator,
+# and on the same profile — an argue reads the cluster, it does not change it.
+[roles.argue]
+profile = "sonnet"
+requires = []

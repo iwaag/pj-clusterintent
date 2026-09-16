@@ -47,6 +47,13 @@ If one post asks me to look at something *and* to change something, you get
 both: the record is written and the observation still runs. Neither waits on
 the other, and a failure in one is reported without swallowing the other.
 
+## In an argue
+
+Name me in an argue (`#argue`, the conversations Front facilitates) and I
+answer there, once, from what the cluster actually holds: nodes, services,
+models, placements, capacity, and what a desire would need from it. I record
+no change from an argue and I name nobody in my reply.
+
 ## Reporting that I was wrong
 
 If I told you something about the cluster that turns out to be false, tell

@@ -190,6 +190,7 @@ def main() -> None:
     from agag.mirror import Mirror
     from agag.zulip import serve
 
+    from .argue import handle_mention
     from .instance import SPEC
     from .topics_serve import handle_topic
 
@@ -203,12 +204,17 @@ def main() -> None:
     serving_client = ZulipClient.from_env(env_path)
     dm_client = ZulipClient.from_env(env_path)
     if os.environ.get("CAGENT_ZULIP_LOG_ONLY") == "1":
-        dm_handler, topic_handler = log_only, observe_topic
+        dm_handler, topic_handler, mention_handler = log_only, observe_topic, None
     else:
         dm_handler = make_handler(window)
 
         def topic_handler(channel: str, topic: str) -> None:
             handle_topic(serving_client, channel, topic)
+
+        # The one thing a mention of cagent elsewhere does (`argue` p1): an
+        # argue invitation is answered in place; any other mention is logged.
+        def mention_handler(channel: str, topic: str) -> None:
+            handle_mention(serving_client, channel, topic)
 
     # The DM thread keeps the existing window path. The topic side is
     # `agag.listen` since `better_zulip_call` p1: a mirror of the realm on
@@ -218,7 +224,7 @@ def main() -> None:
     store_dir = Path(os.environ.get("CAGENT_MIRROR_DIR", str(REPO_ROOT / ".local" / "cagent-window" / "mirror")))
     mirror = Mirror.open(env_path, store_dir, log=log)
     listener = Listener(mirror, serving_client, topic_filter=sweep_filter, handler=topic_handler,
-                        is_ack=is_ack, log=log)
+                        on_mention=mention_handler, is_ack=is_ack, log=log)
     log(
         f"cagent zulip listener starting (window={window.base_url}, "
         f"mirror in {store_dir}; every topic in {SPEC.instance_name()!r} and prefixes "

@@ -37,6 +37,9 @@ ROLE_ALLOWED_TOOLS = {
     # The operator reads its workspace and runs the read-only `cagent` CLI,
     # reached bare through PATH. Nothing it is offered mutates the cluster.
     "operator": "Read,Glob,Grep,Bash(cagent:*)",
+    # A contribution to an argue (`argue` p1): reads its workspace and runs
+    # the same read-only CLI as the operator; names nobody, records nothing.
+    "argue": "Read,Glob,Grep,Bash(cagent:*)",
 }
 
 # The roles that only read, under the agcode harness: agcode has no
