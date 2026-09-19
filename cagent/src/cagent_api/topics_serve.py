@@ -22,6 +22,7 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
+from agag.reply import repair_with, resolve_reply
 from agag.topics import (
     TopicResult,
     chatlog_path,
@@ -101,7 +102,7 @@ def is_ack(content: str) -> bool:
 
 
 def front_prompt(bot_name: str) -> str:
-    return prompt_with_guide([chatlog_placement(bot_name)], guide("front", "guide.md"))
+    return prompt_with_guide([chatlog_placement(bot_name)], guide("front", "guide.md"), reply=True)
 
 
 def _run(role: str, prompt: str, cwd: Path, timeout: float) -> str:
@@ -178,9 +179,15 @@ def serve(context) -> TopicResult:
     )
 
     context.step = "front"
-    answer = run_front(front_prompt(context.bot_name), front_dir)
+    output = run_front(front_prompt(context.bot_name), front_dir)
     # Posted on its own, before any handoff: the front's answer is the
-    # conversational reply, and the operator can take minutes.
+    # conversational reply, and the operator can take minutes. What is said
+    # is what the front marked (`agag.reply`); an unmarked output is
+    # repaired once, then reported as no reply.
+    answer, split, _ = resolve_reply(output, repair_with(lambda again: run_front(again, front_dir), output), log=log)
+    journal = getattr(context, "journal", None)
+    if journal is not None:
+        journal.reply_outcome(marked=split.marked, blocks=split.blocks, failure=split.error or "")
     context.post(answer)
 
     context.step = "handoffs"

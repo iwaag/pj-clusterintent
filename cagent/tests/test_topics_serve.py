@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import pytest
 from agag import topics
+from agag.reply import REPLY_GUIDE
 from agag.topics import GuideError
 
 from cagent_api import topics_serve
@@ -54,6 +55,15 @@ class Client:
         return self.history
 
 
+def marked(answer: str) -> str:
+    """A stub run's output under the reply contract (`agag.reply`): the
+    answer inside an `ag-reply` mark after a line of the run's own, unless
+    the test wrote the marks itself."""
+    if "```ag-reply" in answer:
+        return answer
+    return f"thinking about it first.\n\n```ag-reply\n{answer}\n```"
+
+
 def wire(monkeypatch, tmp_path, calls, *, front="let me check", operator="here it is",
          writes=()):
     monkeypatch.setattr(topics_serve, "TOPICS_ROOT", tmp_path / "topics")
@@ -64,12 +74,17 @@ def wire(monkeypatch, tmp_path, calls, *, front="let me check", operator="here i
         "topic_write",
         lambda topic, text, **kwargs: calls.append(("write", topic, text)) or "success",
     )
+    monkeypatch.setattr(
+        topics,
+        "deliver",
+        lambda client, channel, topic, text, **kwargs: calls.append(("write", topic, text)) or 900,
+    )
 
     def front_run(prompt, cwd):
         calls.append(("front", prompt, cwd))
         for name, body in writes:
             (cwd / name).write_text(body)
-        return front
+        return marked(front)
 
     def operator_run(cwd):
         calls.append(("operator", cwd))
@@ -122,6 +137,7 @@ def test_the_front_prompt_is_the_placement_line_plus_its_own_guide(monkeypatch, 
     assert prompt == (
         "The chatlog is placed in the working directory. "
         "You are 'Cagent' in the chatlog.\n\nFRONT GUIDE"
+        f"\n\n{REPLY_GUIDE}"
     )
 
 
@@ -137,7 +153,7 @@ def test_required_info_builds_the_operator_workspace_and_runs_it(monkeypatch, tm
     operator = gen_dir(tmp_path, 1, "operator")
     assert [call[0] for call in calls] == [
         "whoami", "write", "history", "front", "write", "operator",
-        "history", "write", "history",
+        "write", "history",
     ]
     assert (operator / "required_info.md").read_text() == "which node?"
     assert (operator / "tools" / "toolset_nctl.md").read_text().startswith("# Description")
@@ -176,7 +192,7 @@ def test_requested_change_records_it_and_runs_no_operator(monkeypatch, tmp_path)
 
     assert [call[0] for call in calls] == [
         "whoami", "write", "history", "front", "write", "record",
-        "history", "write", "history",
+        "write", "history",
     ]
     assert calls[5][1:3] == (CHANNEL, TOPIC)
     assert calls[5][3] == gen_dir(tmp_path, 1, "front") / "requested_change.md"
