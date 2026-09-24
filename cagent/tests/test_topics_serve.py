@@ -22,6 +22,8 @@ BOT_ID = 14
 HUMAN_ID = 8
 # Every reply names the last other speaker: whoever is named takes the next
 # turn (`agag.topics.serve_topic`). It costs one extra history read.
+#: The handoff outcomes and failures are reports (`agag.post`, clearer_chat_ui step 4).
+REPORT_LINE = "\n\n`ag-post intent=report`"
 MENTION = "@**Developer**\n\n"
 CHANNEL = "general"
 TOPIC = "cagent-hello"
@@ -160,7 +162,7 @@ def test_required_info_builds_the_operator_workspace_and_runs_it(monkeypatch, tm
     assert calls[5][1] == operator
     # The operator's answer travels verbatim, under the mention that hands
     # the turn back.
-    assert calls[-2][2] == MENTION + "here it is"
+    assert calls[-2][2] == MENTION + "here it is" + REPORT_LINE
 
 
 def test_the_front_answer_is_posted_before_the_operator_runs(monkeypatch, tmp_path):
@@ -197,7 +199,7 @@ def test_requested_change_records_it_and_runs_no_operator(monkeypatch, tmp_path)
     assert calls[5][1:3] == (CHANNEL, TOPIC)
     assert calls[5][3] == gen_dir(tmp_path, 1, "front") / "requested_change.md"
     assert calls[-2][2] == (
-        MENTION + 'recorded c9 "Add a VM" in #**cagent-test>change-hello-o1**'
+        MENTION + 'recorded c9 "Add a VM" in #**cagent-test>change-hello-o1**' + REPORT_LINE
     )
     assert not gen_dir(tmp_path, 1, "operator").exists()
 
@@ -219,7 +221,7 @@ def test_both_files_present_records_the_change_then_runs_the_operator(
     topics_serve.handle_topic(Client(calls), CHANNEL, TOPIC)
     kinds = [call[0] for call in calls]
     assert kinds.index("record") < kinds.index("operator")
-    assert calls[-2][2] == MENTION + "recorded c9\n\nhere it is"
+    assert calls[-2][2] == MENTION + "recorded c9\n\nhere it is" + REPORT_LINE
 
 
 def test_a_failed_record_is_reported_and_the_observation_still_runs(
@@ -242,7 +244,7 @@ def test_a_failed_record_is_reported_and_the_observation_still_runs(
     kinds = [call[0] for call in calls]
     assert "operator" in kinds
     assert calls[-2][2] == (
-        MENTION + "the change could not be recorded: zulip is down\n\nhere it is"
+        MENTION + "the change could not be recorded: zulip is down\n\nhere it is" + REPORT_LINE
     )
 
 
@@ -258,7 +260,7 @@ def test_a_front_failure_names_its_step(monkeypatch, tmp_path):
 
     monkeypatch.setattr(topics_serve, "run_front", explode)
     topics_serve.handle_topic(Client(calls), CHANNEL, TOPIC)
-    assert calls[-1][2] == MENTION + "failed during front: agcode timed out"
+    assert calls[-1][2] == MENTION + "failed during front: agcode timed out" + REPORT_LINE
 
 
 # --- generations ------------------------------------------------------------

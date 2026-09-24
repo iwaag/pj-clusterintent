@@ -22,6 +22,8 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
+from agag.post import REPORT, RESPONSE_REQUEST, PostMeta, compose
+from agag.topics import requester_of
 from agag.reply import repair_with, resolve_reply
 from agag.topics import (
     TopicResult,
@@ -188,10 +190,28 @@ def serve(context) -> TopicResult:
     journal = getattr(context, "journal", None)
     if journal is not None:
         journal.reply_outcome(marked=split.marked, blocks=split.blocks, failure=split.error or "")
-    context.post(answer)
+    context.post(compose(answer, _meaning(context, split)))
 
     context.step = "handoffs"
-    return TopicResult(handle_handoffs(context, front_dir, number))
+    # The operator's outcomes are information for the requester.
+    return TopicResult(handle_handoffs(context, front_dir, number), meta=PostMeta(intent=REPORT))
+
+
+def _meaning(context, split) -> PostMeta | None:
+    """What the front's answer is for (`agag.post`), as the listener would
+    write it on a final reply: a request is addressed to the requester of
+    the processed input and carries that input boundary; a failed reply is a
+    report; a request nobody can be named for is posted unclassified."""
+    if not split.ok:
+        return PostMeta(intent=REPORT)
+    meta = split.meta
+    if meta is not None and meta.intent == RESPONSE_REQUEST and meta.to is None:
+        requester = requester_of(context.history, context.self_id, context.processed_up_to)
+        if requester is None or requester.get("sender_id") is None:
+            return PostMeta(re=meta.re) if meta.re else None
+        meta = PostMeta(intent=meta.intent, to=int(requester["sender_id"]), ask=meta.ask, re=meta.re,
+                        seen=context.processed_up_to or None)
+    return meta
 
 
 def handle_topic(client: ZulipClient, channel: str, topic: str) -> None:
