@@ -17,6 +17,7 @@ from agag.reply import REPLY_GUIDE
 from agag.topics import GuideError
 
 from cagent_api import topics_serve
+from tests.endmark import plain
 
 BOT_ID = 14
 HUMAN_ID = 8
@@ -162,7 +163,7 @@ def test_required_info_builds_the_operator_workspace_and_runs_it(monkeypatch, tm
     assert calls[5][1] == operator
     # The operator's answer travels verbatim, under the mention that hands
     # the turn back.
-    assert calls[-2][2] == MENTION + "here it is" + REPORT_LINE
+    assert plain(calls[-2][2]) == MENTION + "here it is" + REPORT_LINE
 
 
 def test_the_front_answer_is_posted_before_the_operator_runs(monkeypatch, tmp_path):
@@ -198,7 +199,7 @@ def test_requested_change_records_it_and_runs_no_operator(monkeypatch, tmp_path)
     ]
     assert calls[5][1:3] == (CHANNEL, TOPIC)
     assert calls[5][3] == gen_dir(tmp_path, 1, "front") / "requested_change.md"
-    assert calls[-2][2] == (
+    assert plain(calls[-2][2]) == (
         MENTION + 'recorded c9 "Add a VM" in #**cagent-test>change-hello-o1**' + REPORT_LINE
     )
     assert not gen_dir(tmp_path, 1, "operator").exists()
@@ -221,7 +222,7 @@ def test_both_files_present_records_the_change_then_runs_the_operator(
     topics_serve.handle_topic(Client(calls), CHANNEL, TOPIC)
     kinds = [call[0] for call in calls]
     assert kinds.index("record") < kinds.index("operator")
-    assert calls[-2][2] == MENTION + "recorded c9\n\nhere it is" + REPORT_LINE
+    assert plain(calls[-2][2]) == MENTION + "recorded c9\n\nhere it is" + REPORT_LINE
 
 
 def test_a_failed_record_is_reported_and_the_observation_still_runs(
@@ -243,7 +244,7 @@ def test_a_failed_record_is_reported_and_the_observation_still_runs(
     topics_serve.handle_topic(Client(calls), CHANNEL, TOPIC)
     kinds = [call[0] for call in calls]
     assert "operator" in kinds
-    assert calls[-2][2] == (
+    assert plain(calls[-2][2]) == (
         MENTION + "the change could not be recorded: zulip is down\n\nhere it is" + REPORT_LINE
     )
 
@@ -260,7 +261,7 @@ def test_a_front_failure_names_its_step(monkeypatch, tmp_path):
 
     monkeypatch.setattr(topics_serve, "run_front", explode)
     topics_serve.handle_topic(Client(calls), CHANNEL, TOPIC)
-    assert calls[-1][2] == MENTION + "failed during front: agcode timed out" + REPORT_LINE
+    assert plain(calls[-1][2]) == MENTION + "failed during front: agcode timed out" + REPORT_LINE
 
 
 # --- generations ------------------------------------------------------------
@@ -288,7 +289,7 @@ def test_an_empty_topic_costs_no_agent_run(monkeypatch, tmp_path):
     wire(monkeypatch, tmp_path, calls)
     topics_serve.handle_topic(Client(calls, history=[]), CHANNEL, TOPIC)
     assert not any(call[0] in {"front", "operator"} for call in calls)
-    assert calls[-1][2] == topics_serve.EMPTY_REPLY
+    assert plain(calls[-1][2]) == topics_serve.EMPTY_REPLY
 
 
 # --- cagent's own chatlog rule ----------------------------------------------
