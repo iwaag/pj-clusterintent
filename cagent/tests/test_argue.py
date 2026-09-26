@@ -42,4 +42,4 @@ def test_the_argue_run_places_the_cluster_toolset_beside_the_chatlog(monkeypatch
 def test_the_argue_role_has_the_operator_s_read_only_grant():
     from cagent_api.role_run import ROLE_ALLOWED_TOOLS
 
-    assert ROLE_ALLOWED_TOOLS["argue"] == "Read,Glob,Grep,Bash(cagent:*)"
+    assert ROLE_ALLOWED_TOOLS["argue"] == ROLE_ALLOWED_TOOLS["operator"] == "Read,Glob,Grep,Bash(cagent:*),Bash(agrefs:*)"

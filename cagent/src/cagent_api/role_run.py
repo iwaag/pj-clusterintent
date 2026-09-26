@@ -14,6 +14,7 @@ here gets a harness subprocess in its own workspace, with `scripts/` on PATH.
 from __future__ import annotations
 
 import os
+import sys
 from dataclasses import replace
 from pathlib import Path
 
@@ -33,13 +34,13 @@ SCRIPTS_DIR = CAGENT_ROOT / "scripts"
 ROLE_ALLOWED_TOOLS = {
     # The front converses and writes handoff files in its workspace. No Bash:
     # nctl is not its to touch — that is the whole point of the split.
-    "front": "Read,Write,Edit,Glob,Grep",
+    "front": "Read,Write,Edit,Glob,Grep,Bash(agrefs:*)",
     # The operator reads its workspace and runs the read-only `cagent` CLI,
     # reached bare through PATH. Nothing it is offered mutates the cluster.
-    "operator": "Read,Glob,Grep,Bash(cagent:*)",
+    "operator": "Read,Glob,Grep,Bash(cagent:*),Bash(agrefs:*)",
     # A contribution to an argue (`argue` p1): reads its workspace and runs
     # the same read-only CLI as the operator; names nobody, records nothing.
-    "argue": "Read,Glob,Grep,Bash(cagent:*)",
+    "argue": "Read,Glob,Grep,Bash(cagent:*),Bash(agrefs:*)",
 }
 
 # The roles that only read, under the agcode harness: agcode has no
@@ -55,17 +56,23 @@ def _agcode_args(role: str) -> list[str]:
     return ["--tools", "read-only"] if role in READONLY_ROLES else []
 
 
-def tool_environment(scripts_dir: Path | None = None) -> dict[str, str]:
-    """The host-local tool handover: PATH, and nothing else.
+def tool_environment(scripts_dir: Path | None = None, bin_dir: Path | None = None) -> dict[str, str]:
+    """The host-local tool handover: PATH and the `agrefs` home.
 
     `run_harness` launches with `{**os.environ, **agent.environment}`, so this
     is where the `cagent` CLI becomes reachable by its bare name from a role's
     workspace — which is what `toolset_nctl.md` and the operator guide assume.
+    The interpreter's own directory follows it, which is where pyagag's
+    `agrefs` console script is installed; `AGREFS_HOME` is cagent's `.local/`
+    (its reference cache), the same shape every other agent's run gets.
     """
     directory = scripts_dir if scripts_dir is not None else SCRIPTS_DIR
-    if not directory.is_dir():
-        return {}
-    return {"PATH": os.pathsep.join([str(directory), os.environ.get("PATH", "")])}
+    interpreter = bin_dir if bin_dir is not None else Path(sys.executable).parent
+    entries = [str(one) for one in (directory, interpreter) if one.is_dir()]
+    environment = {"AGREFS_HOME": str(CAGENT_ROOT / ".local")}
+    if entries:
+        environment["PATH"] = os.pathsep.join([*entries, os.environ.get("PATH", "")])
+    return environment
 
 
 def resolve_cagent_role(

@@ -32,7 +32,7 @@ import uuid
 from dataclasses import dataclass
 from pathlib import Path
 
-from agag import agcode
+from agag import agcode, refs
 from agag.agent_config import AgentConfigError, ResolvedAgent, load_config, resolve_role
 from agag.harness import run_harness
 
@@ -223,21 +223,72 @@ LIST_INCIDENTS_SPEC = {
     },
 }
 
+# Shared contexts the developer publishes for every agent (`agrefs`, pyagag
+# agag.refs; give_context_easier p1). The in-process doors have no
+# `agrefs` on a PATH of their own, and the window has no shell at all, so the
+# same library is offered as a tool. Its cache is cagent's `.local/refs/`,
+# like every other consumer's; the catalog is the host's.
+REFS_HOME = Path(__file__).resolve().parents[2] / ".local"
+
+
+def contexts_tool(_base: Path, command: str, ref: str = "", terms: str = "") -> str:
+    try:
+        if command == "list":
+            return refs.listing(base=REFS_HOME)
+        if not ref:
+            return "refused: name a reference, <source>@<revision>[:<path>] (revision may be `latest`)"
+        if command == "show":
+            return refs.show(ref, base=REFS_HOME)
+        if command == "search":
+            hits = refs.search(ref, terms.split(), base=REFS_HOME)
+            return "\n".join(hits) if hits else "no line holds every term"
+        if command == "sync":
+            source, sha, _root = refs.sync(ref, base=REFS_HOME)
+            return f"{source.name}@{sha[:7]}  ({sha})"
+        if command == "changes":
+            return refs.changes(ref, base=REFS_HOME)
+    except refs.RefsError as error:
+        return f"contexts: {error}"
+    return f"refused: unknown command {command!r} (list, show, search, sync, changes)"
+
+
+CONTEXTS_SPEC = {
+    "name": "contexts",
+    "description": (
+        "Read the shared contexts the developer publishes for every agent (stories, "
+        "images, templates, notes) at a pinned revision. `list` shows every source "
+        "with what it is for; `show` prints a text file, lists a directory or "
+        "describes a binary; `search` finds lines holding every term; `sync` resolves "
+        "`latest` to a commit; `changes` compares `<source>@<old>..<new>`. A reference "
+        "is `<source>@<revision>[:<path>]`; quote the resolved commit, never `latest`."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "command": {"type": "string", "enum": ["list", "show", "search", "sync", "changes"]},
+            "ref": {"type": "string", "description": "<source>@<revision>[:<path>], or <source>@<old>..<new> for changes."},
+            "terms": {"type": "string", "description": "Space-separated search terms (search only)."},
+        },
+        "required": ["command"],
+    },
+}
+
 _SPECS = {spec["name"]: spec for spec in agcode.TOOLS_V0}
 
 
 def authenticated_tools() -> tuple[agcode.Tool, ...]:
-    """read / write / list / run, with run refusing destroy-class commands."""
+    """read / write / list / run / contexts, with run refusing destroy-class commands."""
     return (
         agcode.Tool(_SPECS["read"], agcode.tool_read),
         agcode.Tool(_SPECS["write"], agcode.tool_write),
         agcode.Tool(_SPECS["list"], agcode.tool_list),
         agcode.Tool(GUARDED_RUN_SPEC, guarded_run),
+        agcode.Tool(CONTEXTS_SPEC, contexts_tool),
     )
 
 
 def window_tools() -> tuple[agcode.Tool, ...]:
-    """read / list / nctl / record_incident / list_incidents. No shell.
+    """read / list / nctl / record_incident / list_incidents / contexts. No shell.
 
     Strictly tighter than the bash allow-list it replaces, and it needs no
     permission engine: the window is never offered a way to change anything,
@@ -249,6 +300,7 @@ def window_tools() -> tuple[agcode.Tool, ...]:
         agcode.Tool(NCTL_SPEC, nctl_readonly),
         agcode.Tool(RECORD_INCIDENT_SPEC, record_incident),
         agcode.Tool(LIST_INCIDENTS_SPEC, list_recent_incidents),
+        agcode.Tool(CONTEXTS_SPEC, contexts_tool),
     )
 
 
@@ -396,5 +448,6 @@ __all__ = [
     "authenticated_tools",
     "build_runner",
     "compose_task",
+    "contexts_tool",
     "window_tools",
 ]

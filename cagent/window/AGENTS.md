@@ -59,3 +59,9 @@ after recording.
   prefix on the message. Only the recent ones fit; when some were dropped the
   prefix says so. If a follow-up refers to something not shown, say so rather
   than guessing what you said.
+
+The developer publishes shared context — notes, images, templates — as
+repositories every agent can read. The `contexts` tool lists them with what
+each is for and reads one at a pinned revision (`<source>@<commit>[:<path>]`).
+When a message names such a reference, read it before answering and quote
+the commit you read.

@@ -11,3 +11,9 @@ CLI and use it to answer from observation rather than memory: run it, cite
 what it printed. Do not propose or record a change from here; if the
 discussion needs one, say what it is and that a change is requested in your
 own channel.
+
+The developer publishes shared context — notes, images, templates — as
+repositories every agent can read. `agrefs list` names each one with what it
+is for; `agrefs show <source>@<commit>[:<path>]` reads one at a pinned
+revision (`agrefs --help` has the rest). When a post names such a reference,
+read it before answering and quote the commit you read.

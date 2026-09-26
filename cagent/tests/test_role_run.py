@@ -25,13 +25,14 @@ def test_both_topic_roles_carry_a_claude_grant():
 def test_the_front_writes_files_and_gets_no_shell():
     grant = ROLE_ALLOWED_TOOLS["front"]
     assert "Write" in grant and "Edit" in grant
-    assert "Bash" not in grant
+    # No shell but the read-only reference reader: nctl is not the front's to touch.
+    assert [g for g in grant.split(",") if g.startswith("Bash")] == ["Bash(agrefs:*)"]
 
 
 def test_the_operator_gets_only_the_cagent_cli_as_a_shell():
     grant = ROLE_ALLOWED_TOOLS["operator"].split(",")
     assert "Bash(cagent:*)" in grant
-    assert not any(g.startswith("Bash") and g != "Bash(cagent:*)" for g in grant)
+    assert not any(g.startswith("Bash") and g not in ("Bash(cagent:*)", "Bash(agrefs:*)") for g in grant)
     assert "Write" not in grant and "Edit" not in grant
 
 
@@ -43,9 +44,18 @@ def test_neither_role_is_read_only_under_agcode():
 
 
 def test_tool_environment_prepends_the_scripts_dir(tmp_path):
-    environment = tool_environment(tmp_path)
-    assert environment["PATH"].split(os.pathsep)[0] == str(tmp_path)
-    assert tool_environment(tmp_path / "absent") == {}
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    environment = tool_environment(tmp_path, bin_dir)
+    assert environment["PATH"].split(os.pathsep)[:2] == [str(tmp_path), str(bin_dir)]
+    # agrefs reads the shared contexts into cagent's own cache.
+    assert environment["AGREFS_HOME"].endswith("cagent/.local")
+    assert "PATH" not in tool_environment(tmp_path / "absent", tmp_path / "absent")
+
+
+def test_every_topic_role_may_read_the_shared_contexts():
+    for role in ("front", "operator", "argue"):
+        assert "Bash(agrefs:*)" in ROLE_ALLOWED_TOOLS[role]
 
 
 def test_run_role_uses_the_grant_and_writes_the_record(monkeypatch, tmp_path):

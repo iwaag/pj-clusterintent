@@ -74,13 +74,45 @@ def test_a_history_that_does_not_fit_at_all_degrades_to_the_message():
 
 def test_the_window_is_offered_no_way_to_change_anything():
     names = [tool.name for tool in agent_runner.window_tools()]
-    assert names == ["read", "list", "nctl", "record_incident", "list_incidents"]
+    assert names == ["read", "list", "nctl", "record_incident", "list_incidents", "contexts"]
     assert "run" not in names and "write" not in names
 
 
 def test_the_authenticated_doors_keep_the_four_builtins():
     names = [tool.name for tool in agent_runner.authenticated_tools()]
-    assert names == ["read", "write", "list", "run"]
+    assert names == ["read", "write", "list", "run", "contexts"]
+
+
+def test_the_contexts_tool_reads_the_shared_catalog(tmp_path, monkeypatch):
+    """cagent's window has no shell, so the shared contexts reach it as a tool
+    over the same library every other agent's `agrefs` is (give_context_easier p1)."""
+    import subprocess
+
+    def git(*args, cwd):
+        subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True)
+
+    host = tmp_path / "githost" / "developer"
+    for name, files in (("lore", {"README.md": "# Lore\n\nThe cluster has three nodes.\n"}),
+                        ("context-catalog", {"catalog.toml": 'schema = "agag.refs-catalog.v1"\n\n[[source]]\n'
+                                                             'id = "lore"\nname = "Lore"\ndescription = "Cluster lore"\n'
+                                                             'repository = "developer/lore"\n'})):
+        repo = host / name
+        repo.mkdir(parents=True)
+        git("init", "-q", "-b", "main", cwd=repo)
+        for file, text in files.items():
+            (repo / file).write_text(text)
+        git("add", "-A", cwd=repo)
+        git("-c", "user.name=D", "-c", "user.email=d@x.invalid", "commit", "-q", "-m", "x", cwd=repo)
+    config = tmp_path / "host.toml"
+    config.write_text(f'[catalog]\nurl = "{host / "context-catalog"}"\n')
+    monkeypatch.setenv("AGREFS_HOST_CONFIG", str(config))
+    monkeypatch.setattr(agent_runner, "REFS_HOME", tmp_path / "cagent" / ".local")
+    assert "## lore — Lore" in agent_runner.contexts_tool(tmp_path, "list")
+    synced = agent_runner.contexts_tool(tmp_path, "sync", "lore@latest")
+    assert synced.startswith("lore@")
+    sha = synced.split()[0].split("@")[1]
+    assert "three nodes" in agent_runner.contexts_tool(tmp_path, "show", f"lore@{sha}:README.md")
+    assert "contexts: no source named 'ghost'" in agent_runner.contexts_tool(tmp_path, "show", "ghost@abc")
 
 
 def test_every_tool_table_is_well_formed():
