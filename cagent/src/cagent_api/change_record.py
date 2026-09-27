@@ -87,11 +87,6 @@ EXTERNAL_STATES = ("accepted", "done", "rejected")
 #: per round of discussion and stays far below this.
 HISTORY_MESSAGES = 500
 
-#: Zulip accepts an over-long message and **truncates it silently**, appending
-#: `[message truncated]` — the post succeeds and the record is quietly wrong.
-#: A statement that would be truncated is refused here, where the caller can
-#: say so, rather than half-recorded.
-POST_LIMIT = 9000
 
 __all__ = [
     "CHANGE_DONE",
@@ -100,7 +95,6 @@ __all__ = [
     "CHANGE_TOPIC_PREFIX",
     "EXTERNAL_STATES",
     "HISTORY_MESSAGES",
-    "POST_LIMIT",
     "Change",
     "RecordError",
     "bare_topic",
@@ -387,11 +381,9 @@ def read_change(client: ZulipClient, anchor_id: int, self_id: int) -> Change | N
 
 
 def _post(client: ZulipClient, where: Conversation, text: str) -> int:
-    if len(text) > POST_LIMIT:
-        raise RecordError(
-            f"the change statement is {len(text)} characters; Zulip truncates "
-            f"over {POST_LIMIT} silently, so it is not recorded"
-        )
+    """One write of the record. A text longer than the server keeps is
+    refused by the client before it is sent (`agag.zulip.MessageTooLong`,
+    failsafe p4), and is not recorded."""
     try:
         return int(client.send_to_channel(where.channel, where.topic, text))
     except ZulipError as error:

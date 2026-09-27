@@ -242,7 +242,18 @@ def test_a_change_nobody_asked_for_has_nothing_to_anchor_to(zulip):
         register(zulip)
 
 
-def test_a_statement_zulip_would_truncate_is_refused(zulip):
+def test_a_statement_over_one_post_is_refused(zulip):
+    """The client refuses what the server would not keep (failsafe p4)."""
+    from agag.zulip import MessageTooLong
+
     zulip.say(ORIGIN_CHANNEL, ORIGIN_TOPIC, "the resolver moved")
-    with pytest.raises(RecordError):
-        register(zulip, text="# Big\n\n" + "x" * change_record.POST_LIMIT)
+    send = zulip.send_to_channel
+
+    def sized(channel, topic, content):
+        if len(content) > 1000:
+            raise MessageTooLong(len(content), 1000)
+        return send(channel, topic, content)
+
+    zulip.send_to_channel = sized
+    with pytest.raises(RecordError, match="keeps at most 1000"):
+        register(zulip, text="# Big\n\n" + "x" * 2000)
