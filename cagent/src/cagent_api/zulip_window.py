@@ -186,6 +186,7 @@ def observe_topic(channel: str, topic: str) -> None:
 
 def main() -> None:
     from agag.agent import is_ack, topic_filter
+    from agag.claims import ClaimCheck
     from agag.listen import Listener
     from agag.mirror import Mirror
     from agag.zulip import serve
@@ -223,8 +224,13 @@ def main() -> None:
     threading.Thread(target=serve, args=(dm_client, dm_handler), daemon=True).start()
     store_dir = Path(os.environ.get("CAGENT_MIRROR_DIR", str(REPO_ROOT / ".local" / "cagent-window" / "mirror")))
     mirror = Mirror.open(env_path, store_dir, log=log)
+    # failsafe p7: every delivered reply is checked against the records its
+    # serving wrote, with the host's reader (`~/.config/agag/claims.toml`).
+    claims = None if os.environ.get("CAGENT_ZULIP_LOG_ONLY") == "1" else ClaimCheck.from_host()
+    if claims is not None and claims.reader is None:
+        log(f"claim check OFF: {claims.problem}")
     listener = Listener(mirror, serving_client, topic_filter=sweep_filter, handler=topic_handler,
-                        on_mention=mention_handler, is_ack=is_ack, log=log)
+                        on_mention=mention_handler, is_ack=is_ack, log=log, claims=claims)
     log(
         f"cagent zulip listener starting (window={window.base_url}, "
         f"mirror in {store_dir}; every topic in {SPEC.instance_name()!r} and prefixes "
