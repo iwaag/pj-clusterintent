@@ -14,6 +14,7 @@ from __future__ import annotations
 import pytest
 from agag import topics
 from agag.reply import REPLY_GUIDE
+from agag.topics import shared_sections
 from agag.topics import GuideError
 
 from cagent_api import topics_serve
@@ -140,6 +141,7 @@ def test_the_front_prompt_is_the_placement_line_plus_its_own_guide(monkeypatch, 
     assert prompt == (
         "The chatlog is placed in the working directory. "
         "You are 'Cagent' in the chatlog.\n\nFRONT GUIDE"
+        f"\n\n{shared_sections(('refs',))}"
         f"\n\n{REPLY_GUIDE}"
     )
 

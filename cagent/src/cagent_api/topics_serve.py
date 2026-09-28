@@ -35,6 +35,7 @@ from agag.topics import (
     next_generation,
     next_record_path,
     prompt_with_guide,
+    shared_sections,
     serve_topic,
     topic_workspace as shared_topic_workspace,
 )
@@ -98,13 +99,18 @@ def guide(*parts: str) -> str:
     return shared_guide(GUIDES, *parts)
 
 
+#: pyagag's shared references pointer (`agag.topics.SHARED_SECTIONS`,
+#: `agent_guide` p2 step 3), written once for every agent.
+REFS = ("refs",)
+
+
 def is_ack(content: str) -> bool:
     """Our own transport noise, which is not conversation."""
     return content == SWEEP_ACK
 
 
 def front_prompt(bot_name: str) -> str:
-    return prompt_with_guide([chatlog_placement(bot_name)], guide("front", "guide.md"), reply=True)
+    return prompt_with_guide([chatlog_placement(bot_name)], guide("front", "guide.md"), reply=True, shared=REFS)
 
 
 def _run(role: str, prompt: str, cwd: Path, timeout: float) -> str:
@@ -120,7 +126,8 @@ def run_front(prompt: str, cwd: Path) -> str:
 
 
 def run_operator(cwd: Path) -> str:
-    return _run("operator", guide("operator_read", "guide.md"), cwd, OPERATOR_TIMEOUT_SECONDS)
+    return _run("operator", guide("operator_read", "guide.md") + "\n\n" + shared_sections(REFS), cwd,
+                OPERATOR_TIMEOUT_SECONDS)
 
 
 def register_change(context, change: Path) -> str:
