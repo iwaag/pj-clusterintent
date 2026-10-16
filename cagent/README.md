@@ -1,3 +1,15 @@
+# Retired cagent HTTP/listener implementation
+
+Retired by project_migration p5 (2026-10-16). The managed project `cagent`
+provides `consult`, `report`, `scan` and `change` workflows through WFE.
+The HTTP doors, CA/auth ledger and Zulip listener below are historical;
+no launchd template installs them. Historical request evidence, incidents
+and conversations are retained. The old node wrapper is retained as
+`history/node-client` for source provenance and TLS conformance tests only;
+it is no longer an Ansible deployment role.
+
+The remaining text documents the implementation before retirement.
+
 # cagent
 
 The cluster-agent. See [`devdocs/vision/cluster_agent/`](../devdocs/vision/cluster_agent/)

@@ -52,7 +52,7 @@ OTHER_NODE_UUID = "d3a4b6f0-6b41-4e6a-9a4a-1b2c3d4e5f60"
 PRUNED_NODE_UUID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
 HUMAN_TOKEN = "conformance-test-token"
 
-WRAPPER = ROOT / "ansible_agdev" / "roles" / "cagent_client" / "files" / "cagent"
+WRAPPER = ROOT / "cagent" / "history" / "node-client"  # retired wrapper retained for historical conformance
 
 
 class _FakeRunner:

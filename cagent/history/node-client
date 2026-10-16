@@ -1,0 +1,210 @@
+#!/bin/sh
+# cagent - thin curl-based client for the cluster-agent API
+# (devdocs/vision/cluster_agent/p3/plan.md Step 0).
+#
+# Config is read from a KEY=VALUE file (default ~/.cagent/client.conf,
+# installed by the cagent_client Ansible role) so this script itself is
+# identical on every node. Depends only on curl; uses jq when present for
+# robust JSON encode/decode and degrades to raw JSON otherwise.
+set -eu
+
+usage() {
+	cat <<'EOF'
+usage:
+  cagent ask [--no-wait]              create a new session; message from stdin
+  cagent continue SESSION_ID [--no-wait]   continue a session; message from stdin
+  cagent status REQUEST_ID            fetch one request's current status/response
+
+ask/continue wait (poll until a terminal state) by default; --no-wait prints
+the 202 response and returns immediately.
+EOF
+}
+
+CAGENT_CONF="${CAGENT_CONF:-$HOME/.cagent/client.conf}"
+if [ -f "$CAGENT_CONF" ]; then
+	# shellcheck disable=SC1090
+	. "$CAGENT_CONF"
+fi
+
+: "${CAGENT_API_URL:?CAGENT_API_URL not set (expected in $CAGENT_CONF)}"
+: "${CAGENT_CA_CERT:?CAGENT_CA_CERT not set (expected in $CAGENT_CONF)}"
+: "${CAGENT_CLIENT_CERT:?CAGENT_CLIENT_CERT not set (expected in $CAGENT_CONF)}"
+: "${CAGENT_CLIENT_KEY:?CAGENT_CLIENT_KEY not set (expected in $CAGENT_CONF)}"
+
+CAGENT_POLL_INTERVAL="${CAGENT_POLL_INTERVAL:-3}"
+CAGENT_POLL_MAX="${CAGENT_POLL_MAX:-200}"  # 200 * 3s = 10 min; Phase 2's real turn took ~221s
+
+CAGENT_TMP="$(mktemp -d)"
+trap 'rm -rf "$CAGENT_TMP"' EXIT
+
+have_jq() { command -v jq >/dev/null 2>&1; }
+
+# encode_message OUTFILE - reads stdin, writes a {"message": "..."} JSON body.
+encode_message() {
+	outfile="$1"
+	if have_jq; then
+		jq -Rs '{message: .}' >"$outfile"
+	else
+		{
+			printf '{"message":"'
+			awk '{gsub(/\\/, "\\\\"); gsub(/"/, "\\\""); gsub(/\t/, "\\t"); printf "%s\\n", $0}' \
+				| sed '$ s/\\n$//'
+			printf '"}'
+		} >"$outfile"
+	fi
+}
+
+# json_field FILE FIELD - extracts a top-level scalar (no embedded quotes,
+# e.g. request_id/session_id/state). Safe without jq.
+json_field() {
+	file="$1"; field="$2"
+	if have_jq; then
+		jq -r --arg f "$field" '.[$f] // ""' "$file"
+	else
+		# json.dumps's default separators put a space after the colon
+		# (e.g. `"state": "queued"`), so tolerate optional whitespace.
+		grep -o "\"$field\"[ 	]*:[ 	]*\"[^\"]*\"" "$file" | head -n1 | sed 's/.*:[ 	]*"\(.*\)"$/\1/'
+	fi
+}
+
+# http_request METHOD PATH [BODYFILE] - sets HTTP_STATUS and HTTP_BODY_FILE.
+http_request() {
+	method="$1"; path="$2"; bodyfile="${3:-}"
+	HTTP_BODY_FILE="$(mktemp "$CAGENT_TMP/resp.XXXXXX")"
+	status_file="$(mktemp "$CAGENT_TMP/status.XXXXXX")"
+	if [ -n "$bodyfile" ]; then
+		curl -sS -X "$method" \
+			--cacert "$CAGENT_CA_CERT" --cert "$CAGENT_CLIENT_CERT" --key "$CAGENT_CLIENT_KEY" \
+			-H 'Content-Type: application/json' --data "@$bodyfile" \
+			-o "$HTTP_BODY_FILE" -w '%{http_code}' \
+			"$CAGENT_API_URL$path" >"$status_file"
+	else
+		curl -sS -X "$method" \
+			--cacert "$CAGENT_CA_CERT" --cert "$CAGENT_CLIENT_CERT" --key "$CAGENT_CLIENT_KEY" \
+			-o "$HTTP_BODY_FILE" -w '%{http_code}' \
+			"$CAGENT_API_URL$path" >"$status_file"
+	fi
+	HTTP_STATUS="$(cat "$status_file")"
+}
+
+# print_result STATE FILE - prints a one-line summary plus the answer/error text.
+print_result() {
+	state="$1"; file="$2"
+	request_id="$(json_field "$file" request_id)"
+	session_id="$(json_field "$file" session_id)"
+	echo "request_id=$request_id session_id=$session_id state=$state"
+	if [ "$state" = "completed" ]; then
+		if have_jq; then
+			jq -r '.response' "$file"
+		else
+			cat "$file"
+		fi
+	else
+		if have_jq; then
+			jq -r '.error.message // "(no error message)"' "$file"
+		else
+			cat "$file"
+		fi
+	fi
+}
+
+poll_and_print() {
+	request_id="$1"
+	i=0
+	while [ "$i" -lt "$CAGENT_POLL_MAX" ]; do
+		http_request GET "/requests/$request_id"
+		if [ "$HTTP_STATUS" != "200" ]; then
+			echo "cagent: status fetch failed (HTTP $HTTP_STATUS)" >&2
+			cat "$HTTP_BODY_FILE" >&2
+			exit 1
+		fi
+		state="$(json_field "$HTTP_BODY_FILE" state)"
+		case "$state" in
+		completed | failed | cancelled | interrupted)
+			print_result "$state" "$HTTP_BODY_FILE"
+			[ "$state" = "completed" ] && exit 0
+			exit 1
+			;;
+		esac
+		i=$((i + 1))
+		sleep "$CAGENT_POLL_INTERVAL"
+	done
+	echo "cagent: timed out waiting for $request_id (last state: $state)" >&2
+	exit 1
+}
+
+handle_create_response() {
+	wait_flag="$1"
+	if [ "$HTTP_STATUS" != "202" ]; then
+		echo "cagent: request creation failed (HTTP $HTTP_STATUS)" >&2
+		cat "$HTTP_BODY_FILE" >&2
+		exit 1
+	fi
+	if [ "$wait_flag" = "1" ]; then
+		request_id="$(json_field "$HTTP_BODY_FILE" request_id)"
+		poll_and_print "$request_id"
+	else
+		cat "$HTTP_BODY_FILE"
+		echo
+	fi
+}
+
+wait_flag_from_args() {
+	wait_flag=1
+	for a in "$@"; do
+		case "$a" in
+		--no-wait) wait_flag=0 ;;
+		--wait) wait_flag=1 ;;
+		esac
+	done
+	echo "$wait_flag"
+}
+
+cmd_ask() {
+	wait_flag="$(wait_flag_from_args "$@")"
+	bodyfile="$CAGENT_TMP/ask_body.json"
+	encode_message "$bodyfile"
+	http_request POST /requests "$bodyfile"
+	handle_create_response "$wait_flag"
+}
+
+cmd_continue() {
+	session_id="${1:?"usage: cagent continue SESSION_ID"}"
+	shift
+	wait_flag="$(wait_flag_from_args "$@")"
+	bodyfile="$CAGENT_TMP/continue_body.json"
+	encode_message "$bodyfile"
+	http_request POST "/sessions/$session_id/requests" "$bodyfile"
+	handle_create_response "$wait_flag"
+}
+
+cmd_status() {
+	request_id="${1:?"usage: cagent status REQUEST_ID"}"
+	http_request GET "/requests/$request_id"
+	if [ "$HTTP_STATUS" != "200" ]; then
+		echo "cagent: status fetch failed (HTTP $HTTP_STATUS)" >&2
+		cat "$HTTP_BODY_FILE" >&2
+		exit 1
+	fi
+	state="$(json_field "$HTTP_BODY_FILE" state)"
+	print_result "$state" "$HTTP_BODY_FILE"
+}
+
+case "${1:-}" in
+ask)
+	shift
+	cmd_ask "$@"
+	;;
+continue)
+	shift
+	cmd_continue "$@"
+	;;
+status)
+	shift
+	cmd_status "$@"
+	;;
+*)
+	usage
+	exit 2
+	;;
+esac
