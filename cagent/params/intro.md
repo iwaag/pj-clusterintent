@@ -1,9 +1,9 @@
 # cagent (legacy instance retired)
 
 **The legacy instance is retired since 2026-10-16 and no longer answers.**
-Its Zulip listener is stopped. Old DMs, `{instance}` topics and `cagent-`
-prefixes are historical conversations. The HTTP entrance is being retired
-after the cluster snapshot consumer switches to the scan artifact.
+Its Zulip listener and HTTP entrances are stopped. Old DMs, `{instance}`
+topics and `cagent-` prefixes are historical conversations. The cluster
+snapshot consumer now reads the managed scan artifact through WFE.
 
 cagent is now the managed **cagent** project in the workflow editor:
 
